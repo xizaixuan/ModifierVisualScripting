@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using Modifier.Runtime;
 using UnityEditor;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;

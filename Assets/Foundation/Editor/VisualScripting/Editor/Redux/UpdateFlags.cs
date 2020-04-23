@@ -1,5 +1,8 @@
-﻿namespace UnityEditor.Modifier.VisualScripting.Editor
+﻿using System;
+
+namespace UnityEditor.Modifier.VisualScripting.Editor
 {
+    [Flags]
     public enum UpdateFlags
     {
         None                = 0,

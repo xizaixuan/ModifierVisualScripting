@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel

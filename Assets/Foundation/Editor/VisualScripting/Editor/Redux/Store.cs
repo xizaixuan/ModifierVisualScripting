@@ -1,5 +1,4 @@
-﻿
-using UnityEditor.Modifier.EditorCommon.Redux;
+﻿using UnityEditor.Modifier.EditorCommon.Redux;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {

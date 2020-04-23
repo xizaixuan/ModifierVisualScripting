@@ -1,5 +1,4 @@
-﻿
-using Modifier.Runtime;
+﻿using Modifier.Runtime;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEngine;
 

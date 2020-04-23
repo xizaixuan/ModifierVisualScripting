@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Unity.Modifier.GraphElements;
+using UnityEditor.Callbacks;
 using UnityEditor.Modifier.EditorCommon.Extensions;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
@@ -14,12 +15,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     public partial class VseWindow : GraphViewEditorWindow, IHasCustomMenu
     {
-        [MenuItem("Window/Visual Script (O)", false, 2020)]
-        static void ShowNewVsEditorWindow()
-        {
-            ShowVsEditorWindow();
-        }
-
         const string k_DefaultGraphAssetName = "VSGraphAsset.asset";
 
         Store m_Store;
@@ -36,9 +31,39 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         protected enum OpenMode { Open, OpenAndFocus }
 
+        [OnOpenAsset(1)]
+        public static bool OpenVseAsset(int instanceId, int line)
+        {
+            var obj = EditorUtility.InstanceIDToObject(instanceId);
+            if (obj is VSGraphAssetModel)
+            {
+                string path = AssetDatabase.GetAssetPath(instanceId);
+                return OpenVseAssetInWindow(path) != null;
+            }
+
+            return false;
+        }
+
+        public static VseWindow OpenVseAssetInWindow(string path)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<VSGraphAssetModel>(path);
+            if (asset == null)
+            {
+                return null;
+            }
+
+            VseWindow vseWindow = ShowVsEditorWindow();
+
+            vseWindow.SetCurrentSelection(path, OpenMode.OpenAndFocus);
+
+            return vseWindow;
+        }
+
         public void AddItemsToMenu(GenericMenu menu)
         {
-            throw new System.NotImplementedException();
+            var disabled = m_Store?.GetState().CurrentGraphModel == null;
+
+            m_LockTracker.AddItemsToMenu(menu, disabled);
         }
 
         public static void CreateGraphAsset<TStencilType>(string graphAssetName = k_DefaultGraphAssetName, IGraphTemplate template = null)

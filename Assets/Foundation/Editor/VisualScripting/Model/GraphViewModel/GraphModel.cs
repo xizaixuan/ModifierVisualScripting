@@ -8,6 +8,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         [SerializeField]
         GraphAssetModel m_AssetModel;
 
+        [SerializeReference]
         Stencil m_Stencil;
 
         public virtual string Name => name;

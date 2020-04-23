@@ -9,6 +9,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
     {
         public IGraphAssetModel AssetModel { get; set; }
 
+        public IGraphModel CurrentGraphModel => AssetModel?.GraphModel;
+
         public IEditorDataModel EditorDataModel { get; private set; }
 
         public ICompilationResultModel CompilationResultModel { get; private set; }
@@ -24,6 +26,15 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public void Dispose()
         {
+            UnloadCurrentGraphAsset();
+            CompilationResultModel = null;
+            EditorDataModel = null;
+        }
+
+        public void UnloadCurrentGraphAsset()
+        {
+            AssetModel?.Dispose();
+            AssetModel = null;
         }
     }
 }

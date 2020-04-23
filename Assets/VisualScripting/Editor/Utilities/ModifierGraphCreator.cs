@@ -1,6 +1,4 @@
-﻿
-
-using ModifierStencil;
+﻿using ModifierStencil;
 using UnityEditor;
 using UnityEditor.Modifier.VisualScripting.Editor;
 

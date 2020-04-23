@@ -1,5 +1,4 @@
-﻿
-using System.IO;
+﻿using System.IO;
 
 namespace UnityEditor.Modifier.VisualScripting.Model
 {

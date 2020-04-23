@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.IO;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEngine;
@@ -10,6 +9,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
     public abstract class GraphAssetModel : ScriptableObject, IGraphAssetModel
     {
+        [SerializeReference]
         GraphModel m_GraphModel;
 
         public string Name => name;
