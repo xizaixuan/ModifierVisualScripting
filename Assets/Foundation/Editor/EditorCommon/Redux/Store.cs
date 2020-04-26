@@ -75,24 +75,6 @@ namespace UnityEditor.Modifier.EditorCommon.Redux
             remove => m_StateChanged -= value;
         }
 
-        public void DispatchDynamicSlow(IAction action)
-        {
-            lock(m_SyncRoot)
-            {
-                foreach (var observer in m_Observers)
-                {
-                    observer(action);
-                }
-
-                PreDispatchAction(action);
-
-                Delegate reducer = (Delegate)m_Reducers[action.GetType()];
-                m_LastState = (TState)reducer.DynamicInvoke(m_LastState, action);
-            }
-
-            m_StateDirty = true;
-        }
-
         public virtual void Dispatch<TAction>(TAction action) where TAction : IAction
         {
             lock(m_SyncRoot)
