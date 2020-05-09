@@ -4,20 +4,28 @@ using System.IO;
 using System.Linq;
 using Unity.Modifier.GraphElements;
 using UnityEditor.Callbacks;
+using UnityEditor.Modifier.EditorCommon;
 using UnityEditor.Modifier.EditorCommon.Extensions;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEditor.ProjectWindowCallback;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     public partial class VseWindow : GraphViewEditorWindow, IHasCustomMenu
     {
+        const string k_StyleSheetPath = PackageTransitionHelper.AssetPath + "VisualScripting/Editor/Views/Templates/";
+
         const string k_DefaultGraphAssetName = "VSGraphAsset.asset";
 
+        // Window itself
+
         Store m_Store;
+
+        VisualElement m_GraphContainer;
 
         public static VseWindow ShowVsEditorWindow()
         {
@@ -57,6 +65,19 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             vseWindow.SetCurrentSelection(path, OpenMode.OpenAndFocus);
 
             return vseWindow;
+        }
+
+        protected virtual void OnEnable()
+        {
+            var ttttt = AssetDatabase.LoadAssetAtPath<StyleSheet>(k_StyleSheetPath + "VSEditor.uss");
+            rootVisualElement.styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(k_StyleSheetPath + "VSEditor.uss"));
+            rootVisualElement.Clear();
+            rootVisualElement.style.overflow = Overflow.Hidden;
+            rootVisualElement.pickingMode = PickingMode.Ignore;
+            rootVisualElement.style.flexDirection = FlexDirection.Column;
+            rootVisualElement.name = "vseRoot";
+
+            m_GraphContainer = new VisualElement { name = "graphContainer" };
         }
 
         public void AddItemsToMenu(GenericMenu menu)
