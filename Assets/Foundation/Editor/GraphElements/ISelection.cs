@@ -6,7 +6,7 @@ namespace Unity.Modifier.GraphElements
     {
         List<ISelectable> selection { get; }
 
-        void AddToSelectioin(ISelectable selectable);
+        void AddToSelection(ISelectable selectable);
         void RemoveFromSelection(ISelectable selectable);
         void ClearSelection();
     }

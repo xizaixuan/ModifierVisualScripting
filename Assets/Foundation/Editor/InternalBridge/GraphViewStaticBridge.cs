@@ -3,11 +3,165 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityEngine.UIElements.UIR;
+using UnityEngine.Yoga;
+using System;
 
 namespace Unity.Modifier.GraphToolsFoundations.Bridge
 {
-    public abstract class GraphViewEditorWindowBridge : EditorWindow
+    public static class GraphViewStaticBridge
     {
+#if !UNITY_2020_1_OR_NEWER
+        public static VisualElement Instantiate(this VisualTreeAsset vta)
+        {
+            return vta.CloneTree();
+        }
+#endif
+
+        public static Color EditorPlayModeTint => UIElementsUtility.editorPlayModeTintColor;
+
+        public static void ShowColorPicker(Action<Color> callback, Color initialColor, bool withAlpha)
+        {
+            ColorPicker.Show(callback, initialColor, withAlpha);
+        }
+
+        public static string SearchField(Rect position, string text)
+        {
+            return EditorGUI.SearchField(position, text);
+        }
+
+        public static float RoundToPixelGrid(float v)
+        {
+            return GUIUtility.RoundToPixelGrid(v);
+        }
+
+        public static bool IsLayoutManual(this VisualElement ve)
+        {
+            return ve.isLayoutManual;
+        }
+
+        public static void SetLayout(this VisualElement ve, Rect layout)
+        {
+            ve.layout = layout;
+        }
+
+        public static Rect GetRect(this VisualElement ve)
+        {
+            return new Rect(0.0f, 0.0f, ve.layout.width, ve.layout.height);
+        }
+
+        public static void SetCheckedPseudoState(this VisualElement ve, bool set)
+        {
+            if (set)
+            {
+                ve.pseudoStates |= PseudoStates.Checked;
+            }
+            else
+            {
+                ve.pseudoStates &= ~PseudoStates.Checked;
+            }
+        }
+
+        public static void SetDisabledPseudoState(this VisualElement ve, bool set)
+        {
+            if (set)
+            {
+                ve.pseudoStates |= PseudoStates.Disabled;
+            }
+            else
+            {
+                ve.pseudoStates &= ~PseudoStates.Disabled;
+            }
+        }
+
+        public static bool GetDisabledPseudoState(this VisualElement ve)
+        {
+            return (ve.pseudoStates & PseudoStates.Disabled) == PseudoStates.Disabled;
+        }
+
+        public static object GetProperty(this VisualElement ve, PropertyName key)
+        {
+            return ve.GetProperty(key);
+        }
+
+        public static void SetProperty(this VisualElement ve, PropertyName key, object value)
+        {
+            ve.SetProperty(key, value);
+        }
+
+        public static void ResetPositionProperties(this VisualElement ve)
+        {
+            ve.ResetPositionProperties();
+        }
+
+        public static MeshWriteData AllocateMeshWriteData(MeshGenerationContext mgc, int vertexCount, int indexCount)
+        {
+            return mgc.Allocate(vertexCount, indexCount, null, null, MeshGenerationContext.MeshFlags.UVisDisplacement);
+        }
+
+        public static void SetNextVertex(this MeshWriteData md, Vector3 pos, Vector2 uv, Color32 tint)
+        {
+            Color32 flags = new Color32(0, 0, 0, (byte)VertexFlags.LastType);
+            md.SetNextVertex(new Vertex() { position = pos, uv = uv, tint = tint, idsFlags = flags });
+        }
+
+        static void MarkYogaNodeSeen(YogaNode node)
+        {
+            node.MarkLayoutSeen();
+
+            for (int i = 0; i < node.Count; i++)
+            {
+                MarkYogaNodeSeen(node[i]);
+            }
+        }
+
+        public static void MarkYogaNodeSeen(this VisualElement ve)
+        {
+            MarkYogaNodeSeen(ve.yogaNode);
+        }
+
+        public static void MarkYogaNodeDirty(this VisualElement ve)
+        {
+            ve.yogaNode.MarkDirty();
+        }
+
+        public static void ForceComputeYogaNodeLayout(this VisualElement ve)
+        {
+            ve.yogaNode.CalculateLayout();
+        }
+
+        public static bool IsBoundingBoxDirty(this VisualElement ve)
+        {
+            return ve.isBoundingBoxDirty;
+        }
+
+        public static void SetBoundingBoxDirty(this VisualElement ve)
+        {
+            ve.isBoundingBoxDirty = true;
+        }
+
+        public static void SetRequireMeasureFunction(this VisualElement ve)
+        {
+            ve.requireMeasureFunction = true;
+        }
+
+        public static StyleLength GetComputedStyleWidth(this VisualElement ve)
+        {
+            return ve.computedStyle.width;
+        }
+
+        public static void SetRenderHintsForGraphView(this VisualElement ve)
+        {
+            ve.renderHints = RenderHints.ClipWithScissors;
+        }
+
+        public static Vector2 GetWindowScreenPoint(this VisualElement ve)
+        {
+            GUIView guiView = ve.elementPanel.ownerObject as GUIView;
+            if (guiView == null)
+                return Vector2.zero;
+
+            return guiView.screenPosition.position;
+        }
     }
 
     public abstract class VisualElementBridge : VisualElement
@@ -141,5 +295,9 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
         {
             UpdateDrawChainRegistration(true);
         }
+    }
+
+    public abstract class GraphViewEditorWindowBridge : EditorWindow
+    {
     }
 }
