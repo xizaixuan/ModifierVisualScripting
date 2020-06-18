@@ -17,7 +17,6 @@ namespace Unity.Modifier.GraphElements
 
         TextField m_TitleField;
         ResizableElement m_Resizer;
-
         Button m_CollapseButton;
 
         internal void Init(GraphView graphView)
@@ -65,7 +64,6 @@ namespace Unity.Modifier.GraphElements
         }
 
         string m_Title;
-
         public override string title
         {
             get { return m_Title; }
@@ -80,7 +78,6 @@ namespace Unity.Modifier.GraphElements
         public virtual int ZOrder { get; set; }
 
         Color m_Color = k_DefaultColor;
-
         public virtual Color Color
         {
             get { return m_Color; }
@@ -119,13 +116,13 @@ namespace Unity.Modifier.GraphElements
 
         PlacematContainer m_PlacematContainer;
 
-        PlacematContainer Container => m_PlacematContainer ?? (m_PlacematContainer = GetFirstAncestorOfType<PlacematContainer>());
+        PlacematContainer Container =>
+            m_PlacematContainer ?? (m_PlacematContainer = GetFirstAncestorOfType<PlacematContainer>());
 
         HashSet<GraphElement> m_CollapsedElements = new HashSet<GraphElement>();
-
         public IEnumerable<GraphElement> CollapsedElements => m_CollapsedElements;
 
-        protected internal void SetCollapsedElement(IEnumerable<GraphElement> collapsedElements)
+        protected internal void SetCollapsedElements(IEnumerable<GraphElement> collapsedElements)
         {
             if (!Collapsed)
                 return;
@@ -168,9 +165,8 @@ namespace Unity.Modifier.GraphElements
                     var placemat = graphElement as Placemat;
                     if (placemat != null && placemat.Collapsed)
                         foreach (var subElement in placemat.AllCollapsedElements)
-                        {
                             yield return subElement;
-                        }
+
                     yield return graphElement;
                 }
             }
@@ -186,13 +182,13 @@ namespace Unity.Modifier.GraphElements
                 if (m_Collapsed != value)
                 {
                     m_Collapsed = value;
-                    CollapsedSelf();
+                    CollapseSelf();
                     ShowHideCollapsedElements();
                 }
             }
         }
 
-        void CollapsedSelf()
+        void CollapseSelf()
         {
             if (Collapsed)
             {
@@ -208,7 +204,7 @@ namespace Unity.Modifier.GraphElements
                 if (m_Resizer != null)
                     m_Resizer.style.visibility = StyleKeyword.Null;
             }
-            m_CollapseButton?.EnableInClassList("incon-expanded", !Collapsed);
+            m_CollapseButton?.EnableInClassList("icon-expanded", !Collapsed);
             EnableInClassList("collapsed", Collapsed);
         }
 
@@ -233,6 +229,7 @@ namespace Unity.Modifier.GraphElements
                 m_CollapsedElements.Remove(ge);
         }
 
+        // TODO: Move to local function of Collapse once we move to C# 7.0 or higher.
         void RecurseRebuildCollapsedElements_LocalFunc(Placemat currentPlacemat, IList<GraphElement> graphElements,
             List<GraphElement> collapsedElementsElsewhere)
         {

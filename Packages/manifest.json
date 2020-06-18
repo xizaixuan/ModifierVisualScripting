@@ -44,6 +44,10 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
+    "com.unity.modules.xr": "1.0.0",
+    "com.unity.code-analysis": "0.1.2-preview",
+    "com.unity.searcher": "4.0.9",
+    "com.unity.properties": "0.10.4-preview",
+    "com.unity.collections": "0.7.0-preview.2"
   }
 }

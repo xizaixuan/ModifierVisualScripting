@@ -63,10 +63,10 @@ namespace Unity.Modifier.GraphElements
     {
         // Operations Pending
         public List<GraphElement> elementsToRemove;
-        public List<Edge> edgeToCreate;
+        public List<Edge> edgesToCreate;
 
         // Operations Completed
-        public List<GraphElement> moveElements;
+        public List<GraphElement> movedElements;
         public Vector2 moveDelta;
     }
 
@@ -77,18 +77,17 @@ namespace Unity.Modifier.GraphElements
         public int index;
     }
 
-    public abstract class GraphView : GraphViewBridge
+    public abstract class GraphView : GraphViewBridge, ISelection
     {
-        // Layer class. Used for queries below
+        // Layer class. Used for queries below.
         public class Layer : VisualElement { }
 
         // Delegates and Callbacks
         public Action<NodeCreationContext> nodeCreationRequest { get; set; }
-
         internal IInsertLocation currentInsertLocation { get; set; }
 
-        public delegate GraphViewChange GraphViewChanged(GraphViewChange graphViewChange);
 
+        public delegate GraphViewChange GraphViewChanged(GraphViewChange graphViewChange);
         public GraphViewChanged graphViewChanged { get; set; }
 
         public Action<Group, string> groupTitleChanged { get; set; }
@@ -102,11 +101,9 @@ namespace Unity.Modifier.GraphElements
         private List<GraphElement> m_ElementsToRemove;
 
         public delegate void ElementResized(VisualElement visualElement);
-
         public ElementResized elementResized { get; set; }
 
         public delegate void ViewTransformChanged(GraphView graphView);
-
         public ViewTransformChanged viewTransformChanged { get; set; }
 
         public virtual bool supportsWindowedBlackboard
@@ -157,7 +154,6 @@ namespace Unity.Modifier.GraphElements
                 }
             }
         }
-
         private const string k_SelectionUndoRedoLabel = "Change GraphView Selection";
         private int m_SavedSelectionVersion;
         private PersistedSelection m_PersistedSelection;
@@ -173,6 +169,7 @@ namespace Unity.Modifier.GraphElements
 
         VisualElement graphViewContainer { get; }
 
+        // TODO: Remove!
         public VisualElement viewport
         {
             get { return this; }
@@ -211,7 +208,7 @@ namespace Unity.Modifier.GraphElements
 
         readonly Dictionary<int, Layer> m_ContainerLayers = new Dictionary<int, Layer>();
 
-        public override VisualElement contentContainer
+        public override VisualElement contentContainer // Contains full content, potentially partially visible
         {
             get { return graphViewContainer; }
         }
@@ -265,6 +262,7 @@ namespace Unity.Modifier.GraphElements
                 usageHints = UsageHints.GroupTransform
             };
 
+            // make it absolute and 0 sized so it acts as a transform to move children to and fro
             graphViewContainer.Add(contentViewContainer);
 
             this.AddStylesheet("GraphView.uss");
@@ -310,11 +308,11 @@ namespace Unity.Modifier.GraphElements
             if (graphViewSelection.selectedElements.Count == selection.Count && graphViewSelection.version == m_SavedSelectionVersion)
                 return;
 
+            // Update both selection objects' versions.
             m_GraphViewUndoRedoSelection.version = graphViewSelection.version;
             m_PersistedSelection.version = graphViewSelection.version;
 
             ClearSelectionNoUndoRecord();
-
             foreach (string guid in graphViewSelection.selectedElements)
             {
                 var element = GetElementByGuid(guid);
@@ -368,7 +366,7 @@ namespace Unity.Modifier.GraphElements
             Undo.RegisterCompleteObjectUndo(m_GraphViewUndoRedoSelection, k_SelectionUndoRedoLabel);
         }
 
-        private IVisualElementScheduledItem m_OnTimerTicher;
+        private IVisualElementScheduledItem m_OnTimerTicker;
 
         private void RecordSelectionUndoPost()
         {
@@ -377,19 +375,20 @@ namespace Unity.Modifier.GraphElements
 
             m_PersistedSelection.version++;
 
-            if (m_OnTimerTicher == null)
+            if (m_OnTimerTicker == null)
             {
-                m_OnTimerTicher = schedule.Execute(DelayPersistentDataSave);
+                m_OnTimerTicker = schedule.Execute(DelayPersistentDataSave);
             }
 
-            m_OnTimerTicher.ExecuteLater(1);
+            m_OnTimerTicker.ExecuteLater(1);
         }
 
         private void DelayPersistentDataSave()
         {
-            m_OnTimerTicher = null;
+            m_OnTimerTicker = null;
             SaveViewData();
         }
+
         void AddLayer(Layer layer, int index)
         {
             m_ContainerLayers.Add(index, layer);
@@ -431,9 +430,7 @@ namespace Unity.Modifier.GraphElements
         }
 
         public UQueryState<GraphElement> graphElements { get; private set; }
-
         private UQueryState<GraphElement> allGraphElements { get; }
-
         public UQueryState<Node> nodes { get; private set; }
         public UQueryState<Port> ports;
         public UQueryState<Edge> edges { get; private set; }
@@ -580,8 +577,10 @@ namespace Unity.Modifier.GraphElements
             viewTransform.scale = transformScale;
         }
 
+        // ISelection implementation
         public List<ISelectable> selection { get; protected set; }
 
+        // functions to ISelection extensions
         public virtual void AddToSelection(ISelectable selectable)
         {
             var graphElement = selectable as GraphElement;
@@ -608,6 +607,7 @@ namespace Unity.Modifier.GraphElements
             selection.Add(graphElement);
             graphElement.OnSelected();
 
+            // To ensure that the selected GraphElement gets unselected if it is removed from the GraphView.
             graphElement.RegisterCallback<DetachFromPanelEvent>(OnSelectedElementDetachedFromPanel);
 
             graphElement.MarkDirtyRepaint();
@@ -650,6 +650,8 @@ namespace Unity.Modifier.GraphElements
         {
             foreach (var graphElement in selection.OfType<GraphElement>())
             {
+                graphElement.selected = false;
+
                 graphElement.OnUnselected();
                 graphElement.UnregisterCallback<DetachFromPanelEvent>(OnSelectedElementDetachedFromPanel);
                 graphElement.MarkDirtyRepaint();
@@ -869,6 +871,14 @@ namespace Unity.Modifier.GraphElements
                     evt.imguiEvent.Use();
                 }
             }
+            else if (evt.commandName == EventCommandNames.FrameSelected)
+            {
+                evt.StopPropagation();
+                if (evt.imguiEvent != null)
+                {
+                    evt.imguiEvent.Use();
+                }
+            }
         }
 
         public enum AskUser
@@ -924,6 +934,9 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
+        // The system clipboard is unreliable, at least on Windows.
+        // For testing clipboard operations on GraphView,
+        // set m_UseInternalClipboard to true.
         internal bool m_UseInternalClipboard = false;
         string m_Clipboard = string.Empty;
 
@@ -954,8 +967,9 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        protected internal virtual bool canCopySelection => selection.Any(s => s is Node || s is Group || s is Placemat);
-        
+        protected internal virtual bool canCopySelection =>
+            selection.Any(s => s is Node || s is Group || s is Placemat);
+
         public static void CollectElements(IEnumerable<GraphElement> elements, HashSet<GraphElement> collectedElementSet, Func<GraphElement, bool> conditionFunc)
         {
             foreach (var element in elements.Where(e => e != null && !collectedElementSet.Contains(e) && conditionFunc(e)))
@@ -970,6 +984,7 @@ namespace Unity.Modifier.GraphElements
         {
             CollectElements(elements, elementsToCopySet, e => e.IsCopiable());
 
+            // Also collect hovering list of nodes
             foreach (var placemat in elements.OfType<Placemat>())
             {
                 placemat.ActOnGraphElementsOver(
@@ -998,7 +1013,8 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        protected internal virtual bool canCutSelection => selection.Any(s => s is Node || s is Group || s is Placemat);
+        protected internal virtual bool canCutSelection =>
+            selection.Any(s => s is Node || s is Group || s is Placemat);
 
         protected internal void CutSelectionCallback()
         {
@@ -1124,10 +1140,10 @@ namespace Unity.Modifier.GraphElements
         public virtual List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
         {
             return ports.ToList().Where(nap =>
-            nap.direction != startPort.direction &&
-            nap.node != startPort.node &&
-            nodeAdapter.GetAdapter(nap.source, startPort.source) != null)
-            .ToList();
+                nap.direction != startPort.direction &&
+                nap.node != startPort.node &&
+                nodeAdapter.GetAdapter(nap.source, startPort.source) != null)
+                .ToList();
         }
 
         public void AddElement(GraphElement graphElement)
@@ -1152,6 +1168,7 @@ namespace Unity.Modifier.GraphElements
 
         public void RemoveElement(GraphElement graphElement)
         {
+            // TODO : Find a better way to remove a graphElement from its scope when it is removed from the GraphView.
             Scope scope = graphElement.GetContainingScope();
             if (scope != null)
             {
@@ -1281,11 +1298,13 @@ namespace Unity.Modifier.GraphElements
             return this.FramePrevNext(graphElements.ToList().Where(predicate).ToList());
         }
 
+        // TODO: Do we limit to GraphElements or can we tab through ISelectable's?
         EventPropagation FramePrevNext(List<GraphElement> childrenList)
         {
             GraphElement graphElement = null;
 
-            if (selection.Count == 0)
+            // Start from current selection, if any
+            if (selection.Count != 0)
                 graphElement = selection[0] as GraphElement;
 
             int idx = childrenList.IndexOf(graphElement);
@@ -1295,9 +1314,11 @@ namespace Unity.Modifier.GraphElements
             else
                 graphElement = childrenList[0];
 
+            // New selection...
             ClearSelection();
             AddToSelection(graphElement);
 
+            // ...and frame this new selection
             return Frame(FrameType.Selection);
         }
 
@@ -1316,10 +1337,9 @@ namespace Unity.Modifier.GraphElements
                 VisualElement graphElement = selection[0] as GraphElement;
                 if (graphElement != null)
                 {
+                    // Edges don't have a size. Only their internal EdgeControl have a size.
                     if (graphElement is Edge)
-                    {
                         graphElement = (graphElement as Edge).edgeControl;
-                    }
                     rectToFit = graphElement.ChangeCoordinatesTo(contentViewContainer, graphElement.GetRect());
                 }
 
@@ -1337,11 +1357,16 @@ namespace Unity.Modifier.GraphElements
             {
                 rectToFit = CalculateRectToFitAll(contentViewContainer);
                 CalculateFrameTransform(rectToFit, layout, k_FrameBorder, out frameTranslation, out frameScaling);
-            }
+            } // else keep going if (frameType == FrameType.Origin)
 
             if (m_FrameAnimate)
             {
-
+                // TODO Animate framing
+                // RMAnimation animation = new RMAnimation();
+                // parent.Animate(parent)
+                //       .Lerp(new string[] {"m_Scale", "m_Translation"},
+                //             new object[] {parent.scale, parent.translation},
+                //             new object[] {frameScaling, frameTranslation}, 0.08f);
             }
             else
             {
@@ -1362,7 +1387,7 @@ namespace Unity.Modifier.GraphElements
             Rect rectToFit = container.layout;
             bool reachedFirstChild = false;
 
-            graphElements.ForEach (ge =>
+            graphElements.ForEach(ge =>
             {
                 if (ge is Edge || ge is Port)
                 {
@@ -1383,8 +1408,9 @@ namespace Unity.Modifier.GraphElements
             return rectToFit;
         }
 
-        public static void CalculateFrameTransform(Rect rectToFit, Rect clientRect, int border, out Vector3 frameTranslation,out Vector3 frameScaling)
+        public static void CalculateFrameTransform(Rect rectToFit, Rect clientRect, int border, out Vector3 frameTranslation, out Vector3 frameScaling)
         {
+            // bring slightly smaller screen rect into GUI space
             var screenRect = new Rect
             {
                 xMin = border,
@@ -1397,8 +1423,10 @@ namespace Unity.Modifier.GraphElements
             GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, Vector3.one);
             Rect identity = GUIUtility.ScreenToGUIRect(screenRect);
 
+            // measure zoom level necessary to fit the canvas rect into the screen rect
             float zoomLevel = Math.Min(identity.width / rectToFit.width, identity.height / rectToFit.height);
 
+            // clamp
             zoomLevel = Mathf.Clamp(zoomLevel, ContentZoomer.DefaultMinScale, 1.0f);
 
             var transform = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(zoomLevel, zoomLevel, 1.0f));
@@ -1417,6 +1445,7 @@ namespace Unity.Modifier.GraphElements
                 transform.GetColumn(2).magnitude);
             Vector2 offset = r.center - (rectToFit.center * parentScale.x);
 
+            // Update output values before leaving
             frameTranslation = new Vector3(offset.x, offset.y, 0.0f);
             frameScaling = parentScale;
 

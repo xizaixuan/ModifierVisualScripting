@@ -8,7 +8,7 @@ namespace Unity.Modifier.GraphElements
 {
     public class Port : GraphElement
     {
-        private static CustomStyleProperty<Color> s_PortColorProperty = new CustomStyleProperty<Color>("--port--color");
+        private static CustomStyleProperty<Color> s_PortColorProperty = new CustomStyleProperty<Color>("--port-color");
         private static CustomStyleProperty<Color> s_DisabledPortColorProperty = new CustomStyleProperty<Color>("--disabled-port-color");
 
         private static readonly Color s_DefaultColor = new Color(240 / 255f, 240 / 255f, 240 / 255f);
@@ -46,7 +46,6 @@ namespace Unity.Modifier.GraphElements
         }
 
         private bool m_portCapLit;
-
         public bool portCapLit
         {
             get
@@ -87,7 +86,6 @@ namespace Unity.Modifier.GraphElements
         public Capacity capacity { get; private set; }
 
         private string m_VisualClass;
-
         public string visualClass
         {
             get { return m_VisualClass; }
@@ -104,7 +102,7 @@ namespace Unity.Modifier.GraphElements
 
                 m_VisualClass = value;
 
-                // Add the given class if not null or empty, Use the auto class otherwise.
+                // Add the given class if not null or empty. Use the auto class otherwise.
                 if (!string.IsNullOrEmpty(m_VisualClass))
                     AddToClassList(m_VisualClass);
                 else
@@ -113,7 +111,6 @@ namespace Unity.Modifier.GraphElements
         }
 
         private Type m_PortType;
-
         public Type portType
         {
             get { return m_PortType; }
@@ -136,7 +133,7 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        private void ManageTypeClassList(Type type, Action<String> classListAction)
+        private void ManageTypeClassList(Type type, Action<string> classListAction)
         {
             // If there's an visual class explicitly set, don't set an automatic one.
             if (type == null || !string.IsNullOrEmpty(m_VisualClass))
@@ -158,10 +155,12 @@ namespace Unity.Modifier.GraphElements
         public object source { get; set; }
 
         private bool m_Highlight = true;
-
         public bool highlight
         {
-            get { return m_Highlight; }
+            get
+            {
+                return m_Highlight;
+            }
             set
             {
                 if (m_Highlight == value)
@@ -172,7 +171,6 @@ namespace Unity.Modifier.GraphElements
                 UpdateConnectorColorAndEnabledState();
             }
         }
-
         public virtual void OnStartEdgeDragging()
         {
             highlight = false;
@@ -188,22 +186,30 @@ namespace Unity.Modifier.GraphElements
 
         public virtual IEnumerable<Edge> connections
         {
-            get { return m_Connections; }
+            get
+            {
+                return m_Connections;
+            }
         }
 
         public virtual bool connected
         {
-            get { return m_Connections.Count > 0; }
+            get
+            {
+                return m_Connections.Count > 0;
+            }
         }
 
         public virtual bool collapsed
         {
-            get { return false; }
+            get
+            {
+                return false;
+            }
         }
 
         Color m_PortColor = s_DefaultColor;
         bool m_PortColorIsInline;
-
         public Color portColor
         {
             get { return m_PortColor; }
@@ -216,7 +222,6 @@ namespace Unity.Modifier.GraphElements
         }
 
         Color m_DisabledPortColor = s_DefaultDisabledColor;
-
         public Color disabledPortColor
         {
             get { return m_DisabledPortColor; }
@@ -225,7 +230,7 @@ namespace Unity.Modifier.GraphElements
         internal Action<Port> OnConnect;
         internal Action<Port> OnDisconnect;
 
-        public Edge Connected(Port other)
+        public Edge ConnectTo(Port other)
         {
             return ConnectTo<Edge>(other);
         }
@@ -264,7 +269,7 @@ namespace Unity.Modifier.GraphElements
         public virtual void Disconnect(Edge edge)
         {
             if (edge == null)
-                throw new ArgumentException("The value passed To PortPresenter.Disconnect is null");
+                throw new ArgumentException("The value passed to PortPresenter.Disconnect is null");
 
             m_Connections.Remove(edge);
             OnDisconnect?.Invoke(this);
@@ -289,11 +294,10 @@ namespace Unity.Modifier.GraphElements
                 m_EdgesToCreate = new List<Edge>();
                 m_EdgesToDelete = new List<GraphElement>();
 
-                m_GraphViewChange.edgeToCreate = m_EdgesToCreate;
+                m_GraphViewChange.edgesToCreate = m_EdgesToCreate;
             }
 
             public void OnDropOutsidePort(Edge edge, Vector2 position) { }
-
             public void OnDrop(GraphView graphView, Edge edge)
             {
                 m_EdgesToCreate.Clear();
@@ -318,7 +322,7 @@ namespace Unity.Modifier.GraphElements
                 var edgesToCreate = m_EdgesToCreate;
                 if (graphView.graphViewChanged != null)
                 {
-                    edgesToCreate = graphView.graphViewChanged(m_GraphViewChange).edgeToCreate;
+                    edgesToCreate = graphView.graphViewChanged(m_GraphViewChange).edgesToCreate;
                 }
 
                 foreach (Edge e in edgesToCreate)
@@ -377,16 +381,15 @@ namespace Unity.Modifier.GraphElements
             if (m_GraphView == null)
                 m_GraphView = GetFirstAncestorOfType<GraphView>();
 
-            Vector2 overridenPosition;
+            Vector2 overriddenPosition;
 
-            if (m_GraphView != null && m_GraphView.GetPortCenterOverride(this, out overridenPosition))
+            if (m_GraphView != null && m_GraphView.GetPortCenterOverride(this, out overriddenPosition))
             {
-                return overridenPosition;
+                return overriddenPosition;
             }
 
             return m_ConnectorBox.LocalToWorld(m_ConnectorBox.GetRect().center);
         }
-
 
         public override bool ContainsPoint(Vector2 localPoint)
         {

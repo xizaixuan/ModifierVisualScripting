@@ -13,13 +13,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public readonly Type AssetType;
         public readonly string Name;
         public readonly string AssetPath;
+        public readonly GameObject Instance;
         public readonly bool WriteOnDisk;
         public readonly IGraphTemplate GraphTemplate;
 
         public CreateGraphAssetAction(Type stencilType, string name = "", string assetPath = "", GameObject instance = null, bool writeOnDisk = true, IGraphTemplate graphTemplate = null)
             : this(stencilType, typeof(VSGraphModel), typeof(VSGraphAssetModel), name, assetPath, instance, writeOnDisk, graphTemplate)
         {
-
         }
 
         public CreateGraphAssetAction(Type stencilType, Type graphType, Type assetType, string name = "", string assetPath = "", GameObject instance = null, bool writeOnDisk = true, IGraphTemplate graphTemplate = null)
@@ -29,8 +29,34 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             AssetType = assetType;
             Name = name;
             AssetPath = assetPath;
+            Instance = instance;
             WriteOnDisk = writeOnDisk;
             GraphTemplate = graphTemplate;
         }
     }
+
+    public class LoadGraphAssetAction : IAction
+    {
+        public enum Type
+        {
+            Replace,
+            PushOnStack,
+            KeepHistory
+        }
+
+        public readonly string AssetPath;
+        public readonly Type LoadType;
+
+        public readonly bool AlignAfterLoad;
+
+        public LoadGraphAssetAction(string assetPath, bool alignAfterLoad = false,
+                                    Type loadType = Type.Replace)
+        {
+            AssetPath = assetPath;
+            LoadType = loadType;
+            AlignAfterLoad = alignAfterLoad;
+        }
+    }
+
+    public class UnloadGraphAssetAction : IAction { }
 }

@@ -5,6 +5,8 @@ using UnityEngine.UIElements;
 using UnityEngine.UIElements.UIR;
 using UnityEngine.Yoga;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Unity.Modifier.GraphToolsFoundations.Bridge
 {
@@ -15,6 +17,7 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
         {
             return vta.CloneTree();
         }
+
 #endif
 
         public static Color EditorPlayModeTint => UIElementsUtility.editorPlayModeTintColor;
@@ -32,6 +35,143 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
         public static float RoundToPixelGrid(float v)
         {
             return GUIUtility.RoundToPixelGrid(v);
+        }
+
+        public static void ApplyWireMaterial()
+        {
+            HandleUtility.ApplyWireMaterial();
+        }
+
+        /* For tests */
+        public static Texture2D LoadIconRequired(string path)
+        {
+            return EditorGUIUtility.LoadIconRequired(path);
+        }
+
+        /* For tests */
+        public static void SetDisableInputEvents(this EditorWindow window, bool value)
+        {
+            //window.disableInputEvents = value;
+        }
+
+        /* For tests */
+        public static void RepaintImmediately(this EditorWindow window)
+        {
+            window.RepaintImmediately();
+        }
+
+        /* For tests */
+        public static void ClearPersistentViewData(this EditorWindow window)
+        {
+            window.ClearPersistentViewData();
+        }
+
+        /* For tests */
+        public static void DisableViewDataPersistence(this EditorWindow window)
+        {
+            window.DisableViewDataPersistence();
+        }
+
+        /* For tests */
+        public static bool HasGUIView(this VisualElement ve)
+        {
+            GUIView guiView = ve.elementPanel.ownerObject as GUIView;
+            return guiView != null;
+        }
+
+        /* For tests */
+        public static void SetTimeSinceStartupCB(Func<long> cb)
+        {
+            if (cb == null)
+                Panel.TimeSinceStartup = null;
+            else
+                Panel.TimeSinceStartup = () => cb();
+        }
+
+        /* For tests */
+        public static void SetDisableThrottling(bool disable)
+        {
+            DataWatchService.sharedInstance.disableThrottling = disable;
+        }
+
+        /* For tests */
+        public static bool GetDisableThrottling()
+        {
+            return DataWatchService.sharedInstance.disableThrottling;
+        }
+
+        public static List<EditorWindow> ShowGraphViewWindowWithTools(Type blackboardType, Type graphViewType)
+        {
+            const float width = 1200;
+            const float height = 800;
+
+            const float toolsWidth = 200;
+
+            var mainSplitView = ScriptableObject.CreateInstance<SplitView>();
+
+            var sideSplitView = ScriptableObject.CreateInstance<SplitView>();
+            sideSplitView.vertical = true;
+            sideSplitView.position = new Rect(0, 0, toolsWidth, height);
+            var dockArea = ScriptableObject.CreateInstance<DockArea>();
+            dockArea.position = new Rect(0, 0, toolsWidth, height - toolsWidth);
+            var blackboardWindow = ScriptableObject.CreateInstance(blackboardType) as EditorWindow;
+            dockArea.AddTab(blackboardWindow);
+            sideSplitView.AddChild(dockArea);
+
+            mainSplitView.AddChild(sideSplitView);
+            dockArea = ScriptableObject.CreateInstance<DockArea>();
+            var graphViewWindow = ScriptableObject.CreateInstance(graphViewType) as EditorWindow;
+            dockArea.AddTab(graphViewWindow);
+            dockArea.position = new Rect(0, 0, width - toolsWidth, height);
+            mainSplitView.AddChild(dockArea);
+
+            var containerWindow = ScriptableObject.CreateInstance<ContainerWindow>();
+            containerWindow.m_DontSaveToLayout = false;
+            containerWindow.position = new Rect(100, 100, width, height);
+            containerWindow.rootView = mainSplitView;
+            containerWindow.rootView.position = new Rect(0, 0, mainSplitView.position.width, mainSplitView.position.height);
+
+            containerWindow.Show(ShowMode.NormalWindow, false, true, setFocus: true);
+
+            return new List<EditorWindow> { graphViewWindow, blackboardWindow };
+        }
+
+        public static IEnumerable<T> GetGraphViewWindows<T>(Type typeFilter) where T : EditorWindow
+        {
+            var guiViews = new List<GUIView>();
+            GUIViewDebuggerHelper.GetViews(guiViews);
+
+            // Get all GraphViews used by existing tool windows of our type
+            using (var it = UIElementsUtility.GetPanelsIterator())
+            {
+                while (it.MoveNext())
+                {
+                    var dockArea = guiViews.FirstOrDefault(v => v.GetInstanceID() == it.Current.Key) as DockArea;
+                    if (dockArea == null)
+                        continue;
+
+                    if (typeFilter == null)
+                    {
+                        foreach (var window in dockArea.m_Panes.OfType<T>())
+                        {
+                            yield return window;
+                        }
+                    }
+                    else
+                    {
+                        foreach (var window in dockArea.m_Panes.Where(p => p.GetType() == typeFilter).Cast<T>())
+                        {
+                            yield return window;
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void UpdateScheduledEvents(this VisualElement ve)
+        {
+            var scheduler = (TimerEventScheduler)((BaseVisualElementPanel)ve.panel).scheduler;
+            scheduler.UpdateScheduledEvents();
         }
 
         public static bool IsLayoutManual(this VisualElement ve)
@@ -93,6 +233,20 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
             ve.ResetPositionProperties();
         }
 
+        public static Matrix4x4 WorldTransformInverse(this VisualElement ve)
+        {
+            return ve.worldTransformInverse;
+        }
+
+        public static void DrawImmediate(MeshGenerationContext mgc, Action callback)
+        {
+#if UNITY_2020_1_OR_NEWER
+            mgc.painter.DrawImmediate(callback, true);
+#else
+            mgc.painter.DrawImmediate(callback);
+#endif
+        }
+
         public static MeshWriteData AllocateMeshWriteData(MeshGenerationContext mgc, int vertexCount, int indexCount)
         {
             return mgc.Allocate(vertexCount, indexCount, null, null, MeshGenerationContext.MeshFlags.UVisDisplacement);
@@ -127,6 +281,11 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
         public static void ForceComputeYogaNodeLayout(this VisualElement ve)
         {
             ve.yogaNode.CalculateLayout();
+        }
+
+        public static Vector2 DoMeasure(this VisualElement ve, float desiredWidth, VisualElement.MeasureMode widthMode, float desiredHeight, VisualElement.MeasureMode heightMode)
+        {
+            return ve.DoMeasure(desiredWidth, widthMode, desiredHeight, heightMode);
         }
 
         public static bool IsBoundingBoxDirty(this VisualElement ve)
@@ -223,8 +382,7 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
                 {
                     if (register)
                         updater.BeforeDrawChain += OnBeforeDrawChain;
-                    else
-                        updater.BeforeDrawChain -= OnBeforeDrawChain;
+                    else updater.BeforeDrawChain -= OnBeforeDrawChain;
                 }
             }
         }
@@ -238,9 +396,11 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
 
         float scale => viewTransform.scale.x;
 
-        public ActionOnDotNetUnhandledException redrawn { get; set; }
+        // BE AWARE: This is just a stopgap measure to get the minimap notified and should not be used outside of it.
+        // This should also get ripped once the minimap is re-written.
+        public Action redrawn { get; set; }
 
-#if UNITY_2020_1_OR_NEWEER
+#if UNITY_2020_1_OR_NEWER
         void OnBeforeDrawChain(RenderChain renderChain)
 #else
         void OnBeforeDrawChain(UIRenderDevice renderChain)
@@ -250,6 +410,7 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
             // Set global graph view shader properties (used by UIR)
             mat.SetFloat(s_EditorPixelsPerPointId, EditorGUIUtility.pixelsPerPoint);
             mat.SetFloat(s_GraphViewScaleId, scale);
+            redrawn?.Invoke();
         }
 
         static Shader graphViewShader;
@@ -295,6 +456,11 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
         {
             UpdateDrawChainRegistration(true);
         }
+    }
+
+    public abstract class GraphViewToolWindowBridge : EditorWindow
+    {
+        public abstract void SelectGraphViewFromWindow(GraphViewEditorWindowBridge window, GraphViewBridge graphView, int graphViewIndexInWindow = 0);
     }
 
     public abstract class GraphViewEditorWindowBridge : EditorWindow

@@ -1,4 +1,4 @@
-﻿using ModifierStencil;
+﻿using Modifier.DotsStencil;
 using UnityEditor;
 using UnityEditor.Modifier.VisualScripting.Editor;
 

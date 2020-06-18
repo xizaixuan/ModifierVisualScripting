@@ -70,22 +70,20 @@ namespace Unity.Modifier.GraphElements
         const float k_EdgeSweepResampleRatio = 4.0f;
         const int k_EdgeStraightLineSegmentDivisor = 5;
 
-        Orientation m_InputQrientation;
-
+        Orientation m_InputOrientation;
         public Orientation inputOrientation
         {
-            get { return m_InputQrientation; }
+            get { return m_InputOrientation; }
             set
             {
-                if (m_InputQrientation == value)
+                if (m_InputOrientation == value)
                     return;
-                m_InputQrientation = value;
+                m_InputOrientation = value;
                 MarkDirtyRepaint();
             }
         }
 
         Orientation m_OutputOrientation;
-
         public Orientation outputOrientation
         {
             get { return m_OutputOrientation; }
@@ -98,8 +96,7 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        Color m_InputColor = Color.gray;
-
+        Color m_InputColor = Color.grey;
         public Color inputColor
         {
             get { return m_InputColor; }
@@ -113,8 +110,7 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        Color m_OutputColor = Color.gray;
-
+        Color m_OutputColor = Color.grey;
         public Color outputColor
         {
             get { return m_OutputColor; }
@@ -129,7 +125,6 @@ namespace Unity.Modifier.GraphElements
         }
 
         private Color m_FromCapColor;
-
         public Color fromCapColor
         {
             get { return m_FromCapColor; }
@@ -166,7 +161,6 @@ namespace Unity.Modifier.GraphElements
         }
 
         private float m_CapRadius = 5;
-
         public float capRadius
         {
             get { return m_CapRadius; }
@@ -188,7 +182,7 @@ namespace Unity.Modifier.GraphElements
                 if (m_EdgeWidth == value)
                     return;
                 m_EdgeWidth = value;
-                UpdateLayout();
+                UpdateLayout(); // The layout depends on the edges width
                 MarkDirtyRepaint();
             }
         }
@@ -200,7 +194,7 @@ namespace Unity.Modifier.GraphElements
             set { m_InterceptWidth = value; }
         }
 
-        // The start of the edge in graph coordinates
+        // The start of the edge in graph coordinates.
         private Vector2 m_From;
         public Vector2 from
         {
@@ -210,7 +204,7 @@ namespace Unity.Modifier.GraphElements
                 if ((m_From - value).sqrMagnitude > 0.25f)
                 {
                     m_From = value;
-                    if (m_From != null)
+                    if (m_FromCap != null)
                     {
                         m_FromCap.style.left = value.x - m_FromCap.resolvedStyle.width / 2;
                         m_FromCap.style.top = value.y - m_FromCap.resolvedStyle.height / 2;
@@ -242,12 +236,14 @@ namespace Unity.Modifier.GraphElements
 
         public Vector2 ControlPointOffset { get; set; }
 
-        // The Control points in graph coordinates.
+        // The control points in graph coordinates.
         private Vector2[] m_ControlPoints;
-
         public Vector2[] controlPoints
         {
-            get { return m_ControlPoints; }
+            get
+            {
+                return m_ControlPoints;
+            }
         }
 
         public bool drawFromCap
@@ -407,7 +403,6 @@ namespace Unity.Modifier.GraphElements
 
         // The points that will be rendered. Expressed in coordinates local to the element.
         List<Vector2> m_RenderPoints = new List<Vector2>();
-
         protected List<Vector2> RenderPoints => m_RenderPoints;
 
         static bool Approximately(Vector2 v1, Vector2 v2)
@@ -420,8 +415,8 @@ namespace Unity.Modifier.GraphElements
             if (parent == null) return;
             if (m_ControlPointsDirty)
             {
-                ComputeControlPoints(); // Computes the control points in parent (graph) coordinates
-                ComputeLayout();    // Update the element layout based on the control points.
+                ComputeControlPoints(); // Computes the control points in parent ( graph ) coordinates
+                ComputeLayout(); // Update the element layout based on the control points.
                 m_ControlPointsDirty = false;
             }
             UpdateEdgeCaps();
@@ -452,9 +447,9 @@ namespace Unity.Modifier.GraphElements
 
         protected virtual void UpdateRenderPoints()
         {
-            ComputeControlPoints(); // This should have been updated before : make sure anyway
+            ComputeControlPoints(); // This should have been updated before : make sure anyway.
 
-            if (!m_RenderPointsDirty && m_ControlPoints != null)
+            if (m_RenderPointsDirty == false && m_ControlPoints != null)
             {
                 return;
             }
@@ -731,8 +726,7 @@ namespace Unity.Modifier.GraphElements
 
         protected virtual void ComputeControlPoints()
         {
-            if (!m_ControlPointsDirty)
-                return;
+            if (m_ControlPointsDirty == false) return;
 
             Profiler.BeginSample("EdgeControl.ComputeControlPoints");
 
@@ -813,7 +807,7 @@ namespace Unity.Modifier.GraphElements
 
             UpdateRenderPoints();
             if (m_RenderPoints.Count == 0)
-                return;
+                return; // Don't draw anything
 
             Color inColor = this.inputColor;
             Color outColor = this.outputColor;

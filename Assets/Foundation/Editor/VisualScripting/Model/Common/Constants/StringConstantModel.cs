@@ -1,0 +1,14 @@
+﻿using System;
+using UnityEditor.Modifier.VisualScripting.Model;
+
+namespace UnityEditor.Modifier.VisualScripting.Model
+{
+    [Serializable]
+    public class StringConstantModel : ConstantNodeModel<String>
+    {
+        public StringConstantModel()
+        {
+            value = "";
+        }
+    }
+}

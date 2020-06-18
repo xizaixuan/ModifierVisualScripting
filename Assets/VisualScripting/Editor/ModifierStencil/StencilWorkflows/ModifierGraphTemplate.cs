@@ -6,7 +6,7 @@ using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace ModifierStencil
+namespace Modifier.DotsStencil
 {
     public class ModifierGraphTemplate : ICreatableGraphTemplate
     {
@@ -14,17 +14,17 @@ namespace ModifierStencil
 
         public static ModifierGraphTemplate ObjectGraphAsset()
         {
-            return new ModifierGraphTemplate(ModifierStencil.GraphType.Object);
+            return new ModifierGraphTemplate(DotsStencil.GraphType.Object);
         }
 
-        private readonly ModifierStencil.GraphType m_GraphType;
+        private readonly DotsStencil.GraphType m_GraphType;
 
-        private ModifierGraphTemplate(ModifierStencil.GraphType graphType)
+        private ModifierGraphTemplate(DotsStencil.GraphType graphType)
         {
             m_GraphType = graphType;
         }
 
-        public Type StencilType => typeof(ModifierStencil);
+        public Type StencilType => typeof(DotsStencil);
 
         public string GraphTypeName => k_DefaultGraphName;
 
@@ -32,10 +32,10 @@ namespace ModifierStencil
 
         public void InitBasicGraph(VSGraphModel graphModel)
         {
-            var modifierStencil = (ModifierStencil)graphModel.Stencil;
-            modifierStencil.Type = m_GraphType;
+            var DotsStencil = (DotsStencil)graphModel.Stencil;
+            DotsStencil.Type = m_GraphType;
 
-            if (modifierStencil.CompiledScriptingGraphAsset == null)
+            if (DotsStencil.CompiledScriptingGraphAsset == null)
             {
                 CreateModifierCompiledScriptingGraphAsset(graphModel);
             }
@@ -43,7 +43,7 @@ namespace ModifierStencil
 
         internal static void CreateModifierCompiledScriptingGraphAsset(IGraphModel graphModel)
         {
-            ModifierStencil stencil = (ModifierStencil)graphModel.Stencil;
+            DotsStencil stencil = (DotsStencil)graphModel.Stencil;
             stencil.CompiledScriptingGraphAsset = ScriptableObject.CreateInstance<ScriptingGraphAsset>();
             AssetDatabase.AddObjectToAsset(stencil.CompiledScriptingGraphAsset, (Object)graphModel.AssetModel);
         }
