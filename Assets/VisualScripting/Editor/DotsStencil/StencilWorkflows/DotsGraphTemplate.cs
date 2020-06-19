@@ -8,18 +8,18 @@ using Object = UnityEngine.Object;
 
 namespace Modifier.DotsStencil
 {
-    public class ModifierGraphTemplate : ICreatableGraphTemplate
+    public class DotsGraphTemplate : ICreatableGraphTemplate
     {
         public static readonly string k_DefaultGraphName = "Scripting Graph";
 
-        public static ModifierGraphTemplate ObjectGraphAsset()
+        public static DotsGraphTemplate ObjectGraphAsset()
         {
-            return new ModifierGraphTemplate(DotsStencil.GraphType.Object);
+            return new DotsGraphTemplate(DotsStencil.GraphType.Object);
         }
 
         private readonly DotsStencil.GraphType m_GraphType;
 
-        private ModifierGraphTemplate(DotsStencil.GraphType graphType)
+        private DotsGraphTemplate(DotsStencil.GraphType graphType)
         {
             m_GraphType = graphType;
         }
