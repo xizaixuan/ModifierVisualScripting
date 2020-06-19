@@ -1,0 +1,4 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Label name="titleLabel" text="" />
+    <ui:TextField name="titleField" text="" />
+</ui:UXML>

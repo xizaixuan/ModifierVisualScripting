@@ -1,0 +1,10 @@
+<UXML xmlns:ui="UnityEngine.UIElements" xmlns:gv="Unity.GraphElements">
+    <ui:VisualElement name="node-border" pickingMode="Ignore" >
+        <ui:TextField name="title-field" />
+        <ui:Button class="icon-expandable" name="collapse-button">
+            <ui:VisualElement name="icon" pickingMode="Ignore"/>
+        </ui:Button>
+    </ui:VisualElement>
+    <ui:VisualElement name="selection-border" pickingMode="Ignore" />
+    <gv:ResizableElement pickingMode="Ignore" />
+</UXML>

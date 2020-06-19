@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="connector" picking-mode="Ignore" class="connectorBox">
+        <ui:VisualElement name="cap" picking-mode="Ignore" class="connectorCap"/>
+    </ui:VisualElement>
+    <ui:Label name="type" picking-mode="Ignore" class="connectorText" />
+</ui:UXML>

@@ -1,0 +1,45 @@
+.scope {
+    --layer:-600;
+    background-color: rgb(25, 25, 25);
+    border-radius: 8px;
+    border-left-width: 2px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-color: #343434;
+    min-width: 1px;
+    min-height: 1px;
+}
+
+.scope:selected {
+    border-color: #44C0FF;
+}
+
+.scope > .mainContainer {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.scope > .mainContainer > #headerContainer {
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 2px;
+    padding-left: 2px;
+    padding-bottom: 2px;
+    padding-right: 2px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.scope > .mainContainer > #centralContainer > #contentContainerPlaceholder {
+    border-left-width: 2px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding-top: 21px;
+    padding-left: 21px;
+    padding-bottom: 21px;
+    padding-right: 21px;
+}

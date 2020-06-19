@@ -1,0 +1,143 @@
+.placemat {
+    border-radius: 4px;
+    background-image: none;
+
+    background-color: #253131;
+
+    min-width: 200px;
+    min-height: 100px;
+}
+
+.placemat.collapsed {
+    min-height: 42px;
+}
+
+#selection-border {
+    border-left-width:0;
+    border-top-width:0;
+    border-right-width:0;
+    border-bottom-width:0;
+    border-radius: 8px;
+    margin-bottom: -4px;
+    margin-left: -4px;
+    margin-right: -4px;
+    margin-top: -4px;
+    position: absolute;
+    left:0;
+    right:0;
+    top:0;
+    bottom:0;
+}
+
+:hover > #selection-border {
+    border-color: rgba(68,192,255, 0.5);
+    border-top-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+}
+
+:selected > #selection-border {
+    border-color: #44C0FF;
+    border-left-width: 1px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+}
+
+:selected:hover > #selection-border {
+    border-color: #44C0FF;
+    border-top-width: 2px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+}
+
+#node-border {
+    margin-top: -2px;
+    margin-bottom: -2px;
+    margin-left: -2px;
+    margin-right: -2px;
+    border-radius: 6px;
+    /* The proper opacity of the node border is 0.8 but transparent
+    border are not working properly so it's fully opaque.*/
+    border-color: rgba(25,25,25,1.0);
+    border-left-width: 1px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.placemat #title-field {
+    padding-left: 32px;
+    padding-right: 32px;
+    top: 3px;
+}
+
+.placemat #title-field > #unity-text-input {
+    background-image: none;
+    background-color: transparent;
+    border-color: transparent;
+    -unity-text-align: middle-center;
+    font-size: 18px;
+    color: white;
+}
+
+.placemat #title-field:hover > #unity-text-input {
+    border-color: rgba(68,192,255, 0.5);
+}
+
+.placemat #title-field:focus > #unity-text-input {
+    border-color: #44C0FF;
+}
+
+.placemat:hover #collapse-button {
+    visibility: visible;
+}
+
+.placemat #collapse-button {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    visibility: hidden;
+    width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(32, 32, 32, 0.3);
+    border-radius: 4px;
+}
+
+.placematCollapse > #icon {
+    width: 16px;
+    height: 16px;
+}
+
+.placematCollapse > #icon {
+    background-image:resource("IN foldout.png");
+}
+
+.placematCollapse:hover > #icon {
+    background-image:resource("IN foldout focus.png");
+}
+
+.placematCollapse:active > #icon {
+    background-image:resource("IN foldout act.png");
+}
+
+.placematCollapse.icon-expanded > #icon {
+    background-image:resource("IN foldout on.png");
+}
+
+.placematCollapse.icon-expanded:hover > #icon {
+    background-image:resource("IN foldout focus on.png");
+}
+
+.placematCollapse.icon-expanded:active > #icon {
+    background-image:resource("IN foldout act on.png");
+}

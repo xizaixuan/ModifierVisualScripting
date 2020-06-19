@@ -1,0 +1,40 @@
+
+.ge-edge {
+    position: absolute;
+
+    --edge-color: #6b6b6b;
+    --selected-edge-color: #cca829;
+    --ghost-edge-color: #555555;
+    --edge-width: 4;
+    --layer:-10;
+}
+
+.ge-edge:hover {
+    --edge-color: #cca829;
+    --selected-edge-color: #cca829;
+    --edge-width: 6;
+}
+
+.edgeCap {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 12px;
+    background-color: #929292;
+}
+
+.edge-control-point {
+    display: none;
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    margin-left: -5px;
+    border-width: 1px;
+    border-color: rgb(210, 210, 210);
+    border-radius: 5px;
+}
+
+.edge--edit-mode .edge-control-point {
+    display: flex;
+}

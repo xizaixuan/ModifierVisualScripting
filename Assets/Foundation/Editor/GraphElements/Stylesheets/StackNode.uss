@@ -1,0 +1,177 @@
+.stack-node {
+    min-height: 10px;
+    border-radius: 8px;
+    padding-top: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 12px;
+    background-color: rgba(26, 26, 26, .5);
+    min-width: 150px;
+    max-width: 400px;
+    --animation-duration: 40;
+    flex-direction: column;
+    font-size: 16px;
+}
+
+.stack-node #titleLabel {
+    padding-top: 1px;
+    padding-bottom: 2px;
+    padding-left: 2px;
+    padding-right: 2px;
+    margin-bottom: 2px;
+}
+
+.stack-node > #input {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -10px;
+    margin: auto;
+    align-items: center;
+}
+
+.stack-node > #output {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -11px;
+    margin: auto;
+    align-items: center;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.stack-node > #input > Port > #connector {
+    background-color: rgba(0,0,0,0);
+    border-radius: 8px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(220, 0, 220, 0.5);
+}
+
+.stack-node > #input > Port #type {
+    height: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.stack-node > #output > Port #type {
+    height: 0;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.stack-node #stackNodeContentContainer {
+    flex-direction: column;
+    min-height: 1px;
+    padding-top: 2px; /* = @separator-height/2 */
+    padding-bottom: 2px; /* = @separator-height 2 */
+}
+
+.stack-node #stackSeparatorContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.stack-node .stack-child-element {
+    position: relative;
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+.stack-node .default.stack-node-preview {
+    background-color: #123344;
+    border-color: #44C0FF;
+    border-left-width: 2px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-radius: 8px;
+}
+
+.stack-node .default.stack-node-preview > .unity-label {
+    font-size : 12px;
+}
+
+.stack-node-separator {
+}
+
+.stack-node-separator:hover > #highlight {
+    background-color: rgba(68, 192, 255, 0.5);
+}
+
+.stack-node-placeholder {
+    border-color: rgba(63, 63, 63, .4);
+    border-radius: 6px;
+    border-left-width: 1px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+}
+
+.stack-node-placeholder .unity-label {
+    -unity-text-align: middle-center;
+    color: rgba(153, 153, 153, 0.5);
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.stack-node-placeholder:hover {
+    border-color: rgba(68,192,255, .5);
+}
+
+.stack-node > #borderItem {
+    border-radius: 8px;
+    border-left-width: 1px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-color: #393939;
+    margin-bottom: 1px;
+    margin-left: 1px;
+    margin-right: 1px;
+    margin-top: 1px;
+    position: absolute;
+    left:0;
+    right:0;
+    top:0;
+    bottom:0;
+}
+
+.stack-node:hover > #borderItem {
+    border-color: rgba(68, 192, 255, 0.5);
+    border-top-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-top-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+}
+
+.stack-node:selected > #borderItem {
+    border-color: #44C0FF;
+    border-left-width: 1px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+}
+
+.stack-node:selected:hover > #borderItem {
+    border-color: #44C0FF;
+    border-top-width: 2px;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+}

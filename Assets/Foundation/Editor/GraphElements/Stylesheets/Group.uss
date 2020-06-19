@@ -1,0 +1,47 @@
+.group {
+    --layer:-500;
+}
+
+.mainContainer > #headerContainer > #titleContainer {
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.mainContainer > #headerContainer > #titleContainer > #titleLabel {
+    -unity-text-align:upper-center;
+    color: #999999;
+    font-size: 24px;
+}
+
+:selected > .mainContainer > #headerContainer > #titleContainer > #titleLabel {
+    color: #44C0FF;
+}
+
+.group > .mainContainer > #headerContainer > #titleContainer > #titleField {
+    position: absolute;
+    top: 2px;    /* header.paddingTop */
+    left: 2px;   /* header.paddingLeft */
+    right: 2px;  /* header.paddingRight */
+    bottom: 2px; /* header.paddingBottom */
+    color: #999999;
+    font-size: 24px;
+}
+
+.mainContainer > #centralContainer > #contentContainerPlaceholder > #dropArea {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-left-width: 2px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.mainContainer > #centralContainer > #contentContainerPlaceholder > #dropArea.dragEntered {
+    background-color: #123344;
+    border-color: #44C0FF;
+}

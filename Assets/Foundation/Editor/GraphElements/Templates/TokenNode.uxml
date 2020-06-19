@@ -1,0 +1,3 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:gv="Unity.GraphElements">
+    <gv:Pill name="pill" picking-mode="Ignore" />
+</ui:UXML>

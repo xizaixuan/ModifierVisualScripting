@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="headerContainer" picking-mode="Ignore" />
+    <ui:VisualElement name="centralContainer" picking-mode="Ignore">
+        <ui:VisualElement name="contentContainerPlaceholder" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

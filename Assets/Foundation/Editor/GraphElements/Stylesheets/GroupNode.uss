@@ -1,0 +1,79 @@
+
+
+.groupNode {
+    --layer:-500;
+    background-color: rgb(25, 25, 25);
+    border-radius: 8px;
+    border-left-width: 2px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-color: #343434;
+}
+
+.groupNode:selected {
+    border-color: #44C0FF;
+}
+
+.groupNode .mainContainer {
+    position: absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    flex-direction: column;
+}
+
+.groupNode .header {
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 2px;
+    padding-left: 2px;
+    padding-bottom: 2px;
+    padding-right: 2px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.groupNode .label {
+    -unity-text-align:upper-center;
+    color: #999999;
+    font-size: 24px;
+}
+
+.groupNode:selected .label {
+    color: #44C0FF;
+}
+
+.groupNode .textfield {
+    position: absolute;
+    top: 2px;    /* header.paddingTop */
+    left: 2px;   /* header.paddingLeft */
+    right: 2px;  /* header.paddingRight */
+    bottom: 2px; /* header.paddingBottom */
+    color: #999999;
+    font-size: 24px;
+}
+
+.groupNode #contentPlaceholder {
+    flex: 1 0 0;
+}
+
+.groupNode .content {
+    flex: 1 0 0;
+    border-left-width: 2px;
+    border-top-width: 2px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding-top: 21px;
+    padding-left: 21px;
+    padding-bottom: 21px;
+    padding-right: 21px;
+}
+
+.groupNode .content.dragEntered {
+    background-color: #123344;
+    border-color: #44C0FF;
+}

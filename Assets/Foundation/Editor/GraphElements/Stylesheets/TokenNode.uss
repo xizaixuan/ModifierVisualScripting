@@ -1,0 +1,35 @@
+
+.token-node {
+    align-items: stretch;
+}
+
+.token-node Port {
+    height: 12px;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.token-node Port.input {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.token-node Port.output {
+    padding-right: 0;
+    padding-left: 0;
+}
+
+.token-node Port.input > #connector {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.token-node Port.output > #connector {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.token-node Port > #type {
+    margin-left: 0;
+    margin-right: 0;
+}
