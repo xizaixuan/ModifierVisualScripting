@@ -45,14 +45,16 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         }
 
         public readonly string AssetPath;
+        public readonly GameObject BoundObject;
         public readonly Type LoadType;
 
         public readonly bool AlignAfterLoad;
 
-        public LoadGraphAssetAction(string assetPath, bool alignAfterLoad = false,
+        public LoadGraphAssetAction(string assetPath, GameObject boundObject = null, bool alignAfterLoad = false,
                                     Type loadType = Type.Replace)
         {
             AssetPath = assetPath;
+            BoundObject = boundObject;
             LoadType = loadType;
             AlignAfterLoad = alignAfterLoad;
         }

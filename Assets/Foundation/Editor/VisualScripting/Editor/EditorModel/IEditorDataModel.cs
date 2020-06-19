@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEditor.Modifier.VisualScripting.Editor.Plugins;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
+using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
@@ -11,13 +12,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
     public struct OpenedGraph
     {
         public GraphAssetModel GraphAssetModel;
+        public GameObject BoundObject;
 
-        public OpenedGraph(GraphAssetModel graphAssetModel)
+        public OpenedGraph(GraphAssetModel graphAssetModel, GameObject boundObject)
         {
             GraphAssetModel = graphAssetModel;
+            BoundObject = boundObject;
         }
     }
-
     public interface IEditorDataModel
     {
         UpdateFlags UpdateFlags { get; }
@@ -25,6 +27,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         GUID NodeToFrameGuid { get; set; }
         int CurrentGraphIndex { get; }
         VSPreferences Preferences { get; }
+        GameObject BoundObject { get; set; }
         IPluginRepository PluginRepository { get; }
         List<OpenedGraph> PreviousGraphModels { get; }
         int UpdateCounter { get; set; }

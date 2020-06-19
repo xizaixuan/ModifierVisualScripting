@@ -49,7 +49,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
             "Microsoft.CSharp",
             "UnityEngine",
             "UnityEngine.SceneManagement",
-            "UnityEngine.VisualScripting"
+            "UnityEngine.Modifier.VisualScripting"
         };
 
         protected virtual Dictionary<string, string> UsingAliases { get; } = new Dictionary<string, string>

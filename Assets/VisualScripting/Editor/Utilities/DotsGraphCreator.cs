@@ -7,7 +7,7 @@ namespace Modifier.VisualScripting.Editor
     public static class DotsGraphCreator
     {
         [MenuItem("Assets/Create/VisualScripting/Modifier Scripting Graph")]
-        public static void GreateGraph(MenuCommand menuCommand)
+        public static void CreateGraph(MenuCommand menuCommand)
         {
             var initialState = new State(null);
             var store = new Store(initialState);
