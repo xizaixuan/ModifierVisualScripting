@@ -21,12 +21,16 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             set => m_Win.TracingEnabled = value;
         }
 
+        public bool CompilationPending { get; set; }
+
         List<string> BlackboardExpandedRowStates => m_Win?.BlackboardExpandedRowStates;
         List<string> ElementModelsToSelectUponCreation => m_Win?.ElementModelsToSelectUponCreation;
         List<string> ElementModelsToExpandUponCreation => m_Win?.ElementModelsToExpandUponCreation;
 
         // IEditorDataModel
         public UpdateFlags UpdateFlags { get; private set; }
+        List<IGTFGraphElementModel> m_ModelsToUpdate = new List<IGTFGraphElementModel>();
+        public IEnumerable<IGTFGraphElementModel> ModelsToUpdate => m_ModelsToUpdate;
         public IGraphElementModel ElementModelToRename { get; set; }
         public GUID NodeToFrameGuid { get; set; } = default;
         public int CurrentGraphIndex => 0;
@@ -57,7 +61,21 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public void SetUpdateFlag(UpdateFlags flag)
         {
+            if (flag == UpdateFlags.None)
+            {
+                m_ModelsToUpdate.Clear();
+            }
             UpdateFlags = flag;
+        }
+
+        public void AddModelToUpdate(IGTFGraphElementModel controller)
+        {
+            m_ModelsToUpdate.Add(controller);
+        }
+
+        public void ClearModelsToUpdate()
+        {
+            m_ModelsToUpdate.Clear();
         }
 
         public void RequestCompilation(RequestCompilationOptions options)

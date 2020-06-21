@@ -45,5 +45,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             base.OnDefineNode();
             OutputPort = AddDataOutputPort(null, m_ReturnType);
         }
+
+        public IGTFPortModel GTFOutputPort => OutputPort as IGTFPortModel;
     }
 }

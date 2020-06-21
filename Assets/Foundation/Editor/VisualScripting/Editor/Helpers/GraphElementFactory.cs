@@ -6,77 +6,70 @@ using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEngine;
 
-namespace UnityEditor.Modifier.VisualScripting.Editor
+namespace Unity.Modifier.GraphElements
 {
-    public interface INodeBuilder
-    {
-        GraphView GraphView { get; }
-    }
-
-    public class NodeBuilder : INodeBuilder
-    {
-        public GraphView GraphView { get; set; }
-
-        public static Type KeySelector(MethodInfo x)
-        {
-            return x.GetParameters()[2].ParameterType;
-        }
-
-        public static bool FilterMethods(MethodInfo x)
-        {
-            if (x.ReturnType != typeof(GraphElement))
-                return false;
-
-            var parameters = x.GetParameters();
-            return parameters.Length == 3 && parameters[1].ParameterType == typeof(Store);
-        }
-    }
-
     public static class GraphElementFactory
     {
+        static Dictionary<ValueTuple<GraphView, IGTFGraphElementModel>, IGraphElement> s_UIForModel = new Dictionary<ValueTuple<GraphView, IGTFGraphElementModel>, IGraphElement>();
+
         [CanBeNull]
-        public static GraphElement CreateUI(GraphView graphView, Store store, IGraphElementModel model)
+        public static T GetUI<T>(this IGTFGraphElementModel model, GraphView graphView) where T : class, IGraphElement
+        {
+            return s_UIForModel.TryGetValue(new ValueTuple<GraphView, IGTFGraphElementModel>(graphView, model), out var ui) ? ui as T : null;
+        }
+
+        [CanBeNull]
+        public static T CreateUI<T>(this IGTFGraphElementModel model, GraphView graphView, IStore store) where T : class, IGraphElement
+        {
+            return CreateUI<T>(graphView, store, model);
+        }
+
+        public static T CreateUI<T>(GraphView graphView, IStore store, IGTFGraphElementModel model) where T : class, IGraphElement
         {
             if (model == null)
             {
-                Debug.LogError("GraphElementFactory could not create node because of a null reference model.");
+                Debug.LogError("GraphElementFactory could not create element because model is null.");
                 return null;
             }
 
-            var ext = ModelUtility.ExtensionMethodCache<INodeBuilder>.GetExtensionMethod(
+            if (graphView == null)
+            {
+                Debug.LogError("GraphElementFactory could not create element because graphView is null.");
+                return null;
+            }
+
+            var ext = ExtensionMethodCache<ElementBuilder>.GetExtensionMethod(
                 model.GetType(),
-                NodeBuilder.FilterMethods,
-                NodeBuilder.KeySelector
+                ElementBuilder.FilterMethods,
+                ElementBuilder.KeySelector
             );
 
-            GraphElement newElem = null;
+            T newElem = null;
             if (ext != null)
             {
-                var nodeBuilder = new NodeBuilder { GraphView = graphView };
-                newElem = (GraphElement)ext.Invoke(null, new object[] { nodeBuilder, store, model });
+                var nodeBuilder = new ElementBuilder { GraphView = graphView };
+                newElem = ext.Invoke(null, new object[] { nodeBuilder, store, model }) as T;
             }
-            else if (model is INodeModel nodeModel)
-                newElem = new Node(nodeModel, store, graphView);
 
             if (newElem == null)
-                Debug.LogError($"GraphElementFactory doesn't know how to create a node of type: {model.GetType()}");
-            else if (model is INodeModel nodeModel)
             {
-                if (nodeModel.HasUserColor)
-                    (newElem as ICustomColor)?.SetColor(nodeModel.Color);
-
-                if (newElem is INodeState nodeState)
-                {
-                    if (nodeModel.State == ModelState.Disabled)
-                        nodeState.UIState = NodeUIState.Disabled;
-                    else
-                        nodeState.UIState = NodeUIState.Enabled;
-                    nodeState.ApplyNodeState();
-                    nodeState.AddOverlay();
-                }
+                Debug.LogError($"GraphElementFactory doesn't know how to create a UI for element of type: {model.GetType()}");
+                return null;
             }
 
+            s_UIForModel[new ValueTuple<GraphView, IGTFGraphElementModel>(graphView, model)] = newElem;
+
             return newElem;
+        }
+
+        public static void RemoveAll(GraphView graphView)
+        {
+            var toRemove = s_UIForModel.Where(pair => pair.Key.Item1 == graphView).Select(pair => pair.Key).ToList();
+
+            foreach (var key in toRemove)
+            {
+                s_UIForModel.Remove(key);
+            }
         }
     }
 }

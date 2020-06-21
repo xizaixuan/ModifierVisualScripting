@@ -13,7 +13,7 @@ using Port = Unity.Modifier.GraphElements.Port;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
-    public class PortModel : IPortModel
+    public class PortModel : IPortModel, IHasTitle, IGTFPortModel
     {
         [Flags]
         public enum PortModelOptions
@@ -41,9 +41,10 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             Options = options;
         }
 
-        public ScriptableObject SerializableAsset => (ScriptableObject)NodeModel.GraphModel.AssetModel;
-        public IGraphAssetModel AssetModel => GraphModel?.AssetModel;
-        public IGraphModel GraphModel => NodeModel?.GraphModel;
+        public ScriptableObject SerializableAsset => (ScriptableObject)NodeModel.VSGraphModel.AssetModel;
+        public IGraphAssetModel AssetModel => VSGraphModel?.AssetModel;
+        public IGraphModel VSGraphModel => NodeModel?.VSGraphModel;
+        public IGTFGraphModel GraphModel => VSGraphModel as IGTFGraphModel;
 
         string m_Name;
 
@@ -63,11 +64,17 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             }
         }
 
+        public string Title
+        {
+            get => Name;
+            set => Name = value;
+        }
+
         INodeModel m_NodeModel;
 
         public INodeModel NodeModel
         {
-            get => m_NodeModel;
+            get => m_NodeModel as INodeModel;
             set
             {
                 if (value == m_NodeModel)
@@ -77,6 +84,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                 OnValueChanged?.Invoke();
             }
         }
+
+        IGTFNodeModel IGTFPortModel.NodeModel => m_NodeModel as IGTFNodeModel;
 
         public ConstantNodeModel EmbeddedValue
         {
@@ -97,7 +106,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         public IEnumerable<IPortModel> ConnectionPortModels
         {
-            get { Assert.IsNotNull(GraphModel, $"portModel {Name} has a null GraphModel reference"); return GraphModel.GetConnections(this); }
+            get { Assert.IsNotNull(GraphModel, $"portModel {Name} has a null GraphModel reference"); return VSGraphModel.GetConnections(this); }
         }
 
         PortType m_PortType;
@@ -130,17 +139,28 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             }
         }
 
-        // Give node model priority over self
-        public Port.Capacity Capacity => NodeModel?.GetPortCapacity(this) ?? GetDefaultCapacity();
+        // PF: Is Orientation ever set?
+        public Orientation Orientation { get; set; }
 
-        public bool Connected => ConnectionPortModels.Any();
+        // Give node model priority over self
+        public PortCapacity Capacity => NodeModel?.GetPortCapacity(this) ?? GetDefaultCapacity();
+
+        public bool IsConnected => ConnectionPortModels.Any();
+        public bool IsConnectedTo(IGTFPortModel port)
+        {
+            var edgeModels = VSGraphModel.EdgeModels.Where(e =>
+                e.InputPortModel == this && e.OutputPortModel == port ||
+                e.OutputPortModel == this && e.InputPortModel == port);
+            return edgeModels.Any();
+        }
+
+        IEnumerable<IGTFEdgeModel> IGTFPortModel.ConnectedEdges => ConnectedEdges.Cast<IGTFEdgeModel>();
+
+        public IEnumerable<IEdgeModel> ConnectedEdges => VSGraphModel.EdgeModels.Where(e => e.InputPortModel == this || e.OutputPortModel == this);
 
         public Action OnValueChanged { get; set; }
 
-        // Capabilities
-        public CapabilityFlags Capabilities => 0;
-
-        public TypeHandle DataType
+        public TypeHandle DataTypeHandle
         {
             get
             {
@@ -156,22 +176,33 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             }
         }
 
+        public Type PortDataType
+        {
+            get
+            {
+                var stencil = VSGraphModel.Stencil;
+                Type t = DataTypeHandle.Resolve(stencil);
+                t = t == typeof(void) || t.ContainsGenericParameters ? typeof(Unknown) : t;
+                return t;
+            }
+        }
+
         public override string ToString()
         {
             return $"Port {NodeModel}: {PortType} {Name}(id: {UniqueId ?? "\"\""})";
         }
 
-        public Port.Capacity GetDefaultCapacity()
+        public PortCapacity GetDefaultCapacity()
         {
             return (PortType == PortType.Data || PortType == PortType.Instance) ?
                 Direction == Direction.Input ?
-                Port.Capacity.Single :
-                Port.Capacity.Multi :
+                PortCapacity.Single :
+                PortCapacity.Multi :
                 (PortType == PortType.Execution || PortType == PortType.Loop) ?
                 Direction == Direction.Output ?
-                Port.Capacity.Single :
-                Port.Capacity.Multi :
-                Port.Capacity.Multi;
+                PortCapacity.Single :
+                PortCapacity.Multi :
+                PortCapacity.Multi;
         }
 
         public string GetId()
@@ -183,7 +214,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         {
             get
             {
-                Stencil stencil = NodeModel.GraphModel.Stencil;
+                Stencil stencil = NodeModel.VSGraphModel.Stencil;
 
                 // TODO: should TypHandle.Resolve do this for us?
                 // @THEOR SAID HE WOULD THINK ABOUT IT (written on CAPS DAY 2018)
@@ -193,7 +224,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                     return "type" + t.Name;
                 }
 
-                Type thisPortType = DataType.Resolve(stencil);
+                Type thisPortType = DataTypeHandle.Resolve(stencil);
 
                 if (thisPortType.IsSubclassOf(typeof(Component)))
                     return "typeComponent";
@@ -232,8 +263,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                         break;
                     case PortType.Data:
                     case PortType.Instance:
-                        var stencil = GraphModel.Stencil;
-                        newTooltip += $" of type {(DataType == TypeHandle.ThisType ? (NodeModel?.GraphModel)?.FriendlyScriptName : DataType.GetMetadata(stencil).FriendlyName)}";
+                        var stencil = VSGraphModel.Stencil;
+                        newTooltip += $" of type {(DataTypeHandle == TypeHandle.ThisType ? (NodeModel?.VSGraphModel)?.FriendlyScriptName : DataTypeHandle.GetMetadata(stencil).FriendlyName)}";
                         break;
                     case PortType.Event:
                         newTooltip += " event";

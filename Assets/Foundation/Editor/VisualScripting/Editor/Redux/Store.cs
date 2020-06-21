@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class Store : Store<State>
+    public class Store : Unity.GraphElements.Store<State>
     {
         public enum Options
         {
@@ -46,6 +46,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             StackReducers.Register(this);
             NodeReducers.Register(this);
             PlacematReducers.Register(this);
+            PortalReducers.Register(this);
             EdgeReducers.Register(this);
             VariableReducers.Register(this);
             PropertiesReducers.Register(this);

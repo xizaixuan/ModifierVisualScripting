@@ -8,15 +8,14 @@ using UnityEngine;
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
     [Serializable]
-    public abstract class StackBaseModel : NodeModel, IStackModel
+    public abstract class StackBaseModel : NodeModel, IStackModel, IGTFStackNodeModel
     {
         [SerializeReference]
         List<INodeModel> m_StackedNodeModels = new List<INodeModel>();
 
-        public override CapabilityFlags Capabilities => CapabilityFlags.Selectable | CapabilityFlags.Deletable |
-        CapabilityFlags.Movable | CapabilityFlags.DeletableWhenEmpty | CapabilityFlags.Copiable;
+        public override bool IsDeletable => !NodeModels.Any();
 
-        public virtual IFunctionModel OwningFunctionModel { get; set; }
+        public override bool IsDroppable => false;
 
         public IList<INodeModel> NodeModels => m_StackedNodeModels;
 
@@ -38,10 +37,10 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             return true;
         }
 
-        public IReadOnlyList<IPortModel> InputPorts => m_InputPorts;
+        public new IReadOnlyList<IPortModel> InputPorts => m_InputPorts;
         public override IReadOnlyList<IPortModel> InputsByDisplayOrder => InputPorts;
 
-        public IReadOnlyList<IPortModel> OutputPorts
+        public new IReadOnlyList<IPortModel> OutputPorts
         {
             get
             {
@@ -112,10 +111,9 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                     Undo.RegisterCompleteObjectUndo(SerializableAsset, "Unparent Node");
                     parentStack.RemoveStackedNode(nodeModel);
                     EditorUtility.SetDirty(SerializableAsset);
-                    if (deleteWhenEmpty && parentStack.Capabilities.HasFlag(CapabilityFlags.DeletableWhenEmpty) &&
+                    if (deleteWhenEmpty && parentStack.IsDeletable &&
                         parentStack != this &&
-                        !parentStack.GetConnectedNodes().Any() &&
-                        !parentStack.NodeModels.Any())
+                        !parentStack.GetConnectedNodes().Any())
                         ((VSGraphModel)GraphModel).DeleteNode(parentStack, GraphViewModel.GraphModel.DeleteConnections.True);
                 }
             }
@@ -146,7 +144,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
             bool insertedLast = index == -1 || m_StackedNodeModels.Count == 1 || index == m_StackedNodeModels.Count;
             if (insertedLast && ModelDelegatesOutputs(nodeModelInterface))
-                TransferConnections(GraphModel, m_OutputPorts, OutputPorts);
+                TransferConnections(VSGraphModel, m_OutputPorts, OutputPorts);
 
 
             vsGraphModel.LastChanges.ChangedElements.Add(nodeModel);
@@ -166,7 +164,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                 foreach (IEdgeModel edge in connections)
                 {
                     edgesToDelete.Add(edge);
-                    if (newPort != null && !newPort.Connected)
+                    if (newPort != null && !newPort.IsConnected)
                     {
                         ((GraphModel)graphModel).CreateEdge(edge.InputPortModel, newPort);
                     }
@@ -181,7 +179,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             ((NodeModel)nodeModel).ParentStackModel = null;
             int index = m_StackedNodeModels.IndexOf(nodeModel);
             if (edgeBehaviour == EdgeBehaviourOnRemove.Transfer && index == m_StackedNodeModels.Count - 1 && ModelDelegatesOutputs(nodeModel))
-                TransferConnections(GraphModel, OutputPorts, m_OutputPorts);
+                TransferConnections(VSGraphModel, OutputPorts, m_OutputPorts);
             m_StackedNodeModels.RemoveAt(index);
 
             VSGraphModel vsGraphModel = (VSGraphModel)GraphModel;

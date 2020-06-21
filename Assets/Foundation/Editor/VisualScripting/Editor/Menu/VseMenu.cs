@@ -15,12 +15,12 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_Store = store;
             m_GraphView = graphView;
             name = "vseMenu";
+            AddToClassList("gtf-toolbar");
             styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(PackageTransitionHelper.AssetPath + "VisualScripting/Editor/Menu/VseMenu.uss"));
 
             AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(PackageTransitionHelper.AssetPath + "VisualScripting/Editor/Menu/VseMenu.uxml").CloneTree(this);
 
             CreateCommonMenu();
-            CreateErrorMenu();
             CreateBreadcrumbMenu();
             CreateTracingMenu();
             CreateOptionsMenu();
@@ -31,15 +31,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             VSPreferences prefs = m_Store.GetState().Preferences;
             bool isEnabled = m_Store.GetState().CurrentGraphModel != null;
             UpdateCommonMenu(prefs, isEnabled);
-            UpdateErrorMenu(isEnabled);
             UpdateBreadcrumbMenu(isEnabled);
-            UpdateTracingMenu(false);
-        }
-
-        public void UpdateErrorMenu()
-        {
-            bool isEnabled = m_Store.GetState().CurrentGraphModel != null;
-            UpdateErrorMenu(isEnabled);
         }
     }
 }

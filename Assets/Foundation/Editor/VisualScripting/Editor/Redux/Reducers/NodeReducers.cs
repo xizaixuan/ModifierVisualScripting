@@ -15,10 +15,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             store.Register<DisconnectNodeAction>(DisconnectNode);
             store.Register<CreateNodeFromSearcherAction>(CreateNodeFromSearcher);
             store.Register<SetNodeEnabledStateAction>(SetNodeEnabledState);
-            store.Register<RefactorConvertToFunctionAction>(RefactorConvertToFunction);
-            store.Register<RefactorExtractMacroAction>(RefactorExtractMacro);
-            store.Register<RefactorExtractFunctionAction>(RefactorExtractFunction);
-            store.Register<CreateMacroRefAction>(CreateMacroRefNode);
+            store.Register<SetNodePositionAction>(SetPosition);
+            store.Register<SetNodeCollapsedAction>(SetCollapsed);
         }
 
         static State CreateNodeFromSearcher(State previousState, CreateNodeFromSearcherAction action)
@@ -57,58 +55,35 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             return previousState;
         }
 
-        static State RefactorConvertToFunction(State previousState, RefactorConvertToFunctionAction action)
+        static State SetPosition(State previousState, SetNodePositionAction action)
         {
-            var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            var newFunction = graphModel.ConvertNodeToFunction(action.NodeToConvert);
-            previousState.EditorDataModel.ElementModelToRename = newFunction;
-            previousState.MarkForUpdate(UpdateFlags.GraphTopology);
-            return previousState;
-        }
+            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Move");
 
-        static State RefactorExtractFunction(State previousState, RefactorExtractFunctionAction action)
-        {
-            var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            var newFunction = graphModel.ExtractNodesAsFunction(action.Selection);
-            previousState.EditorDataModel.ElementModelToRename = newFunction;
-            previousState.MarkForUpdate(UpdateFlags.GraphTopology);
-            return previousState;
-        }
-
-        static State RefactorExtractMacro(State previousState, RefactorExtractMacroAction action)
-        {
-            var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            INodeModel newMacro;
-
-            using (new AssetWatcher.Scope())
+            foreach (var model in action.Models)
             {
-                var assetName = string.IsNullOrEmpty(action.MacroPath)
-                    ? null
-                    : Path.GetFileNameWithoutExtension(action.MacroPath);
-                var macroGraphAssetModel = (VSGraphAssetModel)GraphAssetModel.Create(
-                    assetName, action.MacroPath, typeof(VSGraphAssetModel));
-                var macroGraph = macroGraphAssetModel.CreateVSGraph<MacroStencil>(assetName);
-
-                // A MacroStencil cannot be a parent stencil, so use its parent instead
-                var parentGraph = graphModel.Stencil is MacroStencil macroStencil
-                    ? macroStencil.ParentType
-                    : graphModel.Stencil.GetType();
-
-                ((MacroStencil)macroGraph.Stencil).SetParent(parentGraph, macroGraph);
-                Utility.SaveAssetIntoObject((Object)macroGraph.AssetModel, macroGraphAssetModel);
-                newMacro = graphModel.ExtractNodesAsMacro(macroGraph, action.Position, action.Selection);
-                AssetDatabase.SaveAssets();
+                if (model != null)
+                {
+                    model.Position = action.Value;
+                }
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, model);
             }
-            previousState.EditorDataModel.ElementModelToRename = newMacro;
-            previousState.MarkForUpdate(UpdateFlags.GraphTopology);
+
             return previousState;
         }
 
-        static State CreateMacroRefNode(State previousState, CreateMacroRefAction action)
+        static State SetCollapsed(State previousState, SetNodeCollapsedAction action)
         {
-            ((VSGraphModel)previousState.CurrentGraphModel).CreateMacroRefNode((VSGraphModel)action.GraphModel, action.Position);
+            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Collapse Node");
 
-            previousState.MarkForUpdate(UpdateFlags.GraphTopology /*, createdModel*/); // TODO support in partial rebuild
+            foreach (var model in action.Models)
+            {
+                if (model is ICollapsible nodeModel)
+                {
+                    nodeModel.Collapsed = action.Value;
+                }
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, model);
+            }
+
             return previousState;
         }
     }

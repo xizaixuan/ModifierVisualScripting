@@ -37,6 +37,8 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         }
 
         protected abstract void SetFromOther(object o);
+        public IGTFPortModel GTFInputPort => OutputPort.Direction == Direction.Input ? OutputPort as IGTFPortModel : null;
+        public IGTFPortModel GTFOutputPort => OutputPort.Direction == Direction.Output ? OutputPort as IGTFPortModel : null;
     }
 
     [Serializable]

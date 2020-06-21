@@ -4,6 +4,7 @@ using UnityEditor.Modifier.VisualScripting.Model;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
+    [PublicAPI]
     public static class GraphTemplateHelpers
     {
         public static void PromptToCreate(this ICreatableGraphTemplate template, Store store)
@@ -21,7 +22,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (path.Length != 0)
             {
                 string fileName = Path.GetFileNameWithoutExtension(path);
-                store.Dispatch(new CreateGraphAssetAction(stencilType, fileName, path, graphTemplate : template));
+                store.Dispatch(new CreateGraphAssetAction(stencilType, fileName, path, graphTemplate: template));
             }
         }
     }

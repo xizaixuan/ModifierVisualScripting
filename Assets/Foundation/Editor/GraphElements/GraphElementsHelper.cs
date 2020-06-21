@@ -31,12 +31,25 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        public static string StylesheetPath = PackageTransitionHelper.AssetPath + "GraphElements/Stylesheets/";
-        public static string TemplatePath = PackageTransitionHelper.AssetPath + "GraphElements/Templates/";
+        static string StylesheetPath = PackageTransitionHelper.AssetPath + "GraphElements/Stylesheets/";
+        static string NewLookStylesheetPath = PackageTransitionHelper.AssetPath + "GraphElements/Stylesheets/NewLook/";
+        static string TemplatePath = PackageTransitionHelper.AssetPath + "GraphElements/Templates/";
+        static internal bool UseNewStylesheets { get; set; } = false;
 
         public static void AddStylesheet(this VisualElement ve, string stylesheetName)
         {
-            var stylesheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(StylesheetPath + stylesheetName);
+            StyleSheet stylesheet = null;
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+            if (UseNewStylesheets)
+                stylesheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(NewLookStylesheetPath + stylesheetName);
+
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+            if (stylesheet == null)
+            {
+                stylesheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(StylesheetPath + stylesheetName);
+            }
+
             if (stylesheet != null)
             {
                 ve.styleSheets.Add(stylesheet);
@@ -56,6 +69,102 @@ namespace Unity.Modifier.GraphElements
             }
 
             return tpl;
+        }
+    }
+
+    static class StringUtilsExtensions
+    {
+        static readonly char NoDelimiter = '\0'; //invalid character
+
+        public static string ToPascalCase(this string text)
+        {
+            return ConvertCase(text, NoDelimiter, char.ToUpperInvariant, char.ToUpperInvariant);
+        }
+
+        public static string ToCamelCase(this string text)
+        {
+            return ConvertCase(text, NoDelimiter, char.ToLowerInvariant, char.ToUpperInvariant);
+        }
+
+        public static string ToKebabCase(this string text)
+        {
+            return ConvertCase(text, '-', char.ToLowerInvariant, char.ToLowerInvariant);
+        }
+
+        public static string ToTrainCase(this string text)
+        {
+            return ConvertCase(text, '-', char.ToUpperInvariant, char.ToUpperInvariant);
+        }
+
+        public static string ToSnakeCase(this string text)
+        {
+            return ConvertCase(text, '_', char.ToLowerInvariant, char.ToLowerInvariant);
+        }
+
+        static readonly char[] k_WordDelimiters = { ' ', '-', '_' };
+
+        static string ConvertCase(string text,
+            char outputWordDelimiter,
+            Func<char, char> startOfStringCaseHandler,
+            Func<char, char> middleStringCaseHandler)
+        {
+            if (text == null)
+            {
+                throw new ArgumentNullException(nameof(text));
+            }
+
+            var builder = new StringBuilder();
+
+            bool startOfString = true;
+            bool startOfWord = true;
+            bool outputDelimiter = true;
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char c = text[i];
+                if (((IList)k_WordDelimiters).Contains(c))
+                {
+                    if (c == outputWordDelimiter)
+                    {
+                        builder.Append(outputWordDelimiter);
+                        //we disable the delimiter insertion
+                        outputDelimiter = false;
+                    }
+                    startOfWord = true;
+                }
+                else if (!char.IsLetterOrDigit(c))
+                {
+                    startOfString = true;
+                    startOfWord = true;
+                }
+                else
+                {
+                    if (startOfWord || char.IsUpper(c))
+                    {
+                        if (startOfString)
+                        {
+                            builder.Append(startOfStringCaseHandler(c));
+                        }
+                        else
+                        {
+                            if (outputDelimiter && outputWordDelimiter != NoDelimiter)
+                            {
+                                builder.Append(outputWordDelimiter);
+                            }
+                            builder.Append(middleStringCaseHandler(c));
+                            outputDelimiter = true;
+                        }
+                        startOfString = false;
+                        startOfWord = false;
+                    }
+                    else
+                    {
+                        builder.Append(c);
+                    }
+                }
+            }
+
+            return builder.ToString();
         }
     }
 }

@@ -9,7 +9,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model
 {
     public class CSharpTypeBasedMetadata : ITypeMetadata
     {
-        readonly CSharpTypeSerializer m_Serializer;
         readonly GraphContext m_MemberConstrainer;
         readonly Type m_Type;
 
@@ -18,7 +17,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                                        TypeHandle typeHandle, Type type)
         {
             TypeHandle = typeHandle;
-            m_Serializer = memberConstrainer.CSharpTypeSerializer;
             m_MemberConstrainer = memberConstrainer;
             m_Type = type;
         }
@@ -33,7 +31,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         public bool IsValueType => m_Type.IsValueType;
 
         public IEnumerable<TypeHandle> GenericArguments => m_Type.GenericTypeArguments
-        .Select(t => m_Serializer.GenerateTypeHandle(t));
+        .Select(CSharpTypeSerializer.GenerateTypeHandle);
         public List<MemberInfoValue> PublicMembers => MemberInfoDtos(BindingFlags.Public | BindingFlags.Instance);
         public List<MemberInfoValue> NonPublicMembers => MemberInfoDtos(BindingFlags.NonPublic | BindingFlags.Instance);
 
@@ -77,7 +75,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                 if (IsObsolete(memberInfo) || IsCompilerGenerated(memberInfo))
                     continue;
 
-                var memberInfoDto = memberInfo.ToMemberInfoValue(m_Serializer);
+                var memberInfoDto = memberInfo.ToMemberInfoValue();
                 if (MemberAllowed(memberInfoDto))
                     yield return memberInfoDto;
             }

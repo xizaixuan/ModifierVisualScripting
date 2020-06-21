@@ -2,10 +2,9 @@
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
-    public interface IGraphAssetModel : IDisposable
+    public interface IGraphAssetModel : IGTFGraphAssetModel
     {
         string Name { get; }
-        IGraphModel GraphModel { get; }
 
         bool IsSameAsset(IGraphAssetModel otherGraphAssetModel);
     }

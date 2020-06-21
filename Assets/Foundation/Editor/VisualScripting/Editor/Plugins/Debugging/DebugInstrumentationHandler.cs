@@ -26,15 +26,30 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
         Stopwatch m_Stopwatch;
         bool m_ForceUpdate;
 
-        public void Register(Store store, GraphView graphView)
+        private TracingToolbar m_TimelineToolbar;
+
+        public void Register(Store store, VseWindow window)
         {
             m_Store = store;
-            m_GraphView = graphView;
+            m_GraphView = window.GraphView;
             EditorApplication.update += OnUpdate;
             EditorApplication.pauseStateChanged += OnEditorPauseStateChanged;
             EditorApplication.playModeStateChanged += OnEditorPlayModeStateChanged;
             m_Store.StateChanged += OnStateChangeUpdate;
-            m_Store.GetState().CurrentGraphModel?.Stencil?.Debugger?.Start();
+            m_Store.GetState().CurrentGraphModel?.Stencil?.Debugger?.Start(m_Store.GetState().CurrentGraphModel, m_Store.GetState().EditorDataModel.TracingEnabled);
+
+            var root = window.rootVisualElement;
+            if (m_TimelineToolbar == null)
+            {
+                m_TimelineToolbar = root.Q<TracingToolbar>();
+                if (m_TimelineToolbar == null)
+                {
+                    m_TimelineToolbar = new TracingToolbar(m_GraphView, store);
+                }
+            }
+
+            if (m_TimelineToolbar.parent != root)
+                root.Insert(1, m_TimelineToolbar);
         }
 
         public void Unregister()
@@ -46,9 +61,65 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
             EditorApplication.playModeStateChanged -= OnEditorPlayModeStateChanged;
             m_Store.StateChanged -= OnStateChangeUpdate;
             m_Store.GetState().CurrentGraphModel?.Stencil?.Debugger?.Stop();
+            m_TimelineToolbar?.RemoveFromHierarchy();
         }
 
-        public void OptionsMenu(GenericMenu menu) { }
+        public void OptionsMenu(GenericMenu menu)
+        {
+            menu.AddItem(new GUIContent("Dump Frame Trace"), false, DumpFrameTrace);
+        }
+
+        private void DumpFrameTrace()
+        {
+            var state = m_Store.GetState();
+            var currentGraphModel = state?.CurrentGraphModel;
+            var debugger = currentGraphModel?.Stencil?.Debugger;
+            if (state == null || debugger == null)
+                return;
+
+            if (debugger.GetTracingSteps(currentGraphModel, state.CurrentTracingFrame, state.CurrentTracingTarget,
+                out var stepList))
+            {
+                try
+                {
+                    var searcherItems = stepList.Select(MakeStepItem).ToList();
+                    SearcherWindow.Show(EditorWindow.focusedWindow, searcherItems, "Steps", item =>
+                    {
+                        if (item != null)
+                            state.CurrentTracingStep = ((StepSearcherItem)item).Index;
+                        return true;
+                    }, Vector2.zero);
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
+            }
+            else
+                Debug.Log("No frame data");
+
+            SearcherItem MakeStepItem(TracingStep step, int i)
+            {
+                return new StepSearcherItem(step, i);
+            }
+        }
+
+        class StepSearcherItem : SearcherItem
+        {
+            public readonly TracingStep Step;
+            public readonly int Index;
+
+            public StepSearcherItem(TracingStep step, int i) : base(GetName(step), "asdasd")
+            {
+                Step = step;
+                Index = i;
+            }
+
+            private static string GetName(TracingStep step)
+            {
+                return $"{step.Type} {step.NodeModel} {step.PortModel}";
+            }
+        }
 
         void OnStateChangeUpdate()
         {
@@ -59,6 +130,16 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
 
         void OnUpdate()
         {
+            if (m_TimelineToolbar == null)
+                return;
+            if (EditorApplication.isPlaying && !EditorApplication.isPaused)
+            {
+                m_Store.GetState().CurrentTracingFrame = Time.frameCount;
+            }
+
+            m_TimelineToolbar.UpdateTracingMenu();
+
+            m_TimelineToolbar?.SyncVisible();
             if (!IsDirty())
                 return;
 
@@ -100,8 +181,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
 
             var state = m_Store.GetState();
             var currentGraphModel = state?.CurrentGraphModel;
-            var graph = currentGraphModel?.AssetModel;
-            var debugger = graph?.GraphModel?.Stencil?.Debugger;
+            var debugger = currentGraphModel?.Stencil?.Debugger;
             if (state == null || debugger == null)
                 return;
 
@@ -161,6 +241,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
                     }
                 }
             }
+            m_GraphView.schedule.Execute(() =>
+                m_GraphView.edges.ForEach(e => e.MarkDirtyRepaint())).StartingIn(1);
         }
 
         void DisplayStepValues(TracingStep step, Dictionary<IGraphElementModel, GraphElement> modelsToNodeUiMapping)
@@ -171,7 +253,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
                     // Do Nothing, already handled in HighlightTrace()
                     break;
                 case TracingStepType.TriggeredPort:
-                    var p = GetPortFromPortModel(step.PortModel, (Unity.Modifier.GraphElements.Node)modelsToNodeUiMapping[step.NodeModel]);
+                    var p = (step.PortModel as IGTFPortModel).GetUI<Port>(m_GraphView);
                     p.ExecutionPortActive = true;
                     break;
                 case TracingStepType.WrittenValue:
@@ -194,23 +276,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
             {
                 if (m_PauseState == PauseState.Paused || m_PlayState == PlayModeStateChange.EnteredEditMode)
                 {
-                    var p = GetPortFromPortModel(port, (Unity.Modifier.GraphElements.Node)nodeUi);
+                    var p = (port as IGTFPortModel).GetUI<Port>(m_GraphView);
                     if (p == null)
                         return;
-                    VisualElement cap = p.Q(className: "connectorCap");
-                    ((VseGraphView)m_GraphView).UIController.AttachValue(p, cap, valueReadableValue, p.portColor, port.Direction == Direction.Output ? SpriteAlignment.BottomRight : SpriteAlignment.BottomLeft);
+                    VisualElement cap = p.Q(className: "port-connector__cap");
+                    var color = p.PortColor;
+                    ((VseGraphView)m_GraphView).UIController.AttachValue(p, cap, valueReadableValue, color, port.Direction == Direction.Output ? SpriteAlignment.BottomRight : SpriteAlignment.BottomLeft);
                 }
             }
-        }
-
-        private static Port GetPortFromPortModel(IPortModel port, Unity.Modifier.GraphElements.Node nodeUi)
-        {
-            Unity.Modifier.GraphElements.Node n = nodeUi;
-            var portContainer = port.Direction == Direction.Output ? n.outputContainer : n.inputContainer;
-            Port p = portContainer.childCount > 0
-                ? portContainer.Query<Port>().Where(x => x.Model == port).First()
-                : null;
-            return p;
         }
 
         void AddStyleClassToModel(TracingStep step, IReadOnlyDictionary<IGraphElementModel, GraphElement> modelsToNodeUiMapping, string highlightStyle)

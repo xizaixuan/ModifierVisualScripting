@@ -52,7 +52,10 @@ namespace Unity.Modifier.GraphElements
 
         public float extent
         {
-            get { return m_Extent; }
+            get
+            {
+                return m_Extent;
+            }
             set
             {
                 if (m_Extent == value)
@@ -64,7 +67,10 @@ namespace Unity.Modifier.GraphElements
 
         public float height
         {
-            get { return m_Height; }
+            get
+            {
+                return m_Height;
+            }
             set
             {
                 if (m_Height == value)

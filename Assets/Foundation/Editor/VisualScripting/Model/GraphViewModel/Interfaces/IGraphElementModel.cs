@@ -12,11 +12,11 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         IGraphElementModel Clone();
     }
 
-    public interface IGraphElementModel : ICapabilitiesModel
+    public interface IGraphElementModel
     {
         ScriptableObject SerializableAsset { get; }
         IGraphAssetModel AssetModel { get; }
-        IGraphModel GraphModel { get; }
+        IGraphModel VSGraphModel { get; }
 
         // TODO replace with GUID everywhere and merge IGraphElementModelWithGuid
         string GetId();

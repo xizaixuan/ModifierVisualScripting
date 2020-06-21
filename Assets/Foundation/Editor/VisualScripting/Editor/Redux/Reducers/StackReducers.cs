@@ -20,22 +20,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             store.Register<MergeStackAction>(MergeStack);
             store.Register<ChangeStackedNodeAction>(ChangeStackedNode);
             store.Register<CreateStackedNodeFromSearcherAction>(CreateStackedNodeFromSearcher);
-            store.Register<UpdateFunctionReturnTypeAction>(UpdateFunctionReturnType);
-        }
-
-        static State UpdateFunctionReturnType(State previousState, UpdateFunctionReturnTypeAction action)
-        {
-            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Update Function Return Type");
-            ((FunctionModel)action.FunctionModel).ReturnType = action.NewType;
-            IGraphChangeList graphChangeList = previousState.CurrentGraphModel.LastChanges;
-            graphChangeList.ChangedElements.Add(action.FunctionModel);
-            graphChangeList.ChangedElements.AddRange(((FunctionModel)action.FunctionModel).FindFunctionUsages(previousState.CurrentGraphModel));
-
-            // Not pretty but efficient. Needed to add/remove/update the return value port of the node according to the function type
-            foreach (var returnNodeModel in ((VSGraphModel)action.FunctionModel.GraphModel).GetAllNodes().OfType<ReturnNodeModel>())
-                returnNodeModel.DefineNode();
-
-            return previousState;
         }
 
         static State CreateStackedNodeFromSearcher(State previousState,
@@ -127,9 +111,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 var parentStack = (StackBaseModel)action.StackModel;
                 graphModel.DeleteNode(action.OldNodeModel, GraphModel.DeleteConnections.False);
 
-                if (parentStack.Capabilities.HasFlag(CapabilityFlags.DeletableWhenEmpty) &&
-                    parentStack != (StackBaseModel)action.StackModel &&
-                    !parentStack.NodeModels.Any())
+                if (parentStack.IsDeletable &&
+                    parentStack != (StackBaseModel)action.StackModel)
                     graphModel.DeleteNode(parentStack, GraphModel.DeleteConnections.True);
             }
             return previousState;

@@ -10,6 +10,43 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     public static class UICreationHelper
     {
+        public static void LoadTemplateAndStylesheet(VisualElement container, string name, string rootClassName)
+        {
+            if (name != null && container != null)
+            {
+                var tpl = LoadUXML(name + ".uxml");
+                tpl.CloneTree(container);
+                container.AddStylesheet(name + ".uss");
+#if !UNITY_2020_1_OR_NEWER
+                container.AddToClassList(rootClassName);
+#endif
+            }
+        }
+
+        public static void AddStylesheet(this VisualElement ve, string stylesheetName)
+        {
+            var stylesheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(templatePath + stylesheetName);
+            if (stylesheet != null)
+            {
+                ve.styleSheets.Add(stylesheet);
+            }
+            else
+            {
+                Debug.Log("Failed to load stylesheet " + templatePath + stylesheetName);
+            }
+        }
+
+        public static VisualTreeAsset LoadUXML(string uxmlName)
+        {
+            var tpl = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(templatePath + uxmlName);
+            if (tpl == null)
+            {
+                Debug.Log("Failed to load template " + templatePath + uxmlName);
+            }
+
+            return tpl;
+        }
+
         static Dictionary<string, Func<object, Store, VisualElement>> s_Factories;
 
         static void RegisterFactory(string fullTypeName, Func<object, Store, VisualElement> factory)

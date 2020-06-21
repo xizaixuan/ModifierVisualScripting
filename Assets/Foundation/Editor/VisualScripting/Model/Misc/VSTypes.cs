@@ -15,10 +15,9 @@ namespace UnityEditor.Modifier.VisualScripting.Model
 
     public enum VariableType
     {
-        FunctionVariable,
         GraphVariable,
-        FunctionParameter,
         ComponentQueryField,
+        EdgePortal
     }
 
     [Flags]

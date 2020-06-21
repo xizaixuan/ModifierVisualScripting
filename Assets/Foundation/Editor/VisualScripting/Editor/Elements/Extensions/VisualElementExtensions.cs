@@ -16,7 +16,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.ConstantEditor
         {
             VisualElement editorElement;
 
-            var ext = ModelUtility.ExtensionMethodCache<IConstantEditorBuilder>.GetExtensionMethod(model.GetType(), ConstantEditorBuilder.FilterMethods, ConstantEditorBuilder.KeySelector);
+            var ext = ExtensionMethodCache<IConstantEditorBuilder>.GetExtensionMethod(model.GetType(), ConstantEditorBuilder.FilterMethods, ConstantEditorBuilder.KeySelector);
             var graphAsset = model.AssetModel;
             if (ext != null)
             {

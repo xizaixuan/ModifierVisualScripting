@@ -11,67 +11,34 @@ using UnityEngine.Assertions;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class CreateNodeFromLoopPortAction : IAction
-    {
-        public readonly IPortModel PortModel;
-        public readonly Vector2 Position;
-        public readonly IEnumerable<IEdgeModel> EdgesToDelete;
-
-        public CreateNodeFromLoopPortAction(IPortModel portModel, Vector2 position, IEnumerable<IEdgeModel> edgesToDelete = null)
-        {
-            PortModel = portModel;
-            Position = position;
-            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IEdgeModel>();
-        }
-    }
-
     public class CreateNodeFromExecutionPortAction : IAction
     {
         public readonly IPortModel PortModel;
         public readonly Vector2 Position;
-        public readonly IEnumerable<IEdgeModel> EdgesToDelete;
+        public readonly IEnumerable<IGTFEdgeModel> EdgesToDelete;
 
-        public CreateNodeFromExecutionPortAction(IPortModel portModel, Vector2 position, IEnumerable<IEdgeModel> edgesToDelete = null)
+        public CreateNodeFromExecutionPortAction(IPortModel portModel, Vector2 position, IEnumerable<IGTFEdgeModel> edgesToDelete = null)
         {
             PortModel = portModel;
             Position = position;
-            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IEdgeModel>();
-        }
-    }
-
-    public class CreateInsertLoopNodeAction : IAction
-    {
-        public readonly IPortModel PortModel;
-        public readonly IStackModel StackModel;
-        public readonly LoopStackModel LoopStackModel;
-        public readonly int Index;
-        public readonly IEnumerable<IEdgeModel> EdgesToDelete;
-
-        public CreateInsertLoopNodeAction(IPortModel portModel, IStackModel stackModel, int index,
-                                          LoopStackModel loopStackModel, IEnumerable<IEdgeModel> edgesToDelete = null)
-        {
-            PortModel = portModel;
-            StackModel = stackModel;
-            Index = index;
-            LoopStackModel = loopStackModel;
-            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IEdgeModel>();
+            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IGTFEdgeModel>();
         }
     }
 
     public class CreateNodeFromInputPortAction : IAction
     {
         public readonly IPortModel PortModel;
-        public readonly IEnumerable<IEdgeModel> EdgesToDelete;
+        public readonly IEnumerable<IGTFEdgeModel> EdgesToDelete;
         public readonly Vector2 Position;
         public readonly GraphNodeModelSearcherItem SelectedItem;
 
         public CreateNodeFromInputPortAction(IPortModel portModel, Vector2 position,
-                                             GraphNodeModelSearcherItem selectedItem, IEnumerable<IEdgeModel> edgesToDelete = null)
+                                             GraphNodeModelSearcherItem selectedItem, IEnumerable<IGTFEdgeModel> edgesToDelete = null)
         {
             PortModel = portModel;
             Position = position;
             SelectedItem = selectedItem;
-            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IEdgeModel>();
+            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IGTFEdgeModel>();
         }
     }
 
@@ -81,16 +48,16 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public readonly IStackModel StackModel;
         public readonly int Index;
         public readonly StackNodeModelSearcherItem SelectedItem;
-        public readonly IEnumerable<IEdgeModel> EdgesToDelete;
+        public readonly IEnumerable<IGTFEdgeModel> EdgesToDelete;
 
         public CreateStackedNodeFromOutputPortAction(IPortModel portModel, IStackModel stackModel, int index,
-                                                     StackNodeModelSearcherItem selectedItem, IEnumerable<IEdgeModel> edgesToDelete = null)
+                                                     StackNodeModelSearcherItem selectedItem, IEnumerable<IGTFEdgeModel> edgesToDelete = null)
         {
             PortModel = portModel;
             StackModel = stackModel;
             Index = index;
             SelectedItem = selectedItem;
-            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IEdgeModel>();
+            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IGTFEdgeModel>();
         }
     }
 
@@ -99,42 +66,15 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public readonly IPortModel PortModel;
         public readonly Vector2 Position;
         public readonly GraphNodeModelSearcherItem SelectedItem;
-        public readonly IEnumerable<IEdgeModel> EdgesToDelete;
+        public readonly IEnumerable<IGTFEdgeModel> EdgesToDelete;
 
         public CreateNodeFromOutputPortAction(IPortModel portModel, Vector2 position,
-                                              GraphNodeModelSearcherItem selectedItem, IEnumerable<IEdgeModel> edgesToDelete = null)
+                                              GraphNodeModelSearcherItem selectedItem, IEnumerable<IGTFEdgeModel> edgesToDelete = null)
         {
             PortModel = portModel;
             Position = position;
             SelectedItem = selectedItem;
-            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IEdgeModel>();
-        }
-    }
-
-    public class CreateEdgeAction : IAction
-    {
-        [Flags]
-        public enum PortAlignmentType
-        {
-            None = 0,
-            Input = 1,
-            Output = 2,
-        }
-
-        public readonly IPortModel InputPortModel;
-        public readonly IPortModel OutputPortModel;
-        public readonly IEnumerable<IEdgeModel> EdgeModelsToDelete;
-        public readonly PortAlignmentType PortAlignment;
-
-        public CreateEdgeAction(IPortModel inputPortModel, IPortModel outputPortModel,
-                                IEnumerable<IEdgeModel> edgeModelsToDelete = null, PortAlignmentType portAlignment = PortAlignmentType.None)
-        {
-            Assert.IsTrue(inputPortModel.Direction == Direction.Input);
-            Assert.IsTrue(outputPortModel.Direction == Direction.Output);
-            InputPortModel = inputPortModel;
-            OutputPortModel = outputPortModel;
-            EdgeModelsToDelete = edgeModelsToDelete;
-            PortAlignment = portAlignment;
+            EdgesToDelete = edgesToDelete ?? Enumerable.Empty<IGTFEdgeModel>();
         }
     }
 
@@ -167,57 +107,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         }
     }
 
-    public class AddControlPointOnEdgeAction : IAction
+    public class ConvertEdgesToPortalsAction : IAction
     {
-        public readonly IEdgeModel EdgeModel;
-        public readonly int AtIndex;
-        public readonly Vector2 Position;
+        public readonly IReadOnlyCollection<(IEdgeModel edge, Vector2 startPortPos, Vector2 endPortPos)> EdgeData;
 
-        public AddControlPointOnEdgeAction(IEdgeModel edgeModel, int atIndex, Vector2 position)
+        public ConvertEdgesToPortalsAction(IReadOnlyCollection<(IEdgeModel, Vector2, Vector2)> edgeData)
         {
-            EdgeModel = edgeModel;
-            AtIndex = atIndex;
-            Position = position;
-        }
-    }
-
-    public class MoveEdgeControlPointAction : IAction
-    {
-        public readonly IEdgeModel EdgeModel;
-        public readonly int EdgeIndex;
-        public readonly Vector2 NewPosition;
-        public readonly float NewTightness;
-
-        public MoveEdgeControlPointAction(IEdgeModel edgeModel, int edgeIndex, Vector2 newPosition, float newTightness)
-        {
-            EdgeModel = edgeModel;
-            EdgeIndex = edgeIndex;
-            NewPosition = newPosition;
-            NewTightness = newTightness;
-        }
-    }
-
-    public class RemoveEdgeControlPointAction : IAction
-    {
-        public readonly IEdgeModel EdgeModel;
-        public readonly int EdgeIndex;
-
-        public RemoveEdgeControlPointAction(IEdgeModel edgeModel, int edgeIndex)
-        {
-            EdgeModel = edgeModel;
-            EdgeIndex = edgeIndex;
-        }
-    }
-
-    public class SetEdgeEditModeAction : IAction
-    {
-        public readonly IEdgeModel EdgeModel;
-        public readonly bool Value;
-
-        public SetEdgeEditModeAction(IEdgeModel edgeModel, bool value)
-        {
-            EdgeModel = edgeModel;
-            Value = value;
+            EdgeData = edgeData;
         }
     }
 }

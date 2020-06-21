@@ -12,7 +12,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
     {
         public readonly List<Tuple<IVariableDeclarationModel, Vector2>> VariablesToCreate;
         public readonly IPortModel ConnectAfterCreation;
-        public readonly IEnumerable<IEdgeModel> EdgeModelsToDelete;
+        public readonly IEnumerable<IGTFEdgeModel> EdgeModelsToDelete;
         public readonly bool AutoAlign;
 
         public CreateVariableNodesAction(List<Tuple<IVariableDeclarationModel, Vector2>> variablesToCreate, bool autoAlign = false)
@@ -21,7 +21,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             AutoAlign = autoAlign;
         }
 
-        public CreateVariableNodesAction(IVariableDeclarationModel graphElementModel, Vector2 mousePosition, IEnumerable<IEdgeModel> edgeModelsToDelete = null, IPortModel connectAfterCreation = null, bool autoAlign = false)
+        public CreateVariableNodesAction(IVariableDeclarationModel graphElementModel, Vector2 mousePosition, IEnumerable<IGTFEdgeModel> edgeModelsToDelete = null, IPortModel connectAfterCreation = null, bool autoAlign = false)
         {
             VariablesToCreate = new List<Tuple<IVariableDeclarationModel, Vector2>>();
             VariablesToCreate.Add(Tuple.Create(graphElementModel, mousePosition));
@@ -83,46 +83,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         }
     }
 
-    public class CreateFunctionVariableDeclarationAction : IAction
-    {
-        public readonly IFunctionModel FunctionModel;
-        public readonly string Name;
-        public readonly TypeHandle Type;
-
-        public CreateFunctionVariableDeclarationAction(IFunctionModel functionModel, string name, TypeHandle type)
-        {
-            FunctionModel = functionModel;
-            Name = name;
-            Type = type;
-        }
-    }
-
-    public class CreateFunctionParameterDeclarationAction : IAction
-    {
-        public readonly IFunctionModel FunctionModel;
-        public readonly string Name;
-        public readonly TypeHandle Type;
-
-        public CreateFunctionParameterDeclarationAction(IFunctionModel functionModel, string name, TypeHandle type)
-        {
-            FunctionModel = functionModel;
-            Name = name;
-            Type = type;
-        }
-    }
-
-    public class DuplicateFunctionVariableDeclarationsAction : IAction
-    {
-        public readonly IFunctionModel FunctionModel;
-        public readonly List<IVariableDeclarationModel> VariableDeclarationModels;
-
-        public DuplicateFunctionVariableDeclarationsAction(IFunctionModel functionModel, List<IVariableDeclarationModel> variableDeclarationModels)
-        {
-            FunctionModel = functionModel;
-            VariableDeclarationModels = variableDeclarationModels;
-        }
-    }
-
     public class DuplicateGraphVariableDeclarationsAction : IAction
     {
         public readonly List<IVariableDeclarationModel> VariableDeclarationModels;
@@ -174,6 +134,18 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             VariableDeclarationModel = variableDeclarationModel;
             Destination = destination;
+        }
+    }
+
+    public class ReorderVariableDeclarationAction : IAction
+    {
+        public readonly IVariableDeclarationModel VariableDeclarationModel;
+        public readonly int Index;
+
+        public ReorderVariableDeclarationAction(IVariableDeclarationModel variableDeclarationModel, int index)
+        {
+            VariableDeclarationModel = variableDeclarationModel;
+            Index = index;
         }
     }
 

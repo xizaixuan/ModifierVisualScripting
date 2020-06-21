@@ -6,9 +6,37 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     [StructLayout(LayoutKind.Explicit)]
     [Serializable]
-    public struct SerializableGUID
+    public struct SerializableGUID : IEquatable<SerializableGUID>
     {
         public static SerializableGUID FromParts(ulong a, ulong b) => new SerializableGUID { m_Value0 = a, m_Value1 = b };
+
+        public bool Equals(SerializableGUID other)
+        {
+            return m_Value0 == other.m_Value0 && m_Value1 == other.m_Value1;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is SerializableGUID other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (m_Value0.GetHashCode() * 397) ^ m_Value1.GetHashCode();
+            }
+        }
+
+        public static bool operator ==(SerializableGUID left, SerializableGUID right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(SerializableGUID left, SerializableGUID right)
+        {
+            return !left.Equals(right);
+        }
 
         public void ToParts(out ulong a, out ulong b)
         {

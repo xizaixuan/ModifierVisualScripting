@@ -31,7 +31,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         }
     }
 
-    [GraphtoolsExtensionMethods]
+    [GraphElementsExtensionMethodsCache]
     public static class LogTranslator
     {
         public static IEnumerable<SyntaxNode> Build(this RoslynTranslator translator, LogNodeModel model,

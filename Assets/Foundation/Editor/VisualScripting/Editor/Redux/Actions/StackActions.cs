@@ -101,16 +101,4 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             Guids = guids;
         }
     }
-
-    public class UpdateFunctionReturnTypeAction : IAction
-    {
-        public readonly IFunctionModel FunctionModel;
-        public readonly TypeHandle NewType;
-
-        public UpdateFunctionReturnTypeAction(IFunctionModel functionModel, TypeHandle newType)
-        {
-            FunctionModel = functionModel;
-            NewType = newType;
-        }
-    }
 }

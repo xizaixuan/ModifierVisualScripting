@@ -511,7 +511,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
         public static SyntaxNode GetProperty(RoslynTranslator translator, IPortModel instancePortModel,
             params string[] members)
         {
-            ExpressionSyntax instance = instancePortModel.Connected
+            ExpressionSyntax instance = instancePortModel.IsConnected
                 ? translator.BuildPort(instancePortModel).FirstOrDefault() as ExpressionSyntax
                 : SyntaxFactory.ThisExpression();
 
@@ -538,7 +538,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
         public static SyntaxNode SetProperty(RoslynTranslator translator, AssignmentKind kind,
             IPortModel instancePortModel, IPortModel valuePortModel, params string[] members)
         {
-            ExpressionSyntax instance = instancePortModel.Connected
+            ExpressionSyntax instance = instancePortModel.IsConnected
                 ? translator.BuildPort(instancePortModel).FirstOrDefault() as ExpressionSyntax
                 : SyntaxFactory.ThisExpression();
             ExpressionSyntax value = translator.BuildPort(valuePortModel).FirstOrDefault() as ExpressionSyntax;

@@ -11,7 +11,7 @@ using Object = UnityEngine.Object;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
-    public abstract class GraphModel : IGraphModel
+    public abstract class GraphModel : IGraphModel, IGTFGraphModel
     {
         [SerializeField]
         ModelState m_State;
@@ -36,6 +36,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         const float k_IOVerticalOffset = 40;
 
         public abstract IList<VariableDeclarationModel> VariableDeclarations { get; }
+
+        public abstract IList<VariableDeclarationModel> PortalDeclarations { get; }
 
         public GraphChangeList LastChanges
         {
@@ -82,8 +84,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         public IReadOnlyList<INodeModel> NodeModels => m_GraphNodeModels;
         public IReadOnlyList<IEdgeModel> EdgeModels => m_EdgeModels;
-        public IEnumerable<IStickyNoteModel> StickyNoteModels => m_StickyNoteModels;
-        public IEnumerable<IPlacematModel> PlacematModels => m_PlacematModels;
+        public IReadOnlyList<IStickyNoteModel> StickyNoteModels => m_StickyNoteModels;
+        public IReadOnlyList<IPlacematModel> PlacematModels => m_PlacematModels;
 
         public Stencil Stencil
         {
@@ -193,8 +195,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                 Undo.RegisterCompleteObjectUndo(m_AssetModel, "RemoveNode");
                 parentStack.RemoveStackedNode(model, deleteConnections == DeleteConnections.False ? StackBaseModel.EdgeBehaviourOnRemove.Transfer : StackBaseModel.EdgeBehaviourOnRemove.Ignore);
                 EditorUtility.SetDirty(m_AssetModel);
-                if (deleteWhenEmpty && parentStack.Capabilities.HasFlag(CapabilityFlags.DeletableWhenEmpty) &&
-                    !parentStack.NodeModels.Any())
+                if (deleteWhenEmpty && parentStack.IsDeletable)
                     DeleteNode(parentStack, DeleteConnections.True);
             }
             else
@@ -231,6 +232,11 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             nodeModel.Move(newPosition);
         }
 
+        public IGTFEdgeModel CreateEdgeGTF(IGTFPortModel inputPort, IGTFPortModel outputPort)
+        {
+            return CreateEdge(inputPort as IPortModel, outputPort as IPortModel) as IGTFEdgeModel;
+        }
+
         public IEdgeModel CreateEdge(IPortModel inputPort, IPortModel outputPort)
         {
             var existing = EdgesConnectedToPorts(inputPort, outputPort);
@@ -264,7 +270,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         void AddEdge(IEdgeModel edgeModel, IPortModel inputPort, IPortModel outputPort)
         {
             Undo.RegisterCompleteObjectUndo(m_AssetModel, "Add Edge");
-            ((EdgeModel)edgeModel).GraphModel = this;
+            ((EdgeModel)edgeModel).VSGraphModel = this;
             m_EdgeModels.Add((EdgeModel)edgeModel);
             LastChanges?.ChangedElements.Add(edgeModel);
             LastChanges?.ChangedElements.Add(inputPort.NodeModel);
@@ -273,7 +279,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         public void DeleteEdge(IPortModel input, IPortModel output)
         {
-            DeleteEdges(m_EdgeModels.Where(x => x.InputPortModel == input && x.OutputPortModel == output));
+            DeleteEdges(m_EdgeModels.Where(x => x.ToPort == input && x.FromPort == output));
         }
 
         public void DeleteEdge(IEdgeModel edgeModel)
@@ -281,8 +287,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             Undo.RegisterCompleteObjectUndo(m_AssetModel, "Delete Edge");
             var model = (EdgeModel)edgeModel;
 
-            edgeModel.InputPortModel?.NodeModel.OnDisconnection(edgeModel.InputPortModel, edgeModel.OutputPortModel);
-            edgeModel.OutputPortModel?.NodeModel.OnDisconnection(edgeModel.OutputPortModel, edgeModel.InputPortModel);
+            edgeModel.InputPortModel?.NodeModel?.OnDisconnection(edgeModel.InputPortModel, edgeModel.OutputPortModel);
+            edgeModel.OutputPortModel?.NodeModel?.OnDisconnection(edgeModel.OutputPortModel, edgeModel.InputPortModel);
 
             LastChanges?.ChangedElements.Add(edgeModel.InputPortModel?.NodeModel);
             LastChanges?.ChangedElements.Add(edgeModel.OutputPortModel?.NodeModel);
@@ -302,6 +308,28 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                 DeleteEdge(edgeModel);
         }
 
+        public void DeleteElements(IEnumerable<IGTFGraphElementModel> graphElementModels)
+        {
+            foreach (var model in graphElementModels)
+            {
+                switch (model)
+                {
+                    case INodeModel nodeModel:
+                        m_GraphNodeModels.Remove(nodeModel);
+                        break;
+                    case EdgeModel edgeModel:
+                        m_EdgeModels.Remove(edgeModel);
+                        break;
+                    case StickyNoteModel stickyNoteModel:
+                        m_StickyNoteModels.Remove(stickyNoteModel);
+                        break;
+                    case PlacematModel placematModel:
+                        m_PlacematModels.Remove(placematModel);
+                        break;
+                }
+            }
+        }
+
         public IStickyNoteModel CreateStickyNote(Rect position, SpawnFlags dataSpawnFlags = SpawnFlags.Default)
         {
             var stickyNodeModel = (StickyNoteModel)CreateOrphanStickyNote(position);
@@ -314,8 +342,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         IStickyNoteModel CreateOrphanStickyNote(Rect position)
         {
             var stickyNodeModel = new StickyNoteModel();
-            stickyNodeModel.Position = position;
-            stickyNodeModel.GraphModel = this;
+            stickyNodeModel.PositionAndSize = position;
+            stickyNodeModel.VSGraphModel = this;
 
             return stickyNodeModel;
         }
@@ -326,7 +354,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
             Undo.RegisterCompleteObjectUndo(m_AssetModel, "Add Sticky Note");
             LastChanges?.ChangedElements.Add(stickyNodeModel);
-            stickyNodeModel.GraphModel = this;
+            stickyNodeModel.VSGraphModel = this;
             m_StickyNoteModels.Add(stickyNodeModel);
         }
 
@@ -364,8 +392,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         {
             var placematModel = new PlacematModel();
             placematModel.Title = title;
-            placematModel.Position = position;
-            placematModel.GraphModel = this;
+            placematModel.PositionAndSize = position;
+            placematModel.VSGraphModel = this;
             placematModel.ZOrder = GetPlacematTopZOrder();
             return placematModel;
         }
@@ -386,7 +414,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
             Undo.RegisterCompleteObjectUndo(m_AssetModel, "Add Placemat");
             LastChanges?.ChangedElements.Add(placematModel);
-            placematModel.GraphModel = this;
+            placematModel.VSGraphModel = this;
             m_PlacematModels.Add(placematModel);
         }
 
@@ -406,6 +434,53 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             }
 
             model.Destroy();
+        }
+
+        static readonly Vector2 k_PortalOffset = Vector2.right * 150;
+
+        public void CreateOppositePortal(IEdgePortalModel edgePortalModel, SpawnFlags spawnFlags = SpawnFlags.Default)
+        {
+            var offset = Vector2.zero;
+            switch (edgePortalModel)
+            {
+                case IEdgePortalEntryModel _:
+                    offset = k_PortalOffset;
+                    break;
+                case IEdgePortalExitModel _:
+                    offset = -k_PortalOffset;
+                    break;
+            }
+            var currentPos = ((EdgePortalModel)edgePortalModel).Position;
+            CreateOppositePortal(edgePortalModel, currentPos + offset, spawnFlags);
+        }
+
+        public void CreateOppositePortal(IEdgePortalModel edgePortalModel, Vector2 position, SpawnFlags spawnFlags = SpawnFlags.Default)
+        {
+            EdgePortalModel newPortal = null;
+            Type oppositeType = null;
+            switch (edgePortalModel)
+            {
+                case ExecutionEdgePortalEntryModel _:
+                    oppositeType = typeof(ExecutionEdgePortalExitModel);
+                    break;
+                case ExecutionEdgePortalExitModel _:
+                    oppositeType = typeof(ExecutionEdgePortalEntryModel);
+                    break;
+                case DataEdgePortalEntryModel _:
+                    oppositeType = typeof(DataEdgePortalExitModel);
+                    break;
+                case DataEdgePortalExitModel _:
+                    oppositeType = typeof(DataEdgePortalEntryModel);
+                    break;
+            }
+
+            if (oppositeType != null)
+                newPortal = (EdgePortalModel)CreateNode(oppositeType, edgePortalModel.Title, position, spawnFlags);
+
+            if (newPortal != null)
+            {
+                newPortal.DeclarationModel = edgePortalModel.DeclarationModel;
+            }
         }
 
         protected internal virtual void OnEnable()
@@ -524,236 +599,6 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         {
             public VariableDeclarationModel declarationModel;
             public int index;
-        }
-
-        internal MacroRefNodeModel ExtractNodesAsMacro(VSGraphModel macroGraphModel, Vector2 position, IEnumerable<IGraphElementModel> elementModels)
-        {
-            Undo.RegisterCompleteObjectUndo(m_AssetModel, "Extract Nodes to Macro");
-
-            var elementModelList = elementModels.ToList();
-
-            // duplicate selected nodes
-            VseGraphView.Duplicate(macroGraphModel, elementModelList, out Dictionary<INodeModel, NodeModel> originalToMacro);
-
-            // connect new node, etc.
-            List<INodeModel> models = elementModelList.OfType<INodeModel>().ToList();
-            int inputIndex = 0;
-            int outputIndex = 0;
-
-            // if the same node is connected to multiple extracted ports, only create one input in the macro
-            // ie. if the same variable is connected to both ports of an Add node, the resulting macro
-            // will have one input and return its double
-            Dictionary<IPortModel, DeclarationIndex> existingNodesToCreatedOutputVariables = new Dictionary<IPortModel, DeclarationIndex>();
-            Dictionary<IPortModel, DeclarationIndex> existingNodesToCreatedInputVariables = new Dictionary<IPortModel, DeclarationIndex>();
-
-            // TODO this should be done in a more efficient way: GetEdgesConnections already goes through all the edges of the graph
-            Dictionary<INodeModel, List<IEdgeModel>> inputEdgesPerNode = models.ToDictionary(m => m, m => GetEdgesConnections(m.InputsById.Values).ToList());
-            Dictionary<INodeModel, List<IEdgeModel>> outputEdgesPerNode = models.ToDictionary(m => m, m => GetEdgesConnections(m.OutputsById.Values).ToList());
-            foreach (INodeModel model in models)
-            {
-                List<IEdgeModel> inputEdgeModels = inputEdgesPerNode[model];
-                List<IEdgeModel> outputEdgeModels = outputEdgesPerNode[model];
-
-                foreach (IEdgeModel edge in inputEdgeModels)
-                {
-                    INodeModel connectedNode = edge.OutputPortModel.NodeModel;
-                    if (models.Contains(connectedNode)) // connected to another extracted node
-                        continue;
-
-                    // create/reuse declaration in macro graph
-                    if (!existingNodesToCreatedInputVariables.TryGetValue(edge.OutputPortModel, out DeclarationIndex macroInputDecl))
-                    {
-                        macroInputDecl = new DeclarationIndex
-                        {
-                            declarationModel = macroGraphModel.CreateGraphVariableDeclaration($"Input {inputIndex}", edge.OutputPortModel.DataType, true),
-                            index = inputIndex++,
-                        };
-                        macroInputDecl.declarationModel.Modifiers = ModifierFlags.ReadOnly;
-
-                        existingNodesToCreatedInputVariables.Add(edge.OutputPortModel, macroInputDecl);
-                    }
-
-                    // create variable in macro graph, connect with extracted node port
-                    NodeModel macroNodeWithInput = originalToMacro[model];
-                    IVariableModel macroInputVar = macroGraphModel.CreateVariableNode(macroInputDecl.declarationModel, macroNodeWithInput.Position + new Vector2(-k_IOHorizontalOffset, k_IOVerticalOffset));
-                    macroGraphModel.CreateEdge(macroNodeWithInput.InputsById[edge.InputPortModel.UniqueId], macroInputVar.OutputPort);
-                }
-
-                HashSet<IPortModel> portModelsConnectedToOutputsInDefinition = new HashSet<IPortModel>();
-                foreach (IEdgeModel edge in outputEdgeModels)
-                {
-                    INodeModel connectedNode = edge.InputPortModel.NodeModel;
-                    if (models.Contains(connectedNode)) // connected to another extracted node
-                        continue;
-
-                    // create/reuse declaration in macro graph
-                    if (!existingNodesToCreatedOutputVariables.TryGetValue(edge.OutputPortModel, out DeclarationIndex macroOutputDecl))
-                    {
-                        macroOutputDecl = new DeclarationIndex
-                        {
-                            declarationModel = macroGraphModel.CreateGraphVariableDeclaration($"Output {outputIndex}", edge.InputPortModel.DataType, true),
-                            index = outputIndex++,
-                        };
-                        macroOutputDecl.declarationModel.Modifiers = ModifierFlags.WriteOnly;
-
-                        existingNodesToCreatedOutputVariables.Add(edge.OutputPortModel, macroOutputDecl);
-                    }
-
-                    // create variable in macro graph, connect with extracted node port
-                    NodeModel macroNodeWithOutput = originalToMacro[model];
-                    // if the extracted node output was connected to two ports, we do need two edges at the call site,
-                    // but not two outputs+two edges in the definition
-                    var outputPort = macroNodeWithOutput.OutputsById[edge.OutputPortModel.UniqueId];
-                    if (portModelsConnectedToOutputsInDefinition.Add(outputPort))
-                    {
-                        IVariableModel macroOutputVar = macroGraphModel.CreateVariableNode(macroOutputDecl.declarationModel, macroNodeWithOutput.Position + new Vector2(k_IOHorizontalOffset * 2, k_IOVerticalOffset));
-                        macroGraphModel.CreateEdge(macroOutputVar.OutputPort, outputPort);
-                    }
-                }
-            }
-
-            // create new macroRefNode
-            Action<MacroRefNodeModel> preDefineSetup = n =>
-            {
-                MacroRefNodeModel macroNode = n;
-                macroNode.GraphAssetModel = macroGraphModel.m_AssetModel;
-            };
-            MacroRefNodeModel macroRefNodeModel =
-                CreateNode("MyMacro", position, SpawnFlags.Default, preDefineSetup);
-
-            HashSet<VariableDeclarationModel> declarationModelsDone = new HashSet<VariableDeclarationModel>();
-            foreach (INodeModel model in models)
-            {
-                List<IEdgeModel> inputEdgeModels = inputEdgesPerNode[model];
-                List<IEdgeModel> outputEdgeModels = outputEdgesPerNode[model];
-
-                foreach (IEdgeModel edge in inputEdgeModels)
-                {
-                    if (models.Contains(edge.OutputPortModel.NodeModel))
-                        continue;
-
-                    VariableDeclarationModel decl = existingNodesToCreatedInputVariables[edge.OutputPortModel].declarationModel;
-                    if (declarationModelsDone.Contains(decl)) // already done
-                        continue;
-
-                    CreateEdge(macroRefNodeModel.InputsById[decl.VariableName], edge.OutputPortModel);
-                    declarationModelsDone.Add(decl);
-                }
-
-                foreach (IEdgeModel edge in outputEdgeModels)
-                {
-                    if (models.Contains(edge.InputPortModel.NodeModel))
-                        continue;
-
-                    // no declarationModelsDone check, we need to process every single edge here (case where one
-                    // macro output is connected to multiple call site inputs)
-                    var decl = existingNodesToCreatedOutputVariables[edge.OutputPortModel].declarationModel;
-                    CreateEdge(edge.InputPortModel, macroRefNodeModel.OutputsById[decl.VariableName]);
-                    declarationModelsDone.Add(decl);
-                }
-            }
-
-            // delete selected nodes
-            DeleteNodes(models, DeleteConnections.True);
-            DeleteStickyNotes(elementModelList.OfType<IStickyNoteModel>());
-
-            return macroRefNodeModel;
-        }
-
-        public INodeModel ExtractNodesAsFunction(IList<ISelectable> selection)
-        {
-            Undo.RegisterCompleteObjectUndo(m_AssetModel, "Extract Nodes to Function");
-
-            // create new functionNode
-            FunctionModel functionModel = (this as VSGraphModel).CreateFunction("MyFunction", new Vector2(1300, 0));
-
-            // paste actionNodeModels
-            var data = VseGraphView.GatherCopiedElementsData(selection.OfType<IHasGraphElementModel>().Select(x => x.GraphElementModel).ToList());
-            TargetInsertionInfo info;
-            info.Delta = functionModel.Position;
-            info.OperationName = "Paste";
-            info.TargetStack = functionModel;
-            info.TargetStackInsertionIndex = 0;
-            VseGraphView.OnUnserializeAndPaste(this as VSGraphModel, info, null, data);
-
-            // connect new node, etc.
-            Dictionary<IGraphElementModel, IHasGraphElementModel> selectedModels = selection
-                .OfType<IHasGraphElementModel>()
-                .ToDictionary(x => x.GraphElementModel);
-            var models = selectedModels.Keys.OfType<INodeModel>().ToList();
-            var elementInStack = models.FirstOrDefault(x => x.ParentStackModel != null);
-            var newElementInStack = functionModel.NodeModels.FirstOrDefault();
-
-            var inputEdgeModels = GetEdgesConnections(elementInStack?.InputsByDisplayOrder).ToList();
-
-            foreach (var edge in inputEdgeModels)
-            {
-                if (models.Contains(edge.OutputPortModel.NodeModel))
-                    continue;
-
-                if (edge.InputPortModel.PortType == PortType.Instance)
-                    continue;
-
-                // create variables
-
-                var parameterModel = functionModel.CreateAndRegisterFunctionParameterDeclaration(edge.InputPortModel.Name,
-                    edge.OutputPortModel.DataType);
-
-                // create variable pill
-                var pill = (this as VSGraphModel).CreateVariableNode(parameterModel,
-                    functionModel.Position);
-
-                // connect it to the port on the element
-                CreateEdge(newElementInStack?.InputsById[edge.InputPortModel.UniqueId], pill.OutputPort);
-            }
-
-            // create new functionRefCallNode
-            int index = 0;
-            foreach (var node in elementInStack?.ParentStackModel.NodeModels ?? Enumerable.Empty<INodeModel>())
-            {
-                if (node == elementInStack)
-                    break;
-                index++;
-            }
-
-            var refCallNode = (elementInStack?.ParentStackModel as StackBaseModel).CreateFunctionRefCallNode(functionModel, index);
-
-            // connect nodes to ref call node
-            foreach (var edge in inputEdgeModels)
-            {
-                if (models.Contains(edge.OutputPortModel.NodeModel))
-                    continue;
-
-                // connect it to the port on the element
-                CreateEdge(refCallNode.InputsById[edge.InputPortModel.UniqueId], edge.OutputPortModel);
-            }
-
-            // delete selected nodes
-            DeleteNodes(models, DeleteConnections.True);
-
-            return functionModel;
-        }
-
-        public INodeModel ConvertNodeToFunction(INodeModel nodeToConvert)
-        {
-            // create new functionNode
-            FunctionModel functionModel = (this as VSGraphModel).CreateFunction("MyFunction", nodeToConvert.Position);
-
-            // go through all stack connected to StackNode and connect to new functionModel
-            // remove from previous stack
-            var parentStack = (StackBaseModel)nodeToConvert.ParentStackModel;
-
-            Undo.RegisterCompleteObjectUndo(m_AssetModel, "RemoveNode");
-            parentStack.RemoveStackedNode(nodeToConvert);
-            EditorUtility.SetDirty(m_AssetModel);
-
-            // delete old stack
-            DeleteNode(parentStack, DeleteConnections.True);
-
-            // add to new functionModel
-            functionModel.AddStackedNode(nodeToConvert, 0);
-
-            return functionModel;
         }
 
         public void UndoRedoPerformed()

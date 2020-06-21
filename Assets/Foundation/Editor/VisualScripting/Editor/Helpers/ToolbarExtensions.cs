@@ -7,18 +7,21 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     static class ToolbarExtensions
     {
-        public static void CreateOrUpdateItem(this ToolbarBreadcrumbs breadcrumbs, int index, string itemLabel, Action clickedEvent)
+        public static void CreateOrUpdateItem(this ToolbarBreadcrumbs breadcrumbs, int index, string itemLabel, Action<int> clickedEvent)
         {
             if (index >= breadcrumbs.childCount)
             {
-                breadcrumbs.PushItem(itemLabel, clickedEvent);
+                breadcrumbs.PushItem(itemLabel, () =>
+                {
+                    int i = index;
+                    clickedEvent?.Invoke(i);
+                });
             }
             else
             {
                 if (breadcrumbs.ElementAt(index) is ToolbarButton item)
                 {
                     item.text = itemLabel;
-                    item.ChangeClickEvent(clickedEvent);
                 }
                 else
                 {

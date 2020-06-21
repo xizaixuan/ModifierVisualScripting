@@ -7,6 +7,7 @@ namespace Unity.Modifier.GraphElements
     internal class ElementResizer : MouseManipulator
     {
         private readonly ResizerDirection direction;
+
         private readonly VisualElement resizedElement;
 
         public ElementResizer(VisualElement resizedElement, ResizerDirection direction)
@@ -59,7 +60,6 @@ namespace Unity.Modifier.GraphElements
             VisualElement resizedBase = resizedTarget.parent;
             if (resizedBase == null)
                 return;
-
             target.RegisterCallback<MouseMoveEvent>(OnMouseMove);
             e.StopPropagation();
             target.CaptureMouse();
@@ -71,7 +71,6 @@ namespace Unity.Modifier.GraphElements
             bool maxWidthDefined = resizedTarget.resolvedStyle.maxWidth != StyleKeyword.None;
             bool minHeightDefined = resizedTarget.resolvedStyle.minHeight != StyleKeyword.Auto;
             bool maxHeightDefined = resizedTarget.resolvedStyle.maxHeight != StyleKeyword.None;
-
             m_MinSize = new Vector2(
                 minWidthDefined ? resizedTarget.resolvedStyle.minWidth.value : Mathf.NegativeInfinity,
                 minHeightDefined ? resizedTarget.resolvedStyle.minHeight.value : Mathf.NegativeInfinity);
@@ -81,6 +80,9 @@ namespace Unity.Modifier.GraphElements
 
             m_DragStarted = false;
         }
+
+        ResizeFlags m_ResizeFlags;
+        Rect m_NewRect;
 
         void OnMouseMove(MouseMoveEvent e)
         {
@@ -93,16 +95,16 @@ namespace Unity.Modifier.GraphElements
             Vector2 mousePos = resizedBase.WorldToLocal(e.mousePosition);
             if (!m_DragStarted)
             {
-                if (resizedTarget is IResizable)
-                    (resizedTarget as IResizable).OnStartResize();
                 m_DragStarted = true;
             }
+
+            // PF: once we remove all calls to SetLayout(), we can remove this if and keep the else.
             if (resizedTarget.IsLayoutManual())
             {
-                Rect layout = resizedTarget.layout;
+                m_NewRect = resizedTarget.layout;
                 if ((direction & ResizerDirection.Right) != 0)
                 {
-                    layout.width = Mathf.Min(m_MaxSize.x, Mathf.Max(m_MinSize.x, m_StartSize.x + mousePos.x - m_StartMouse.x));
+                    m_NewRect.width = Mathf.Min(m_MaxSize.x, Mathf.Max(m_MinSize.x, m_StartSize.x + mousePos.x - m_StartMouse.x));
                 }
                 else if ((direction & ResizerDirection.Left) != 0)
                 {
@@ -113,12 +115,12 @@ namespace Unity.Modifier.GraphElements
                     else if (m_StartSize.x - delta > m_MaxSize.x)
                         delta = -m_MaxSize.x + m_StartSize.x;
 
-                    layout.xMin = delta + m_StartPosition.x;
-                    layout.width = -delta + m_StartSize.x;
+                    m_NewRect.xMin = delta + m_StartPosition.x;
+                    m_NewRect.width = -delta + m_StartSize.x;
                 }
                 if ((direction & ResizerDirection.Bottom) != 0)
                 {
-                    layout.height = Mathf.Min(m_MaxSize.y, Mathf.Max(m_MinSize.y, m_StartSize.y + mousePos.y - m_StartMouse.y));
+                    m_NewRect.height = Mathf.Min(m_MaxSize.y, Mathf.Max(m_MinSize.y, m_StartSize.y + mousePos.y - m_StartMouse.y));
                 }
                 else if ((direction & ResizerDirection.Top) != 0)
                 {
@@ -128,20 +130,26 @@ namespace Unity.Modifier.GraphElements
                         delta = -m_MinSize.y + m_StartSize.y;
                     else if (m_StartSize.y - delta > m_MaxSize.y)
                         delta = -m_MaxSize.y + m_StartSize.y;
-                    layout.yMin = delta + m_StartPosition.y;
-                    layout.height = -delta + m_StartSize.y;
+                    m_NewRect.yMin = delta + m_StartPosition.y;
+                    m_NewRect.height = -delta + m_StartSize.y;
                 }
 
                 if (direction != 0)
                 {
-                    resizedTarget.SetLayout(layout);
+                    resizedTarget.SetLayout(m_NewRect);
                 }
             }
             else
             {
+                m_ResizeFlags = ResizeFlags.None;
+                m_NewRect = new Rect();
+
                 if ((direction & ResizerDirection.Right) != 0)
                 {
-                    resizedTarget.style.width = Mathf.Min(m_MaxSize.x, Mathf.Max(m_MinSize.x, m_StartSize.x + mousePos.x - m_StartMouse.x));
+                    m_ResizeFlags |= ResizeFlags.Width;
+                    m_NewRect.width = Mathf.Min(m_MaxSize.x, Mathf.Max(m_MinSize.x, m_StartSize.x + mousePos.x - m_StartMouse.x));
+
+                    resizedTarget.style.width = m_NewRect.width;
                 }
                 else if ((direction & ResizerDirection.Left) != 0)
                 {
@@ -152,12 +160,20 @@ namespace Unity.Modifier.GraphElements
                     else if (m_StartSize.x - delta > m_MaxSize.x)
                         delta = -m_MaxSize.x + m_StartSize.x;
 
-                    resizedTarget.style.left = delta + m_StartPosition.x;
-                    resizedTarget.style.width = -delta + m_StartSize.x;
+                    m_ResizeFlags |= ResizeFlags.Left;
+                    m_ResizeFlags |= ResizeFlags.Width;
+                    m_NewRect.x = delta + m_StartPosition.x;
+                    m_NewRect.width = -delta + m_StartSize.x;
+
+                    resizedTarget.style.left = m_NewRect.x;
+                    resizedTarget.style.width = m_NewRect.width;
                 }
                 if ((direction & ResizerDirection.Bottom) != 0)
                 {
-                    resizedTarget.style.height = Mathf.Min(m_MaxSize.y, Mathf.Max(m_MinSize.y, m_StartSize.y + mousePos.y - m_StartMouse.y));
+                    m_ResizeFlags |= ResizeFlags.Height;
+                    m_NewRect.height = Mathf.Min(m_MaxSize.y, Mathf.Max(m_MinSize.y, m_StartSize.y + mousePos.y - m_StartMouse.y));
+
+                    resizedTarget.style.height = m_NewRect.height;
                 }
                 else if ((direction & ResizerDirection.Top) != 0)
                 {
@@ -167,8 +183,14 @@ namespace Unity.Modifier.GraphElements
                         delta = -m_MinSize.y + m_StartSize.y;
                     else if (m_StartSize.y - delta > m_MaxSize.y)
                         delta = -m_MaxSize.y + m_StartSize.y;
-                    resizedTarget.style.top = delta + m_StartPosition.y;
-                    resizedTarget.style.height = -delta + m_StartSize.y;
+
+                    m_ResizeFlags |= ResizeFlags.Top;
+                    m_ResizeFlags |= ResizeFlags.Height;
+                    m_NewRect.y = delta + m_StartPosition.y;
+                    m_NewRect.height = -delta + m_StartSize.y;
+
+                    resizedTarget.style.top = m_NewRect.y;
+                    resizedTarget.style.height = m_NewRect.height;
                 }
             }
             e.StopPropagation();
@@ -182,10 +204,12 @@ namespace Unity.Modifier.GraphElements
             if (m_Active)
             {
                 VisualElement resizedTarget = resizedElement.parent;
-                if (resizedTarget.style.width != m_StartSize.x || resizedTarget.style.height != m_StartSize.y)
+                if (m_ResizeFlags != ResizeFlags.None)
                 {
                     if (resizedTarget is IResizable)
-                        (resizedTarget as IResizable).OnResized();
+                    {
+                        (resizedTarget as IResizable).OnResized(m_NewRect, m_ResizeFlags);
+                    }
                 }
                 target.UnregisterCallback<MouseMoveEvent>(OnMouseMove);
                 target.ReleaseMouse();

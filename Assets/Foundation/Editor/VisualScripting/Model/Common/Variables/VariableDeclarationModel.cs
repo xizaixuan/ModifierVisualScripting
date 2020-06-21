@@ -13,7 +13,7 @@ using Object = UnityEngine.Object;
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
     [Serializable]
-    public class VariableDeclarationModel : IVariableDeclarationModel, IRenamableModel, IExposeTitleProperty
+    public class VariableDeclarationModel : IVariableDeclarationModel, IExposeTitleProperty, ISelectable, IDroppable, ICopiable, IDeletable, IModifiable, IRenamable, IGTFGraphElementModel
     {
         [FormerlySerializedAs("name")]
         [SerializeField]
@@ -27,27 +27,19 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         bool m_IsExposed;
         [SerializeField]
         string m_Tooltip;
-        //TODO serialization fill that now that it's not serialized, as it crashes the editor during undo/copyserializedfields
-        IFunctionModel m_FunctionAsset;
 
         [SerializeReference]
         IConstantNodeModel m_InitializationModel;
         [SerializeField]
         int m_Modifiers;
 
-        public virtual CapabilityFlags Capabilities
-        {
-            get
-            {
-                CapabilityFlags caps = CapabilityFlags.Selectable | CapabilityFlags.Movable | CapabilityFlags.Droppable | CapabilityFlags.Copiable;
-                if (!(VariableType == VariableType.FunctionParameter
-                      && (FunctionModel is IEventFunctionModel || FunctionModel is LoopStackModel)))
-                    caps |= CapabilityFlags.Deletable | CapabilityFlags.Modifiable;
-                if (!IsFunctionParameter || FunctionModel != null && FunctionModel.AllowChangesToModel)
-                    caps |= CapabilityFlags.Renamable;
-                return caps;
-            }
-        }
+        public virtual bool IsDeletable => true;
+
+        public virtual bool IsModifiable => true;
+
+        public virtual bool IsRenamable => true;
+
+        public virtual bool IsDroppable => true;
 
         public VariableFlags variableFlags;
 
@@ -94,7 +86,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                 m_DataType = value;
                 (m_InitializationModel as ConstantNodeModel)?.Destroy();
                 m_InitializationModel = null;
-                if (GraphModel.Stencil.RequiresInspectorInitialization(this))
+                if (VSGraphModel.Stencil.RequiresInspectorInitialization(this))
                     CreateInitializationValue();
             }
         }
@@ -117,11 +109,19 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         GraphAssetModel m_AssetModel;
         public IGraphAssetModel AssetModel => m_AssetModel;
 
-        public IGraphModel GraphModel
+        public GraphViewModel.IGraphModel VSGraphModel
         {
-            get => m_AssetModel?.GraphModel;
+            get
+            {
+                if (m_AssetModel != null)
+                    return m_AssetModel.GraphModel;
+                return null;
+            }
+
             set => m_AssetModel = value?.AssetModel as GraphAssetModel;
         }
+
+        public IGTFGraphModel GraphModel => VSGraphModel as IGTFGraphModel;
 
         [SerializeField]
         string m_Id = Guid.NewGuid().ToString();
@@ -131,9 +131,9 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             return m_Id;
         }
 
-        public IEnumerable<INodeModel> FindReferencesInGraph()
+        public IEnumerable<IHasVariableDeclarationModel> FindReferencesInGraph()
         {
-            return GraphModel.NodeModels.OfType<VariableNodeModel>().Where(v => v.DeclarationModel != null && GetId() == v.DeclarationModel.GetId() /* TODO temp until we get rid of node assets ReferenceEquals(v.DeclarationModel, this)*/);
+            return VSGraphModel.NodeModels.OfType<IHasVariableDeclarationModel>().Where(v => v.DeclarationModel != null && GetId() == v.DeclarationModel.GetId() /* TODO temp until we get rid of node assets ReferenceEquals(v.DeclarationModel, this)*/);
         }
 
         public void Rename(string newName)
@@ -142,29 +142,10 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             ((VSGraphModel)GraphModel).LastChanges.RequiresRebuild = true;
         }
 
-        bool IsFunctionParameter => VariableType == VariableType.FunctionParameter;
-
-        public IFunctionModel FunctionModel
-        {
-            get => m_FunctionAsset;
-            protected set => m_FunctionAsset = value;
-        }
-
         public IHasVariableDeclaration Owner
         {
-            get
-            {
-                if (m_FunctionAsset != null)
-                    return m_FunctionAsset;
-                return (IHasVariableDeclaration)GraphModel;
-            }
-            set
-            {
-                if (value is FunctionModel model)
-                    m_FunctionAsset = model;
-                else
-                    GraphModel = (GraphModel)value;
-            }
+            get => (IHasVariableDeclaration)GraphModel;
+            set => VSGraphModel = (GraphModel)value;
         }
 
         public IConstantNodeModel InitializationModel
@@ -175,7 +156,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
 
         public void CreateInitializationValue()
         {
-            if (GraphModel.Stencil.GetConstantNodeModelType(DataType) != null)
+            if (VSGraphModel.Stencil.GetConstantNodeModelType(DataType) != null)
             {
                 InitializationModel = ((VSGraphModel)GraphModel).CreateConstantNode(
                     Name + "_init",
@@ -188,24 +169,24 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         }
 
         public static T Create<T>(string variableName, TypeHandle dataType, bool isExposed,
-            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags, FunctionModel functionModel,
+            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags,
             VariableFlags variableFlags = VariableFlags.None,
             IConstantNodeModel initializationModel = null) where T : VariableDeclarationModel, new()
         {
             VariableDeclarationModel decl = CreateDeclarationNoUndoRecord<T>(variableName, dataType, isExposed, graph, variableType, modifierFlags,
-                functionModel, variableFlags, initializationModel);
+                variableFlags, initializationModel);
             return (T)decl;
         }
 
         public static VariableDeclarationModel Create(string variableName, TypeHandle dataType, bool isExposed,
-            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags, FunctionModel functionModel,
+            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags,
             IConstantNodeModel initializationModel = null)
         {
-            return Create<VariableDeclarationModel>(variableName, dataType, isExposed, graph, variableType, modifierFlags, functionModel, initializationModel: initializationModel);
+            return Create<VariableDeclarationModel>(variableName, dataType, isExposed, graph, variableType, modifierFlags, initializationModel: initializationModel);
         }
 
         public static T CreateDeclarationNoUndoRecord<T>(string variableName, TypeHandle dataType, bool isExposed,
-            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags, FunctionModel functionModel,
+            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags,
             VariableFlags variableFlags,
             IConstantNodeModel initializationModel = null, SpawnFlags spawnFlags = SpawnFlags.Default) where T : VariableDeclarationModel, new()
         {
@@ -213,7 +194,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             Assert.IsNotNull(graph.AssetModel);
 
             var decl = new T();
-            SetupDeclaration(variableName, dataType, isExposed, graph, variableType, modifierFlags, variableFlags, functionModel, decl);
+            SetupDeclaration(variableName, dataType, isExposed, graph, variableType, modifierFlags, variableFlags, decl);
             if (initializationModel != null)
                 decl.InitializationModel = initializationModel;
             else if (!spawnFlags.IsOrphan())
@@ -228,22 +209,21 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             return decl;
         }
 
-        internal static void SetupDeclaration<T>(string variableName, TypeHandle dataType, bool isExposed, GraphModel graph, VariableType variableType, ModifierFlags modifierFlags, VariableFlags variableFlags, FunctionModel functionModel, T decl) where T : VariableDeclarationModel
+        internal static void SetupDeclaration<T>(string variableName, TypeHandle dataType, bool isExposed, GraphModel graph, VariableType variableType, ModifierFlags modifierFlags, VariableFlags variableFlags, T decl) where T : VariableDeclarationModel
         {
-            decl.GraphModel = graph;
+            decl.VSGraphModel = graph;
             decl.DataType = dataType;
             decl.VariableName = variableName;
             decl.IsExposed = isExposed;
             decl.VariableType = variableType;
             decl.Modifiers = modifierFlags;
             decl.variableFlags = variableFlags;
-            decl.FunctionModel = functionModel;
         }
 
         public static VariableDeclarationModel CreateNoUndoRecord(string variableName, TypeHandle dataType, bool isExposed,
-            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags, FunctionModel functionModel, VariableFlags variableFlags, IConstantNodeModel initializationModel, SpawnFlags spawnFlags = SpawnFlags.Default)
+            GraphModel graph, VariableType variableType, ModifierFlags modifierFlags, VariableFlags variableFlags, IConstantNodeModel initializationModel, SpawnFlags spawnFlags = SpawnFlags.Default)
         {
-            return CreateDeclarationNoUndoRecord<VariableDeclarationModel>(variableName, dataType, isExposed, graph, variableType, modifierFlags, functionModel, variableFlags, initializationModel, spawnFlags);
+            return CreateDeclarationNoUndoRecord<VariableDeclarationModel>(variableName, dataType, isExposed, graph, variableType, modifierFlags, variableFlags, initializationModel, spawnFlags);
         }
 
         public void SetNameFromUserName(string userName)
@@ -292,5 +272,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         {
             m_Id = Guid.NewGuid().ToString();
         }
+
+        public bool IsCopiable => true;
     }
 }

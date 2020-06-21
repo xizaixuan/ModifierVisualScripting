@@ -54,10 +54,15 @@ namespace Unity.Modifier.GraphElements
 
         public static int PlacematsLayer => Int32.MinValue;
 
-        void AddPlacemat(Placemat placemat)
+        public void AddPlacemat(Placemat placemat)
         {
+            bool updateOrders = placemat.ZOrder == 0 || (m_Placemats.Count > 0 && placemat.ZOrder <= m_Placemats.Last.Value.ZOrder);
+
             m_Placemats.AddLast(placemat);
             Add(placemat);
+
+            if (updateOrders)
+                UpdateElementsOrder();
         }
 
         void RemovePlacemat(Placemat placemat)
@@ -79,42 +84,17 @@ namespace Unity.Modifier.GraphElements
                 Placemat placemat = m_Placemats.FirstOrDefault(p => p.Collapsed && p.WillDragNode(rootNode));
 
                 if (placemat != null)
-                    return placemat.GetPortCenterOverride(port, out overriddenPosition);
+                    return placemat.GetPortCenterOverride(port.PortModel, out overriddenPosition);
             }
 
             overriddenPosition = Vector3.zero;
             return false;
         }
 
-        public T CreatePlacemat<T>(Rect placematPosition, int zOrder, string placematTitle) where T : Placemat, new()
-        {
-            return InitAndAddPlacemat(new T(), placematPosition, zOrder, placematTitle);
-        }
-
-        public T CreatePlacemat<T>(Func<T> creator, Rect placematPosition, int zOrder, string placematTitle) where T : Placemat
-        {
-            return InitAndAddPlacemat(creator(), placematPosition, zOrder, placematTitle);
-        }
-
-        T InitAndAddPlacemat<T>(T placemat, Rect placematPosition, int zOrder, string placematTitle) where T : Placemat
-        {
-            placemat.Init(m_GraphView);
-            placemat.title = placematTitle;
-            placemat.SetPosition(placematPosition);
-            placemat.ZOrder = zOrder;
-            AddPlacemat(placemat);
-            return placemat;
-        }
-
         public void RemoveAllPlacemats()
         {
             Clear();
             m_Placemats.Clear();
-        }
-
-        public int GetTopZOrder()
-        {
-            return m_Placemats.Last?.Value.ZOrder + 1 ?? 1;
         }
 
         internal void CyclePlacemat(Placemat placemat, CycleDirection direction)
@@ -136,12 +116,26 @@ namespace Unity.Modifier.GraphElements
             UpdateElementsOrder();
         }
 
-        protected virtual void UpdateElementsOrder()
+        void UpdateElementsOrder()
         {
+            List<int> newOrders = new List<int>();
+            List<IGTFPlacematModel> changedPlacemats = new List<IGTFPlacematModel>();
+
             // Reset ZOrder from placemat order in array
             int idx = 1;
             foreach (var placemat in m_Placemats)
-                placemat.ZOrder = idx++;
+            {
+                if (placemat.ZOrder != idx)
+                {
+                    newOrders.Add(idx);
+                    changedPlacemats.Add(placemat.PlacematModel);
+                }
+
+                idx++;
+            }
+
+            m_GraphView.Store.Dispatch(
+                new ChangePlacematZOrdersAction(newOrders.ToArray(), changedPlacemats.ToArray()));
 
             Sort((a, b) => ((Placemat)a).ZOrder.CompareTo(((Placemat)b).ZOrder));
         }
@@ -160,15 +154,6 @@ namespace Unity.Modifier.GraphElements
             m_Placemats.AddLast(placemat);
 
             UpdateElementsOrder();
-        }
-
-        public void HideCollapsedEdges()
-        {
-            // We need to hide edges in the reverse zOrder (topmost mats are collapsed first)
-            foreach (var p in Placemats.OrderByDescending(p => p.ZOrder))
-            {
-                p.HideCollapsedEdges();
-            }
         }
     }
 }

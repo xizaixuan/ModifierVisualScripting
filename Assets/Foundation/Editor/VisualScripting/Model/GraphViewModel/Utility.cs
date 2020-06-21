@@ -4,6 +4,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
     public static class Utility
     {
+        // TODO rename/remove
         public static void SaveAssetIntoObject(IGraphElementModel asset, Object masterAsset)
         {
             EditorUtility.SetDirty(masterAsset);

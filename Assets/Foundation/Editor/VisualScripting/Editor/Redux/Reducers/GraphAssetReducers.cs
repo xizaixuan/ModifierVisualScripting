@@ -90,6 +90,15 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             if (ReferenceEquals(Selection.activeObject, previousState.AssetModel))
                 Selection.activeObject = null;
+            if (previousState.CurrentGraphModel != null)
+            {
+                // force queued compilation to happen now when unloading a graph
+                if (previousState.EditorDataModel?.CompilationPending ?? false)
+                {
+                    previousState.EditorDataModel.RequestCompilation(RequestCompilationOptions.Default);
+                    previousState.EditorDataModel.CompilationPending = false;
+                }
+            }
             previousState.AssetModel?.Dispose();
             previousState.EditorDataModel.PluginRepository?.UnregisterPlugins();
 

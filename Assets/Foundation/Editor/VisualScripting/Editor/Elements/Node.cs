@@ -15,12 +15,9 @@ using UnityEngine.UIElements;
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     [PublicAPI]
-    public class Node : Unity.Modifier.GraphElements.Node, IDroppable, IHasGraphElementModel, IHighlightable,
-    IBadgeContainer, ICustomColor, IMovable, ICustomSearcherHandler, INodeState
+    public class Node : CollapsiblePortNode, IDroppable, IHighlightable,
+        IBadgeContainer, ICustomColor, ICustomSearcherHandler, INodeState
     {
-        protected readonly Store m_Store;
-        public readonly INodeModel model;
-
         int m_SelectedIndex;
         public int selectedIndex => m_SelectedIndex;
 
@@ -28,19 +25,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public StackNode Stack => GetFirstAncestorOfType<StackNode>();
 
-        public bool HasInstancePort => m_InstancePort != null;
-
-        public override string title
-        {
-            get => m_TitleLabel != null ? m_TitleLabel.text.Nicify() : base.title;
-            set
-            {
-                if (m_TitleLabel != null)
-                    m_TitleLabel.text = value;
-                else
-                    base.title = value;
-            }
-        }
+        bool HasInstancePort => m_InstancePort != null;
 
         public IconBadge ErrorBadge { get; set; }
         public ValueBadge ValueBadge { get; set; }
@@ -63,162 +48,101 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             }
         }
 
-        Label m_TitleLabel;
-        protected VisualElement TitleContainer { get; private set; }
+        public new Store Store => base.Store as Store;
+        public new NodeModel NodeModel => base.NodeModel as NodeModel;
 
-        protected GraphView m_GraphView;
+        VisualElement m_ContentContainer;
+        public override VisualElement contentContainer => m_ContentContainer ?? this;
 
-        public Node(INodeModel model, Store store, GraphView graphView, string file = "Node.uxml") : base(file)
+        public Node()
         {
-            UseDefaultStyling();
-            Assert.IsNotNull(model);
-            Assert.IsNotNull(store);
-
-            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Node.uss"));
-            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "PropertyField.uss"));
-
-            this.model = model;
-            m_Store = store;
-            m_GraphView = graphView;
-
-            if (model.IsInsertLoop)
-            {
-                style.overflow = Overflow.Visible;
-                AddToClassList("insertLoopNode");
-
-                m_InsertLoopPortContainer = new VisualElement { name = "insertLoopPortContainer" };
-                m_InsertLoopPortContainer.style.overflow = Overflow.Visible;
-                m_InsertLoopPortContainer.pickingMode = PickingMode.Ignore;
-
-                VisualElement nodeBorder = this.MandatoryQ("node-border");
-                nodeBorder.style.overflow = Overflow.Visible;
-
-                VisualElement titleElement = this.MandatoryQ("title");
-                titleElement.style.overflow = Overflow.Visible;
-                titleElement.EnableInClassList("hasDataInputPorts",
-                    model.InputsByDisplayOrder.Any(x => x.PortType == PortType.Data));
-
-                titleElement.Add(m_InsertLoopPortContainer);
-
-                var loopIconContainer = new VisualElement { name = "loopIconContainer" };
-                loopIconContainer.Add(new VisualElement { name = "loopIcon" });
-                titleContainer.Add(loopIconContainer);
-            }
-
-            UpdateFromModel();
-
-            var titleLabel = HasInstancePort ? m_InstancePort.Q<Label>(className: "connectorText") : this.Q<Label>("title-label");
-            if (model.HasProgress)
-                m_CoroutineProgressBar = new ProgressBar();
-            if (HasInstancePort)
-            {
-                titleLabel.text = model.Title;
-                this.Q<Label>("title-label").RemoveFromHierarchy();
-                if (m_CoroutineProgressBar != null)
-                    titleLabel.parent.Add(m_CoroutineProgressBar);
-            }
-            else
-            {
-                var titleParent = titleLabel.parent;
-                TitleContainer = new VisualElement { name = "titleContainer" };
-
-                var nodeIcon = new Image { name = "nodeIcon" };
-                nodeIcon.AddToClassList(((NodeModel)model).IconTypeString);
-                TitleContainer.Add(nodeIcon);
-                TitleContainer.Add(titleLabel);
-                if (m_CoroutineProgressBar != null)
-                    TitleContainer.Add(m_CoroutineProgressBar);
-
-                titleParent.Insert(0, TitleContainer);
-            }
-
-            if (model is IObjectReference modelReference)
-            {
-                EnableInClassList("invalid", modelReference.ReferencedObject == null);
-
-                titleLabel.text = model.Title;
-
-                if (modelReference is IExposeTitleProperty titleProperty)
-                {
-                    m_TitleLabel = titleLabel;
-                }
-            }
-
-            UpdateTooltip(model);
-
             RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
             RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
-
-            RefreshExpandedState();
         }
 
-        protected virtual void UpdateFromModel()
+        protected override void BuildUI()
         {
-            capabilities = VseUtility.ConvertCapabilities(model);
+            var selectionBorder = new VisualElement();
+            selectionBorder.AddToClassList("ge-node__selection-border");
+            Add(selectionBorder);
 
-            string nodeTitle = model.Title ?? "";
+            var contentContainerElement = new VisualElement();
+            contentContainerElement.AddToClassList("ge-node__content-container");
+            selectionBorder.Add(contentContainerElement);
+            m_ContentContainer = contentContainerElement;
 
-            if (model.ParentStackModel == null)
+            base.BuildUI();
+
+            if (TitleContainer != null)
             {
-                AddToClassList("standalone");
-                SetPosition(new Rect(model.Position, Vector2.zero));
+                // Add an icon and wrap the icon and the title label.
+
+                var iconAndTitleWrapper = new VisualElement();
+                iconAndTitleWrapper.AddToClassList("ge-node__icon-title-wrapper");
+
+                var icon = new VisualElement();
+                icon.AddToClassList(k_UssClassName + "__icon");
+                icon.AddToClassList(NodeModel.IconTypeString);
+                iconAndTitleWrapper.Insert(0, icon);
+
+                var tcIndex = TitleContainer.IndexOf(TitleLabel);
+                TitleContainer.Insert(tcIndex, iconAndTitleWrapper);
+                iconAndTitleWrapper.Add(TitleLabel);
             }
-            else
+
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Node.uss"));
+
+            if (NodeModel.HasProgress && TitleContainer != null)
             {
-                AddToClassList("stackable-node");
+                m_CoroutineProgressBar = new ProgressBar();
+                m_CoroutineProgressBar.AddToClassList(k_UssClassName + "__progress-bar");
+                TitleContainer.Insert(1, m_CoroutineProgressBar);
             }
 
-            UpdateInputPortModels();
-            UpdateOutputPortModels();
-
-            // Needs to come after ports are set.
-            title = nodeTitle;
-
-            viewDataKey = model.GetId();
+            this.AddOverlay();
         }
 
-        protected virtual void UpdateInputPortModels()
+        public override void UpdateFromModel()
         {
-            foreach (IPortModel inputPortModel in model.InputsByDisplayOrder)
-            {
-                Port port = Port.CreateInputPort(m_Store, inputPortModel, titleContainer, inputContainer);
+            base.UpdateFromModel();
 
-                if (inputPortModel.PortType == PortType.Instance)
+            AddToClassList(NodeModel.ParentStackModel == null ? "standalone" : "stackable-node");
+
+            viewDataKey = NodeModel.GetId();
+
+            m_CoroutineProgressBar?.EnableInClassList("hidden", !NodeModel.HasProgress);
+
+            EnableInClassList("has-instance-port", HasInstancePort);
+
+            if (NodeModel is IObjectReference modelReference)
+            {
+                EnableInClassList("invalid", modelReference.ReferencedObject == null);
+            }
+
+            if (TitleContainer != null)
+            {
+                if (NodeModel.HasUserColor)
                 {
-                    AddToClassList("instance");
-                    m_InstancePort = port;
-                }
-            }
-        }
-
-        protected virtual void UpdateOutputPortModels()
-        {
-            if (model.IsBranchType)
-                return;
-
-            foreach (var outputPortModel in model.OutputsByDisplayOrder)
-            {
-                var port = Port.Create(outputPortModel, m_Store, Orientation.Horizontal);
-                if (outputPortModel.PortType == PortType.Loop && model.IsInsertLoop && m_InsertLoopPortContainer != null)
-                {
-                    // Convert port to InsertLoop type port
-                    port.portName = "";
-                    port.AddToClassList("loop");
-                    m_InsertLoopPortContainer.Add(port);
+                    TitleContainer.style.backgroundColor = NodeModel.Color;
                 }
                 else
                 {
-                    outputContainer.Add(port);
+                    TitleContainer.style.backgroundColor = StyleKeyword.Null;
                 }
             }
+
+            UIState = NodeModel.State == ModelState.Disabled ? NodeUIState.Disabled : NodeUIState.Enabled;
+            this.ApplyNodeState();
+
+            tooltip = NodeModel.ToolTip;
         }
 
-        public void UpdatePinning()
+        public override void UpdatePinning()
         {
             m_SelectedIndex = -1;
         }
 
-        public bool NeedStoreDispatch => ClassListContains("standalone");
+        public override bool IsMovable => ClassListContains("standalone");
 
         public bool IsInStack => !(ClassListContains("standalone"));
 
@@ -241,32 +165,21 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         void OnAttachToPanel(AttachToPanelEvent e)
         {
-            if (model is IObjectReference modelReference && modelReference.ReferencedObject != null)
+            if (NodeModel is IObjectReference modelReference && modelReference.ReferencedObject != null)
             {
-                m_TitleLabel?.Bind(new SerializedObject(modelReference.ReferencedObject));
+                TitleLabel?.Bind(new SerializedObject(modelReference.ReferencedObject));
             }
         }
 
         void OnDetachFromPanel(DetachFromPanelEvent e)
         {
-            m_TitleLabel?.Unbind();
-        }
-
-        public override void SetPosition(Rect newPos)
-        {
-            SetPositionPrivateImpl(newPos);
-        }
-
-        void SetPositionPrivateImpl(Rect newPos)
-        {
-            if (IsDroppable())
-                base.SetPosition(new Rect(newPos.position, layout.size));
+            TitleLabel?.Unbind();
         }
 
         public override bool IsDroppable()
         {
             var nodeParent = parent as GraphElement;
-            var nodeParentSelected = nodeParent?.IsSelected(m_GraphView) ?? false;
+            var nodeParentSelected = nodeParent?.IsSelected(GraphView) ?? false;
             return base.IsDroppable() && !nodeParentSelected;
         }
 
@@ -279,10 +192,10 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public override bool IsSelected(VisualElement selectionContainer)
         {
-            return m_GraphView.selection.Contains(this);
+            return GraphView.selection.Contains(this);
         }
 
-        public IGraphElementModel GraphElementModel => model;
+        public IGraphElementModel GraphElementModel => NodeModel;
 
         public bool Highlighted
         {
@@ -295,49 +208,25 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             return false;
         }
 
-        public virtual void ResetColor()
-        {
-            var titleElement = this.MandatoryQ("title");
-            titleElement.style.backgroundColor = StyleKeyword.Null;
-        }
-
-        public virtual void SetColor(Color c)
-        {
-            var titleElement = this.MandatoryQ("title");
-            titleElement.style.backgroundColor = c;
-        }
-
         public Func<Node, Store, Vector2, SearcherFilter, bool> CustomSearcherHandler { get; set; }
 
         public bool HandleCustomSearcher(Vector2 mousePosition, SearcherFilter filter = null)
         {
             if (CustomSearcherHandler != null)
-                return CustomSearcherHandler(this, m_Store, mousePosition, filter);
+                return CustomSearcherHandler(this, Store, mousePosition, filter);
 
             // TODO: Refactor this and use interface to manage nodeModel->searcher mapping
-            if (!model.IsStacked || GraphElementModel is PropertyGroupBaseNodeModel)
+            if (NodeModel.ParentStackModel == null || GraphElementModel is PropertyGroupBaseNodeModel)
             {
                 return false;
             }
 
-            SearcherService.ShowStackNodes(m_Store.GetState(), model.ParentStackModel, mousePosition, item =>
+            SearcherService.ShowStackNodes(Store.GetState(), NodeModel.ParentStackModel, mousePosition, item =>
             {
-                m_Store.Dispatch(new ChangeStackedNodeAction(model, model.ParentStackModel, item));
-            }, new SearcherAdapter($"Change this {model.Title}"));
+                Store.Dispatch(new ChangeStackedNodeAction(NodeModel, NodeModel.ParentStackModel, item));
+            }, new SearcherAdapter($"Change this {NodeModel.Title}"));
 
             return true;
-        }
-
-        protected internal void RedefineNode()
-        {
-            ((NodeModel)model).DefineNode();
-            m_Store.Dispatch(new RefreshUIAction(UpdateFlags.RequestCompilation | UpdateFlags.GraphTopology, new List<IGraphElementModel> { model }));
-        }
-
-        [PublicAPI]
-        public void UpdateTooltip(INodeModel nodeModel)
-        {
-            tooltip = nodeModel.ToolTip;
         }
     }
 }

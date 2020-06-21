@@ -100,7 +100,7 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
             return DataWatchService.sharedInstance.disableThrottling;
         }
 
-        public static List<EditorWindow> ShowGraphViewWindowWithTools(Type blackboardType, Type graphViewType)
+        public static List<EditorWindow> ShowGraphViewWindowWithTools(Type blackboardType, Type minimapType, Type graphViewType)
         {
             const float width = 1200;
             const float height = 800;
@@ -118,6 +118,12 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
             dockArea.AddTab(blackboardWindow);
             sideSplitView.AddChild(dockArea);
 
+            dockArea = ScriptableObject.CreateInstance<DockArea>();
+            dockArea.position = new Rect(0, 0, toolsWidth, toolsWidth);
+            var minimapWindow = ScriptableObject.CreateInstance(minimapType) as EditorWindow;
+            dockArea.AddTab(minimapWindow);
+            sideSplitView.AddChild(dockArea);
+
             mainSplitView.AddChild(sideSplitView);
             dockArea = ScriptableObject.CreateInstance<DockArea>();
             var graphViewWindow = ScriptableObject.CreateInstance(graphViewType) as EditorWindow;
@@ -133,7 +139,7 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
 
             containerWindow.Show(ShowMode.NormalWindow, false, true, setFocus: true);
 
-            return new List<EditorWindow> { graphViewWindow, blackboardWindow };
+            return new List<EditorWindow> { graphViewWindow, blackboardWindow, minimapWindow };
         }
 
         public static IEnumerable<T> GetGraphViewWindows<T>(Type typeFilter) where T : EditorWindow
@@ -357,6 +363,11 @@ namespace Unity.Modifier.GraphToolsFoundations.Bridge
         }
 
         public new uint controlid => base.controlid;
+
+        protected void SetIsCompositeRoot()
+        {
+            isCompositeRoot = true;
+        }
     }
 
     public abstract class GraphViewBridge : VisualElementBridge

@@ -7,14 +7,14 @@ using UnityEditor.Modifier.VisualScripting.Model;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class State : IDisposable
+    public class State : Unity.GraphElements.State
     {
-        public IGraphAssetModel AssetModel { get; set; }
-        public IGraphModel CurrentGraphModel => AssetModel?.GraphModel;
+        public IGraphModel CurrentGraphModel => GraphModel as IGraphModel;
 
         public VSPreferences Preferences => EditorDataModel?.Preferences;
 
-        public IEditorDataModel EditorDataModel { get; private set; }
+        public new IEditorDataModel EditorDataModel => base.EditorDataModel as IEditorDataModel;
+
         public ICompilationResultModel CompilationResultModel { get; private set; }
 
         /// <summary>
@@ -37,16 +37,25 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public State(IEditorDataModel editorDataModel)
         {
             CompilationResultModel = new CompilationResultModel();
-            EditorDataModel = editorDataModel;
+            base.EditorDataModel = editorDataModel;
             CurrentTracingStep = -1;
         }
 
-        public void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            UnloadCurrentGraphAsset();
-            CompilationResultModel = null;
-            DebuggingData = null;
-            EditorDataModel = null;
+            if (disposing)
+            {
+                UnloadCurrentGraphAsset();
+                CompilationResultModel = null;
+                DebuggingData = null;
+            }
+
+            base.Dispose(disposing);
+        }
+
+        ~State()
+        {
+            Dispose(false);
         }
 
         public void UnloadCurrentGraphAsset()

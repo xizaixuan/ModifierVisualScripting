@@ -101,7 +101,7 @@ namespace Unity.Modifier.GraphElements
 
         public override VisualElement contentContainer { get { return m_RowsContainer; } }
 
-        public override string title
+        public virtual string title
         {
             get { return m_TitleLabel.text; }
             set { m_TitleLabel.text = value; }

@@ -30,7 +30,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
 
         public override IEnumerable<INodeModel> GetEntryPoints(VSGraphModel vsGraphModel)
         {
-            return vsGraphModel.VariableDeclarations.Where(v => v.Modifiers == ModifierFlags.WriteOnly).SelectMany(vsGraphModel.FindUsages);
+            return vsGraphModel.VariableDeclarations.Where(v => v.Modifiers == ModifierFlags.WriteOnly).SelectMany(vsGraphModel.FindUsages<VariableNodeModel>);
         }
 
         public void SetParent(Type type, VSGraphModel graphModel)

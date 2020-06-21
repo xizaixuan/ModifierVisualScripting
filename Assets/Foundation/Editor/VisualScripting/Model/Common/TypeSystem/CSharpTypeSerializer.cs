@@ -7,6 +7,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
     public class CSharpTypeSerializer
     {
         public readonly Dictionary<string, string> typeRenames;
+
         static Dictionary<string, Type> s_MovedFromTypes;
         static Dictionary<string, Type> MovedFromTypes
         {
@@ -43,6 +44,18 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
             }
         }
 
+        /// <summary>
+        /// Gets the full name of a type without the namespace.
+        /// </summary>
+        /// <remarks>
+        /// The full name of a type nested type includes the outer class type name. The type names are normally
+        /// separated by '+' but Unity serialization uses the '/' character as separator.
+        ///
+        /// This method returns the full type name of a class and switches the type separator to '/' to follow Unity.
+        /// </remarks>
+        /// <param name="typeName">The full type name, including the namespace.</param>
+        /// <param name="nameSpace">The namespace to be removed.</param>
+        /// <returns>Returns a string.</returns>
         static string GetFullNameNoNamespace(string typeName, string nameSpace)
         {
             if (typeName.Contains(nameSpace))
@@ -127,7 +140,12 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
             return Deserialize(th.Identification);
         }
 
-        public TypeHandle GenerateTypeHandle(Type t)
+        public static TypeHandle GenerateTypeHandle<T>()
+        {
+            return new TypeHandle(Serialize(typeof(T)));
+        }
+
+        public static TypeHandle GenerateTypeHandle(Type t)
         {
             return new TypeHandle(Serialize(t));
         }

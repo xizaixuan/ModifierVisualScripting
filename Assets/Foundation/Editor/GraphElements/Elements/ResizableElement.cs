@@ -15,7 +15,7 @@ namespace Unity.Modifier.GraphElements
 
     public class ResizableElement : VisualElement
     {
-        public new class UxmlFactory : UxmlFactory<ResizableElement> {}
+        public new class UxmlFactory : UxmlFactory<ResizableElement> { }
 
         public ResizableElement() : this("Resizable.uxml")
         {
@@ -25,9 +25,7 @@ namespace Unity.Modifier.GraphElements
 
         public ResizableElement(string uiFile)
         {
-            var tpl = Resources.Load<VisualTreeAsset>(uiFile);
-            if (tpl == null)
-                tpl = GraphElementsHelper.LoadUXML(uiFile);
+            var tpl = GraphElementsHelper.LoadUXML(uiFile);
 
             this.AddStylesheet("Resizable.uss");
 

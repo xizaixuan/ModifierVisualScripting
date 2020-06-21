@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public class Blackboard : GraphElement, ISelection
+    public class Blackboard : GraphElement, ISelection, IMovable
     {
         private VisualElement m_MainContainer;
         private VisualElement m_Root;
@@ -51,16 +51,14 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        public override string title
+        protected string title
         {
-            get { return m_TitleLabel.text; }
-            set { m_TitleLabel.text = value; }
+            set => m_TitleLabel.text = value;
         }
 
-        public string subTitle
+        protected string subTitle
         {
-            get { return m_SubTitleLabel.text; }
-            set { m_SubTitleLabel.text = value; }
+            set => m_SubTitleLabel.text = value;
         }
 
         bool m_Windowed;
@@ -73,18 +71,27 @@ namespace Unity.Modifier.GraphElements
 
                 if (value)
                 {
-                    capabilities &= ~Capabilities.Movable;
                     AddToClassList("windowed");
                     this.RemoveManipulator(m_Dragger);
                 }
                 else
                 {
-                    capabilities |= Capabilities.Movable;
                     RemoveFromClassList("windowed");
                     this.AddManipulator(m_Dragger);
                 }
                 m_Windowed = value;
             }
+        }
+
+        // PF: remove Is..
+        public override bool IsPositioned()
+        {
+            return !m_Windowed;
+        }
+
+        public override bool IsResizable()
+        {
+            return true;
         }
 
         public override VisualElement contentContainer { get { return m_ContentContainer; } }
@@ -160,7 +167,6 @@ namespace Unity.Modifier.GraphElements
 
             hierarchy.Add(m_MainContainer);
 
-            capabilities |= Capabilities.Movable | Capabilities.Resizable;
             style.overflow = Overflow.Hidden;
 
             ClearClassList();
@@ -226,5 +232,11 @@ namespace Unity.Modifier.GraphElements
         {
             graphView?.OnExecuteCommand(evt);
         }
+
+        public virtual void UpdatePinning()
+        {
+        }
+
+        public virtual bool IsMovable => false;
     }
 }

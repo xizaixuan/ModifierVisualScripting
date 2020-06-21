@@ -137,7 +137,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             // We need to do this after all graph elements are created.
             foreach (var p in m_GraphView.placematContainer.Placemats.Cast<Placemat>())
             {
-                p.InitCollapsedElementsFromModel();
+                p.UpdateFromModel();
             }
 
             m_GraphView.MarkDirtyRepaint();
@@ -157,11 +157,16 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         GraphElement CreateElement(IGraphElementModel model)
         {
-            GraphElement element = GraphElementFactory.CreateUI(m_GraphView, m_Store, model);
-            if (element != null)
-                AddToGraphView(element);
+            if (model is IGTFGraphElementModel graphElementModel)
+            {
+                GraphElement element = graphElementModel.CreateUI<GraphElement>(m_GraphView, m_Store);
+                if (element != null)
+                    AddToGraphView(element);
 
-            return element;
+                return element;
+            }
+
+            return null;
         }
 
         void PartialRebuild(State state)
@@ -185,10 +190,10 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
                 // rebuild needed edges
                 // TODO keep a port mapping next to the node mapping
-                Dictionary<PortModel, Unity.Modifier.GraphElements.Port> allPorts = m_GraphView.ports.ToList().ToDictionary(p => p.userData as PortModel);
+                Dictionary<PortModel, Unity.GraphElements.Port> allPorts = m_GraphView.ports.ToList().ToDictionary(p => p.PortModel as PortModel);
                 m_GraphView.PositionDependenciesManagers.portModelToPort = allPorts;
 
-                partialRebuilder.RebuildEdges(e => RestoreEdge(e, allPorts));
+                partialRebuilder.RebuildEdges(e => RestoreEdge(e));
 
                 if (partialRebuilder.BlackboardChanged)
                 {
@@ -207,13 +212,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             switch (graphElement)
             {
                 case Edge e:
-                    m_GraphView.RemovePositionDependency(e.model);
+                    m_GraphView.RemovePositionDependency(e.VSEdgeModel);
                     break;
                 case Node n when n.Stack != null:
-                    m_GraphView.RemovePositionDependencies(n.Stack.stackModel.Guid, new[] { n.model });
+                    m_GraphView.RemovePositionDependencies(n.Stack.StackModel.Guid, new[] { n.NodeModel });
                     break;
             }
 
+            graphElement.Unselect(m_GraphView);
             m_GraphView.DeleteElements(new[] { graphElement });
             graphElement.UnregisterCallback<MouseOverEvent>(m_GraphView.OnMouseOver);
         }
@@ -230,32 +236,32 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_GraphView.placematContainer.RemoveAllPlacemats();
             foreach (var placematModel in ((VSGraphModel)state.CurrentGraphModel).PlacematModels.OrderBy(e => e.ZOrder))
             {
-                var placemat = GraphElementFactory.CreateUI(m_GraphView, m_Store, placematModel);
+                var placemat = GraphElementFactory.CreateUI<GraphElement>(m_GraphView, m_Store, placematModel as IGTFPlacematModel);
                 if (placemat != null)
                     AddToGraphView(placemat);
             }
 
             foreach (var nodeModel in graphModel.NodeModels)
             {
-                var node = GraphElementFactory.CreateUI(m_GraphView, m_Store, nodeModel);
+                var node = GraphElementFactory.CreateUI<GraphElement>(m_GraphView, m_Store, nodeModel as IGTFNodeModel);
                 if (node != null)
                     AddToGraphView(node);
             }
 
             foreach (var stickyNoteModel in ((VSGraphModel)state.CurrentGraphModel).StickyNoteModels)
             {
-                var stickyNote = GraphElementFactory.CreateUI(m_GraphView, m_Store, stickyNoteModel);
+                var stickyNote = GraphElementFactory.CreateUI<GraphElement>(m_GraphView, m_Store, stickyNoteModel as IGTFStickyNoteModel);
                 if (stickyNote != null)
                     AddToGraphView(stickyNote);
             }
 
             var ports = m_GraphView.ports.ToList();
-            var allPorts = ports.ToDictionary(p => p.userData as PortModel);
+            var allPorts = ports.ToDictionary(p => p.PortModel as PortModel);
             m_GraphView.PositionDependenciesManagers.portModelToPort = allPorts;
             int index = 0;
             foreach (IEdgeModel edge in ((VSGraphModel)state.CurrentGraphModel).EdgeModels)
             {
-                if (!RestoreEdge(edge, allPorts))
+                if (!RestoreEdge(edge))
                 {
                     Debug.LogWarning($"Edge {index} cannot be restored: {edge}");
                 }
@@ -285,15 +291,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 .ToDictionary(g => g.Key, g => g.First());
         }
 
-        bool RestoreEdge(IEdgeModel edge, Dictionary<PortModel, Unity.Modifier.GraphElements.Port> portsByModel)
+        bool RestoreEdge(IEdgeModel edge)
         {
             var inputPortModel = (PortModel)edge.InputPortModel;
             var outputPortModel = (PortModel)edge.OutputPortModel;
-            if (inputPortModel != null && outputPortModel != null
-                && portsByModel.TryGetValue(inputPortModel, out var i)
-                && portsByModel.TryGetValue(outputPortModel, out var o))
+            if (inputPortModel != null && outputPortModel != null)
             {
-                Connect(edge, o, i);
+                Connect(edge, outputPortModel, inputPortModel);
                 return true;
             }
 
@@ -310,6 +314,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (lastCompilationResult?.errors == null)
                 return;
 
+            var graphAsset = (GraphAssetModel)m_Store.GetState().CurrentGraphModel?.AssetModel;
             foreach (var error in lastCompilationResult.errors)
             {
                 if (error.sourceNode != null && !error.sourceNode.Destroyed)
@@ -323,24 +328,22 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                         AttachErrorBadge(graphElement, error.description, alignment, m_Store, error.quickFix);
                 }
 
-                var graphAsset = (GraphAssetModel)m_Store.GetState().CurrentGraphModel?.AssetModel;
-                var graphAssetPath = graphAsset ? AssetDatabase.GetAssetPath(graphAsset) : "<unknown>";
-                VseUtility.LogSticky(error.isWarning ? LogType.Warning : LogType.Error, LogOption.None, $"{graphAssetPath}: {error.description}", $"{graphAssetPath}@{error.sourceNodeGuid}", graphAsset.GetInstanceID());
+                if (graphAsset)
+                {
+                    var graphAssetPath = graphAsset ? AssetDatabase.GetAssetPath(graphAsset) : "<unknown>";
+                    VseUtility.LogSticky(error.isWarning ? LogType.Warning : LogType.Error, LogOption.None,
+                        $"{graphAssetPath}: {error.description}", $"{graphAssetPath}@{error.sourceNodeGuid}",
+                        graphAsset.GetInstanceID());
+                }
             }
         }
 
-        void Connect(IEdgeModel edgeModel, Unity.Modifier.GraphElements.Port output, Unity.Modifier.GraphElements.Port input)
+        void Connect(IEdgeModel edgeModel, IGTFPortModel output, IGTFPortModel input)
         {
-            var edge = new Edge(edgeModel);
+            var edge = GraphElementFactory.CreateUI<Edge>(m_GraphView, m_Store, edgeModel as IGTFEdgeModel);
             AddToGraphView(edge);
 
-            edge.input = input;
-            edge.output = output;
-
-            edge.input.Connect(edge);
-            edge.output.Connect(edge);
-
-            m_GraphView.AddPositionDependency(edge.model);
+            m_GraphView.AddPositionDependency(edge.VSEdgeModel);
         }
 
         internal void Clear()
@@ -410,7 +413,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             (visualElement as IBadgeContainer)?.HideErrorBadge();
         }
 
-        void AddToGraphView(GraphElement graphElement, Unity.Modifier.GraphElements.Scope scope = null)
+        void AddToGraphView(GraphElement graphElement)
         {
             // exception thrown by graphview while in playmode
             // probably related to the undo selection thingy
@@ -424,8 +427,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 Debug.LogError(e);
             }
 
-            scope?.AddElement(graphElement);
-
             if (graphElement is IHasGraphElementModel hasGraphElementModel &&
                 m_Store.GetState().EditorDataModel.ShouldSelectElementUponCreation(hasGraphElementModel))
                 graphElement.Select(m_GraphView, true);
@@ -435,34 +436,26 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             if (graphElement is StackNode || graphElement is Node || graphElement is Token || graphElement is Edge)
                 graphElement.RegisterCallback<MouseOverEvent>(m_GraphView.OnMouseOver);
-
-            if (!(graphElement is Token token))
-                return;
-
-            IGraphElementModel elementModelToRename = m_Store.GetState().EditorDataModel.ElementModelToRename;
-            if (elementModelToRename != null && ReferenceEquals(token.GraphElementModel, elementModelToRename))
-                m_GraphView.UIController.ElementToRename = token;
         }
 
         public IRenamable ElementToRename { private get; set; }
 
-        static void VisitNodes(Unity.Modifier.GraphElements.Node node, ref HashSet<Unity.Modifier.GraphElements.Node> visitedGraphElements)
+        static void VisitNodes(INodeModel node, ref HashSet<INodeModel> visitedGraphElements)
         {
             if (node == null || visitedGraphElements == null || visitedGraphElements.Contains(node))
                 return;
 
-            if (node is StackNode)
+            if (node is IStackModel)
             {
-                foreach (var visualElement in node.inputContainer.Children())
+                foreach (var inputPort in node.InputsById.Values)
                 {
-                    var port = (Port)visualElement;
-                    if (port?.connections == null)
+                    if (!inputPort.IsConnected)
                         continue;
 
-                    foreach (Unity.Modifier.GraphElements.Edge connection in port.connections)
+                    foreach (var connection in inputPort.ConnectedEdges)
                     {
-                        Unity.Modifier.GraphElements.Port otherConnection = connection.output;
-                        Unity.Modifier.GraphElements.Node otherNode = otherConnection?.node;
+                        var otherConnection = connection.OutputPortModel;
+                        var otherNode = otherConnection?.NodeModel as INodeModel;
                         if (otherNode == null)
                             continue;
 
@@ -473,16 +466,15 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             }
             else
             {
-                foreach (var visualElement in node.outputContainer.Children())
+                foreach (var outputPort in node.OutputsById.Values)
                 {
-                    var port = (Port)visualElement;
-                    if (port?.connections == null)
+                    if (!outputPort.IsConnected)
                         continue;
 
-                    foreach (Unity.Modifier.GraphElements.Edge connection in port.connections)
+                    foreach (var connection in outputPort.ConnectedEdges)
                     {
-                        Unity.Modifier.GraphElements.Port otherConnection = connection.input;
-                        Unity.Modifier.GraphElements.Node otherNode = otherConnection?.node;
+                        var otherConnection = connection.InputPortModel;
+                        var otherNode = otherConnection?.NodeModel as INodeModel;
                         if (otherNode == null)
                             continue;
 
@@ -494,28 +486,10 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             switch (node)
             {
-                case FunctionNode functionNode:
-                    visitedGraphElements.Add(functionNode);
-                    break;
-                case Node vsNode when vsNode.IsInStack:
-                    visitedGraphElements.Add(vsNode.Stack);
+                case INodeModel vsNode when vsNode.IsStacked:
+                    visitedGraphElements.Add(vsNode.ParentStackModel);
                     break;
             }
-        }
-
-        static void FetchVariableDeclarationModelsFromFunctionModel(IFunctionModel functionModel, ref HashSet<Tuple<IVariableDeclarationModel, bool>> declarationModelTuples)
-        {
-            if (functionModel.FunctionVariableModels != null)
-                foreach (var declarationModel in functionModel.FunctionVariableModels)
-                    declarationModelTuples.Add(new Tuple<IVariableDeclarationModel, bool>(declarationModel, true));
-
-            IEnumerable<IVariableDeclarationModel> allFunctionParameterModels = functionModel.FunctionParameterModels;
-            if (allFunctionParameterModels == null)
-                return;
-
-            foreach (var declarationModel in allFunctionParameterModels)
-                declarationModelTuples.Add(new Tuple<IVariableDeclarationModel, bool>(declarationModel,
-                    functionModel.AllowChangesToModel));
         }
 
         void FindVariableDeclarationsFromSelection(List<ISelectable> selection, HashSet<INodeModel> visited, HashSet<Tuple<IVariableDeclarationModel, bool>> declarationModelTuples)
@@ -524,50 +498,22 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             {
                 switch (x)
                 {
-                    case Token token:
-                        {
-                            var declarationModel = (token.GraphElementModel as IVariableModel)?.DeclarationModel as VariableDeclarationModel;
-                            if (declarationModel != null && declarationModel.FunctionModel != null)
-                                FetchVariableDeclarationModelsFromFunctionModel(declarationModel.FunctionModel, ref declarationModelTuples);
-                        }
-                        break;
-                    case TokenDeclaration tokenDeclaration when tokenDeclaration.Declaration is VariableDeclarationModel declarationModel &&
-                        declarationModel.FunctionModel != null:
-                        FetchVariableDeclarationModelsFromFunctionModel(declarationModel.FunctionModel, ref declarationModelTuples);
-                        break;
                     case StackNode stackNode:
                         {
-                            if (stackNode is FunctionNode functionNode)
-                            {
-                                FetchVariableDeclarationModelsFromFunctionModel(functionNode.m_FunctionModel, ref declarationModelTuples);
-                            }
-                            else
-                            {
-                                List<ISelectable> connectedInputNodes = new List<ISelectable>();
-                                foreach (var inputPortModel in stackNode.stackModel.InputsById.Values)
-                                    foreach (var connectedPortModel in inputPortModel.ConnectionPortModels)
-                                        if (visited.Add(connectedPortModel.NodeModel) && connectedPortModel.NodeModel != stackNode.stackModel)
-                                            connectedInputNodes.Add(ModelsToNodeMapping[connectedPortModel.NodeModel]);
-                                FindVariableDeclarationsFromSelection(connectedInputNodes, visited, declarationModelTuples);
-                            }
+                            List<ISelectable> connectedInputNodes = new List<ISelectable>();
+                            foreach (var inputPortModel in stackNode.StackModel.InputsById.Values)
+                                foreach (var connectedPortModel in inputPortModel.ConnectionPortModels)
+                                    if (visited.Add(connectedPortModel.NodeModel) && connectedPortModel.NodeModel != stackNode.StackModel)
+                                        connectedInputNodes.Add(ModelsToNodeMapping[connectedPortModel.NodeModel]);
+                            FindVariableDeclarationsFromSelection(connectedInputNodes, visited, declarationModelTuples);
                         }
                         break;
                     case Node node:
-                        if (node.Stack != null && visited.Add(node.Stack.stackModel))
+                        if (node.Stack != null && visited.Add(node.Stack.StackModel))
                         {
-                            if (node.Stack is FunctionNode parentFunctionNode)
-                                FetchVariableDeclarationModelsFromFunctionModel(parentFunctionNode.m_FunctionModel, ref declarationModelTuples);
-                            else
-                                FindVariableDeclarationsFromSelection(new List<ISelectable> { node.Stack }, visited, declarationModelTuples);
+                            FindVariableDeclarationsFromSelection(new List<ISelectable> { node.Stack }, visited, declarationModelTuples);
                         }
 
-                        break;
-                    case BlackboardVariableField blackboardVariableField:
-                        {
-                            var declarationModel = blackboardVariableField.VariableDeclarationModel as VariableDeclarationModel;
-                            if (declarationModel != null && declarationModel.FunctionModel != null)
-                                FetchVariableDeclarationModelsFromFunctionModel(declarationModel.FunctionModel, ref declarationModelTuples);
-                        }
                         break;
                 }
             }
@@ -584,24 +530,19 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         // TODO:
         // 1) Move to Node extension method
         // 2) Use predicate which returns true as soon as we find graphElementModel that corresponds to node's graphElementModel
-        public static bool IsNodeConnectedTo(Unity.Modifier.GraphElements.Node node,
-            Unity.Modifier.GraphElements.Node otherNode)
+        public static bool IsNodeConnectedTo(INodeModel node, INodeModel otherNode)
         {
             if (node == null)
                 return false;
 
-            var otherGraphElementModel = (otherNode as IHasGraphElementModel)?.GraphElementModel;
-            if (otherGraphElementModel == null)
+            if (otherNode == null)
                 return false;
 
             // Fetch all nodes first
-            HashSet<Unity.Modifier.GraphElements.Node> visitedNodes =
-                new HashSet<Unity.Modifier.GraphElements.Node>();
+            HashSet<INodeModel> visitedNodes = new HashSet<INodeModel>();
             VisitNodes(node, ref visitedNodes);
 
-            return visitedNodes.Any(x =>
-                x is IHasGraphElementModel hasGraphElementModel &&
-                ReferenceEquals(hasGraphElementModel.GraphElementModel, otherGraphElementModel));
+            return visitedNodes.Any(x => ReferenceEquals(x, otherNode));
         }
     }
 }

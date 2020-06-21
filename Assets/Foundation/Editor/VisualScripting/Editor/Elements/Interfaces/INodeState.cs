@@ -14,7 +14,7 @@
 
     public enum ModelState
     {
-        Enabled = 0,
+        Enabled = 0, // default value
         Disabled,
     }
 }

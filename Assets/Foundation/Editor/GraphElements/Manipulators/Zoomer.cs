@@ -7,17 +7,26 @@ namespace Unity.Modifier.GraphElements
 {
     public class ContentZoomer : Manipulator
     {
-        public static readonly float DefaultReferenceScale = 1.0f;
+        public static readonly float DefaultReferenceScale = 1;
         public static readonly float DefaultMinScale = 0.25f;
-        public static readonly float DefaultMaxScale = 1.0f;
+        public static readonly float DefaultMaxScale = 1;
         public static readonly float DefaultScaleStep = 0.15f;
 
+        /// <summary>
+        /// Scale that should be computed when scroll wheel offset is at zero.
+        /// </summary>
         public float referenceScale { get; set; } = DefaultReferenceScale;
 
         public float minScale { get; set; } = DefaultMinScale;
-
         public float maxScale { get; set; } = DefaultMaxScale;
 
+        /// <summary>
+        /// Relative scale change when zooming in/out (e.g. For 15%, use 0.15).
+        /// </summary>
+        /// <remarks>
+        /// Depending on the values of <c>minScale</c>, <c>maxScale</c> and <c>scaleStep</c>, it is not guaranteed that
+        /// the first and last two scale steps will correspond exactly to the value specified in <c>scaleStep</c>.
+        /// </remarks>
         public float scaleStep { get; set; } = DefaultScaleStep;
 
         [Obsolete("ContentZoomer.keepPixelCacheOnZoom is deprecated and has no effect")]
@@ -39,6 +48,16 @@ namespace Unity.Modifier.GraphElements
             target.UnregisterCallback<WheelEvent>(OnWheel);
         }
 
+        // Compute the parameters of our exponential model:
+        // z(w) = (1 + s) ^ (w + a) + b
+        // Where
+        // z: calculated zoom level
+        // w: accumulated wheel deltas (1 unit = 1 mouse notch)
+        // s: zoom step
+        //
+        // The factors a and b are calculated in order to satisfy the conditions:
+        // z(0) = referenceZoom
+        // z(1) = referenceZoom * (1 + zoomStep)
         private static float CalculateNewZoom(float currentZoom, float wheelDelta, float zoomStep, float referenceZoom, float minZoom, float maxZoom)
         {
             if (minZoom <= 0)

@@ -9,20 +9,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model
     {
         static Texture2D s_GraphAssetModelIcon;
 
-        delegate Texture2D LoadIconRequiredDelegate(string name);
-
-        static LoadIconRequiredDelegate s_LoadIconRequired;
-
-        public static Texture2D LoadIconRequired(string name)
-        {
-            if (s_LoadIconRequired == null)
-                s_LoadIconRequired = (LoadIconRequiredDelegate)
-                    typeof(EditorGUIUtility)
-                        .GetMethod("LoadIconRequired", BindingFlags.NonPublic | BindingFlags.Static)
-                    ?.CreateDelegate(typeof(LoadIconRequiredDelegate));
-            return s_LoadIconRequired?.Invoke(name);
-        }
-
         [DidReloadScripts]
         static void OnVisualScriptingIconUtility()
         {

@@ -4,7 +4,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
 {
     public interface IPluginHandler
     {
-        void Register(Store store, GraphView graphView);
+        void Register(Store store, VseWindow window);
         void Unregister();
 
         void OptionsMenu(GenericMenu menu);

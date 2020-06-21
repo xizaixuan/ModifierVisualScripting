@@ -11,49 +11,28 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class Token : TokenNode, IHighlightable, ICustomColor, IBadgeContainer, IRenamable, IMovable, INodeState
+    public class Token : TokenNode, IHighlightable, ICustomColor, IBadgeContainer, INodeState
     {
-        INodeModel Model { get; }
-        public Store Store { get; }
+        public new INodeModel NodeModel => base.NodeModel as INodeModel;
+        public new Store Store => base.Store as Store;
 
-        readonly GraphView m_GraphView;
         SerializedObject m_SerializedObject;
 
-        TextField m_TitleTextfield;
-        Label m_TitleLabel;
-
-        public string TitleValue => Model.Title.Nicify();
-
-        public VisualElement TitleEditor => (Model is ConstantNodeModel) ? TokenEditor : m_TitleTextfield ?? (m_TitleTextfield = new TextField { name = "titleEditor", isDelayed = true });
-        public VisualElement TitleElement => this;
-
-        public IGraphElementModel GraphElementModel => Model;
+        public IGraphElementModel GraphElementModel => NodeModel;
 
         VisualElement TokenEditor { get; set; }
-
-        public bool Highlighted
-        {
-            get => highlighted;
-            set => highlighted = value;
-        }
 
         public override bool IsRenamable()
         {
             if (!base.IsRenamable())
                 return false;
 
-            if (Model.Capabilities.HasFlag(CapabilityFlags.Renamable))
+            if (NodeModel is Unity.GraphToolsFoundation.Model.IRenamable)
                 return true;
 
-            IVariableDeclarationModel declarationModel = (Model as IVariableModel)?.DeclarationModel;
-            return declarationModel != null && declarationModel.Capabilities.HasFlag(CapabilityFlags.Renamable);
+            IVariableDeclarationModel declarationModel = (NodeModel as IVariableModel)?.DeclarationModel;
+            return declarationModel is Unity.GraphToolsFoundation.Model.IRenamable;
         }
-
-        public bool IsFramable() => true;
-
-        public bool EditTitleCancelled { get; set; } = false;
-
-        public RenameDelegate RenameDelegate => null;
 
         internal static TypeHandle[] s_PropsToHideLabel =
         {
@@ -65,140 +44,185 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             TypeHandle.String
         };
 
-        bool TokenEditorNeedsLabel
+        VisualElement m_ContentContainer;
+        public override VisualElement contentContainer => m_ContentContainer ?? this;
+
+        public void Setup(INodeModel model, IStore store, GraphView graphView, Texture2D icon = null)
         {
-            get
-            {
-                if (Model is ConstantNodeModel constantNodeModel)
-                    return !s_PropsToHideLabel.Contains(constantNodeModel.Type.GenerateTypeHandle(Model.GraphModel.Stencil));
-                return true;
-            }
+            Icon = icon;
+            base.Setup(model as IGTFNodeModel, store, graphView);
         }
 
-        public Token(INodeModel model, Store store, Port input, Port output, GraphView graphView, Texture2D icon = null) : base(input, output)
+        protected override void BuildUI()
         {
-            Store = store;
-            m_GraphView = graphView;
-            Model = model;
-            this.icon = icon;
+            var selectionBorder = new VisualElement();
+            selectionBorder.AddToClassList("ge-node__selection-border");
+            Add(selectionBorder);
+
+            var contentContainerElement = new VisualElement();
+            contentContainerElement.AddToClassList("ge-node__content-container");
+            selectionBorder.Add(contentContainerElement);
+            m_ContentContainer = contentContainerElement;
+
+            base.BuildUI();
 
             styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "PropertyField.uss"));
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Node.uss"));
             styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Token.uss"));
 
-            base.SetPosition(new Rect(model.Position, Vector2.zero));
-
-            capabilities = VseUtility.ConvertCapabilities(model);
-
-            if (model is IObjectReference modelReference)
+            if (TitleLabel != null)
             {
-                if (modelReference is IExposeTitleProperty titleProperty)
+                if (Model is IObjectReference modelReference)
                 {
-                    m_TitleLabel = this.Q<Label>("title-label");
-                    m_TitleLabel.bindingPath = titleProperty.TitlePropertyName;
+                    if (modelReference is IExposeTitleProperty titleProperty)
+                    {
+                        TitleLabel.BindingPath = titleProperty.TitlePropertyName;
+                    }
                 }
             }
 
-            if (model is ConstantNodeModel constantNodeModel)
+            if (Model is ConstantNodeModel constantNodeModel)
+            {
                 SetupConstantEditor(constantNodeModel);
-            else
-                base.title = model.Title;
+                AddToClassList(k_UssClassName + "--constant-token");
+            }
+            else if (Model is VariableNodeModel && TitleContainer != null)
+            {
+                var greenDot = new Image();
+                greenDot.AddToClassList(Unity.GraphElements.Node.k_UssClassName + "__green-dot");
+                TitleContainer.Insert(0, greenDot);
+            }
 
-            if (model is IVariableModel variableModel && variableModel.DeclarationModel != null)
+            viewDataKey = NodeModel.GetId();
+
+            this.AddOverlay();
+        }
+
+        public override void UpdateFromModel()
+        {
+            base.UpdateFromModel();
+
+            if (Model is IVariableModel variableModel && variableModel.DeclarationModel != null)
             {
                 switch (variableModel.DeclarationModel.Modifiers)
                 {
                     case ModifierFlags.ReadOnly:
-                        AddToClassList("read-only");
+                        AddToClassList(k_UssClassName + "--read-only");
                         break;
                     case ModifierFlags.WriteOnly:
-                        AddToClassList("write-only");
+                        AddToClassList(k_UssClassName + "--write-only");
                         break;
                 }
             }
+            else if (Model is IEdgePortalEntryModel)
+            {
+                AddToClassList("portal-entry");
+            }
+            else if (Model is IEdgePortalExitModel)
+            {
+                AddToClassList("portal-exit");
+            }
 
-            this.EnableRename();
-
-            var nodeModel = model as NodeModel;
-            if (nodeModel != null)
+            if (Model is NodeModel nodeModel)
             {
                 tooltip = $"{nodeModel.VariableString}";
                 if (!string.IsNullOrEmpty(nodeModel.DataTypeString))
                     tooltip += $" of type {nodeModel.DataTypeString}";
-                if (model is IVariableModel currentVariableModel &&
+                if (Model is IVariableModel currentVariableModel &&
                     !string.IsNullOrEmpty(currentVariableModel.DeclarationModel?.Tooltip))
                     tooltip += "\n" + currentVariableModel.DeclarationModel.Tooltip;
+
+                if (nodeModel.HasUserColor)
+                {
+                    var border = this.MandatoryQ(className: "ge-node__content-container");
+                    border.style.backgroundColor = nodeModel.Color;
+                    border.style.backgroundImage = null;
+                }
+                else
+                {
+                    var border = this.MandatoryQ(className: "ge-node__content-container");
+                    border.style.backgroundColor = StyleKeyword.Null;
+                    border.style.backgroundImage = StyleKeyword.Null;
+                }
             }
 
-            viewDataKey = model.GetId();
+            UIState = NodeModel.State == ModelState.Disabled ? NodeUIState.Disabled : NodeUIState.Enabled;
+            this.ApplyNodeState();
+        }
+
+        bool TokenEditorNeedsLabel
+        {
+            get
+            {
+                if (NodeModel is ConstantNodeModel constantNodeModel)
+                    return !s_PropsToHideLabel.Contains(constantNodeModel.Type.GenerateTypeHandle(NodeModel.VSGraphModel.Stencil));
+                return true;
+            }
         }
 
         void SetupConstantEditor(ConstantNodeModel constantNodeModel)
         {
-            EnableInClassList("constant", true);
-
             void OnValueChanged(IChangeEvent evt)
             {
-                if (constantNodeModel.OutputPort.Connected)
+                if (constantNodeModel.OutputPort.IsConnected)
                     Store.Dispatch(new RefreshUIAction(UpdateFlags.RequestCompilation));
-                // TODO: ???
-                if (TokenEditorNeedsLabel)
-                    title = Model.Title;
             }
 
-            TokenEditor = this.CreateEditorForNodeModel((IConstantNodeModel)Model, OnValueChanged);
+            TokenEditor = this.CreateEditorForNodeModel((IConstantNodeModel)NodeModel, OnValueChanged);
 
-            var label = this.MandatoryQ<Label>("title-label");
+            var icm = NodeModel as IStringWrapperConstantModel;
 
-            if (!TokenEditorNeedsLabel)
-                label.style.width = 0;
-            label.parent.Insert(0, TokenEditor);
-            if (Model is IStringWrapperConstantModel icm)
-                label.parent.Insert(0, new Label(icm.Label));
+            if (!TokenEditorNeedsLabel && icm != null && TitleContainer != null)
+                TitleContainer.style.display = DisplayStyle.None;
+
+            Insert(1, TokenEditor);
+
+            if (TitleLabel != null && icm != null)
+            {
+                TitleLabel.Text = icm.Label;
+            }
         }
 
-        public void UpdatePinning()
+        bool m_IsMovable = true;
+        public override bool IsMovable => m_IsMovable;
+
+        public void SetMovable(bool movable)
         {
+            m_IsMovable = movable;
         }
-
-        public bool NeedStoreDispatch { get; set; } = true;
 
         public override void OnUnselected()
         {
             base.OnUnselected();
-            ((VseGraphView)m_GraphView).ClearGraphElementsHighlight(ShouldHighlightItemUsage);
+            ((VseGraphView)GraphView).ClearGraphElementsHighlight(ShouldHighlightItemUsage);
+        }
+
+        public bool Highlighted
+        {
+            get => ClassListContains("highlighted");
+            set => EnableInClassList("highlighted", value);
         }
 
         public bool ShouldHighlightItemUsage(IGraphElementModel elementModel)
         {
-            var currentVariableModel = Model as IVariableModel;
+            var currentVariableModel = NodeModel as IVariableModel;
+            var currentEdgePortalModel = Model as IEdgePortalModel;
             // 'this' tokens have a null declaration model
-            if (currentVariableModel?.DeclarationModel == null)
-                return (Model is ThisNodeModel && elementModel is ThisNodeModel);
+            if (currentVariableModel?.DeclarationModel == null && currentEdgePortalModel == null)
+                return NodeModel is ThisNodeModel && elementModel is ThisNodeModel;
 
             switch (elementModel)
             {
                 case IVariableModel variableModel
-                    when ReferenceEquals(variableModel.DeclarationModel, currentVariableModel.DeclarationModel):
+                    when ReferenceEquals(variableModel.DeclarationModel, currentVariableModel?.DeclarationModel):
                 case IVariableDeclarationModel variableDeclarationModel
-                    when ReferenceEquals(variableDeclarationModel, currentVariableModel.DeclarationModel):
+                    when ReferenceEquals(variableDeclarationModel, currentVariableModel?.DeclarationModel):
+                case IEdgePortalModel edgePortalModel
+                    when ReferenceEquals(edgePortalModel.DeclarationModel, currentEdgePortalModel?.DeclarationModel):
                     return true;
             }
 
             return false;
-        }
-
-        public void ResetColor()
-        {
-            var border = this.MandatoryQ("node-border");
-            border.style.backgroundColor = StyleKeyword.Null;
-            border.style.backgroundImage = StyleKeyword.Null;
-        }
-
-        public void SetColor(Color c)
-        {
-            var border = this.MandatoryQ("node-border");
-            border.style.backgroundColor = c;
-            border.style.backgroundImage = null;
         }
 
         public IconBadge ErrorBadge { get; set; }

@@ -49,7 +49,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
             "Microsoft.CSharp",
             "UnityEngine",
             "UnityEngine.SceneManagement",
-            "UnityEngine.Modifier.VisualScripting"
+            "UnityEngine.VisualScripting"
         };
 
         protected virtual Dictionary<string, string> UsingAliases { get; } = new Dictionary<string, string>
@@ -60,7 +60,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
             { "UnityEngine.SceneManagement.SceneManager", "SceneManager" }
         };
 
-        public readonly Stack<MacroRefNodeModel> InMacro = new Stack<MacroRefNodeModel>();
         public HashSet<IStackModel> BuiltStacks = new HashSet<IStackModel>();
         public static LanguageVersion LanguageVersion => LanguageVersion.Latest;
 
@@ -279,12 +278,12 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
 
         public void AddError(INodeModel model, string error, CompilerQuickFix quickFix = null)
         {
-            m_Errors.Add(new CompilerError {sourceNode = model, sourceNodeGuid = model.Guid, description = error, quickFix = quickFix,  isWarning = false});
+            m_Errors.Add(new CompilerError { sourceNode = model, sourceNodeGuid = model.Guid, description = error, quickFix = quickFix, isWarning = false });
         }
 
         public void AddWarning(INodeModel model, string warning, CompilerQuickFix quickFix = null)
         {
-            m_Errors.Add(new CompilerError {sourceNode = model, sourceNodeGuid = model.Guid, description = warning, quickFix = quickFix,  isWarning = true});
+            m_Errors.Add(new CompilerError { sourceNode = model, sourceNodeGuid = model.Guid, description = warning, quickFix = quickFix, isWarning = true });
         }
 
         public Microsoft.CodeAnalysis.SyntaxTree Translate(VSGraphModel graphModel, CompilationOptions options)
@@ -329,9 +328,9 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
 
             cachedAllReferences.AddRange(k_DefaultReferences);
             Assembly[] assemblies = (from domainAssembly in AppDomain.CurrentDomain.GetAssemblies()
-                where !domainAssembly.IsDynamic &&
-                domainAssembly.Location != ""
-                select domainAssembly).ToArray();
+                                     where !domainAssembly.IsDynamic &&
+                                     domainAssembly.Location != ""
+                                     select domainAssembly).ToArray();
             foreach (var assembly in assemblies)
                 cachedAllReferences.Add(MetadataReference.CreateFromFile(assembly.Location));
 
@@ -579,7 +578,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
             if (exitStrategy != StackExitStrategy.Inherit)
                 m_StackExitStrategy = exitStrategy;
 
-//            Debug.Log($"Build stack {stack}");
+            //            Debug.Log($"Build stack {stack}");
             // m_EndStack might get changed by recursive BuildNode() calls
             StackBaseModel origEndStack = EndStack;
             var statements = new List<StatementSyntax>();
@@ -604,7 +603,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
                     }
 
                     // TODO: RecordValue codegen counter instead of counting them after the fact
-                    if ((Options & UnityEngine.Modifier.VisualScripting.CompilationOptions.Tracing) != 0)
+                    if ((Options & UnityEngine.VisualScripting.CompilationOptions.Tracing) != 0)
                     {
                         var recordValueCount = syntaxNode.GetAnnotations(Annotations.RecordValueCountKind).FirstOrDefault();
                         int recordedValuesCount = recordValueCount == null
@@ -623,7 +622,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
                 var nextStack = EndStack;
                 m_StackExitStrategy = origStackExitStrategy;
 
-//                Debug.Log($"Stack {stack} delegates ports. nextStack {nextStack} origEndStack {origEndStack}");
+                //                Debug.Log($"Stack {stack} delegates ports. nextStack {nextStack} origEndStack {origEndStack}");
 
                 // if a nested node changed the end stack, but found the same common descendant,
                 // let the parent call handle it
@@ -657,10 +656,10 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
             if (!anyConnection && !(lastStatementSyntax is ReturnStatementSyntax) && !(lastStatementSyntax is ContinueStatementSyntax))
             {
                 //TODO we had that for a reason
-//                lastStatementSyntax = StatementFromExitStrategy(m_StackExitStrategy, null);
+                //                lastStatementSyntax = StatementFromExitStrategy(m_StackExitStrategy, null);
 
-//                if(lastStatementSyntax != null)
-//                    blockNode = blockNode.AddStatements(lastStatementSyntax);
+                //                if(lastStatementSyntax != null)
+                //                    blockNode = blockNode.AddStatements(lastStatementSyntax);
             }
 
             m_StackExitStrategy = origStackExitStrategy;
@@ -668,34 +667,34 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
 
         protected virtual IdentifierNameSyntax GetRecorderName() => IdentifierName("recorder");
 
-//        static StatementSyntax StatementFromExitStrategy(StackExitStrategy stackExitStrategy, ExpressionSyntax returnValue)
-//        {
-//            StatementSyntax lastStatementSyntax;
-//            switch (stackExitStrategy)
-//            {
-//                case StackExitStrategy.Return:
-//                    lastStatementSyntax = ReturnStatement(returnValue);
-//                    break;
-//                case StackExitStrategy.Break:
-//                    lastStatementSyntax = BreakStatement();
-//                    break;
-//                case StackExitStrategy.None:
-//                    lastStatementSyntax = null;
-//                    break;
-//                default:
-//                    lastStatementSyntax = ContinueStatement();
-//                    break;
-//            }
-//
-//            return lastStatementSyntax;
-//        }
+        //        static StatementSyntax StatementFromExitStrategy(StackExitStrategy stackExitStrategy, ExpressionSyntax returnValue)
+        //        {
+        //            StatementSyntax lastStatementSyntax;
+        //            switch (stackExitStrategy)
+        //            {
+        //                case StackExitStrategy.Return:
+        //                    lastStatementSyntax = ReturnStatement(returnValue);
+        //                    break;
+        //                case StackExitStrategy.Break:
+        //                    lastStatementSyntax = BreakStatement();
+        //                    break;
+        //                case StackExitStrategy.None:
+        //                    lastStatementSyntax = null;
+        //                    break;
+        //                default:
+        //                    lastStatementSyntax = ContinueStatement();
+        //                    break;
+        //            }
+        //
+        //            return lastStatementSyntax;
+        //        }
 
         protected virtual IEnumerable<SyntaxNode> BuildNode(INodeModel statement, IPortModel portModel)
         {
             if (statement == null)
                 return Enumerable.Empty<SyntaxNode>();
             Assert.IsTrue(portModel == null || portModel.NodeModel == statement, "If a Port is provided, it must be owned by the provided node");
-            var ext = ModelUtility.ExtensionMethodCache<RoslynTranslator>.GetExtensionMethod(
+            var ext = ExtensionMethodCache<RoslynTranslator>.GetExtensionMethod(
                 statement.GetType(),
                 FilterMethods,
                 KeySelector);
@@ -723,7 +722,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
         public IEnumerable<SyntaxNode> BuildPort(IPortModel portModel, PortSemantic portSemantic = PortSemantic.Read)
         {
             var buildPortInner = BuildPortInner(portModel, out var builtNode).ToList();
-            if (portSemantic == PortSemantic.Read && (Options & UnityEngine.Modifier.VisualScripting.CompilationOptions.Tracing) != 0 &&
+            if (portSemantic == PortSemantic.Read && (Options & UnityEngine.VisualScripting.CompilationOptions.Tracing) != 0 &&
                 builtNode != null && buildPortInner.Count == 1 && buildPortInner.First() is ExpressionSyntax exp)
                 return Enumerable.Repeat(InstrumentForInEditorDebugging.RecordValue(GetRecorderName(), exp, null, (NodeModel)builtNode), 1);
             return buildPortInner;
@@ -743,7 +742,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
                 return BuildNode(portModel.EmbeddedValue);
 
             // return default datatype value (null) if not connected. not recorded either
-            var defaultValue = RoslynBuilder.GetDefault(portModel.DataType.Resolve(Stencil));
+            var defaultValue = RoslynBuilder.GetDefault(portModel.DataTypeHandle.Resolve(Stencil));
             return Enumerable.Repeat(defaultValue == null
                 ? LiteralExpression(SyntaxKind.NullLiteralExpression)
                 : Constant(defaultValue, Stencil), 1);

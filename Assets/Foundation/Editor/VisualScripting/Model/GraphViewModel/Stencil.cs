@@ -27,6 +27,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
     [Serializable]
     public enum StencilCapabilityFlags
     {
+        // ReSharper disable once ShiftExpressionRealShiftCountIsZero
         SupportsMacros = 1 << 0,
     }
 
@@ -176,7 +177,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
 
         public virtual TypeHandle GenerateTypeHandle(Type t)
         {
-            return GraphContext.CSharpTypeSerializer.GenerateTypeHandle(t);
+            return CSharpTypeSerializer.GenerateTypeHandle(t);
         }
 
         public bool RequiresInitialization(IVariableDeclarationModel decl) => GraphContext.RequiresInitialization(decl);
@@ -198,7 +199,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         static Dictionary<TypeHandle, Type> s_TypeToConstantNodeModelTypeCache;
         public virtual IDebugger Debugger => null;
         public virtual bool GeneratesCode => false;
-        public virtual HighLevelNodeImguiVisitor PropertyVisitor => null;
 
         public virtual Type GetConstantNodeModelType(Type type)
         {
@@ -242,8 +242,8 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
             return null;
         }
 
-        public virtual void CreateNodesFromPort(Store store, IPortModel portModel, Vector2 position,
-            IEnumerable<IEdgeModel> edgesToDelete, IStackModel stackModel, int index)
+        public virtual void CreateNodesFromPort(Store store, IPortModel portModel, Vector2 localPosition, Vector2 worldPosition,
+            IEnumerable<IGTFEdgeModel> edgesToDelete, IStackModel stackModel, int index)
         {
             switch (portModel.PortType)
             {
@@ -252,10 +252,10 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
                     switch (portModel.Direction)
                     {
                         case Direction.Output when stackModel != null:
-                            if (portModel.DataType != TypeHandle.Unknown)
+                            if (portModel.DataTypeHandle != TypeHandle.Unknown)
                             {
                                 SearcherService.ShowOutputToStackNodes(
-                                    store.GetState(), stackModel, portModel, position, item =>
+                                    store.GetState(), stackModel, portModel, worldPosition, item =>
                                     {
                                         store.Dispatch(new CreateStackedNodeFromOutputPortAction(
                                             portModel, stackModel, index, item, edgesToDelete));
@@ -264,13 +264,13 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
                             break;
 
                         case Direction.Output:
-                            SearcherService.ShowOutputToGraphNodes(store.GetState(), portModel, position, item =>
-                                store.Dispatch(new CreateNodeFromOutputPortAction(portModel, position, item, edgesToDelete)));
+                            SearcherService.ShowOutputToGraphNodes(store.GetState(), portModel, worldPosition, item =>
+                                store.Dispatch(new CreateNodeFromOutputPortAction(portModel, localPosition, item, edgesToDelete)));
                             break;
 
                         case Direction.Input:
-                            SearcherService.ShowInputToGraphNodes(store.GetState(), portModel, position, item =>
-                                store.Dispatch(new CreateNodeFromInputPortAction(portModel, position, item, edgesToDelete)));
+                            SearcherService.ShowInputToGraphNodes(store.GetState(), portModel, worldPosition, item =>
+                                store.Dispatch(new CreateNodeFromInputPortAction(portModel, localPosition, item, edgesToDelete)));
                             break;
 
                         default:
@@ -279,21 +279,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
                     break;
 
                 case PortType.Execution:
-                    if (portModel.NodeModel is LoopStackModel loopStack && portModel.Direction == Direction.Input)
-                    {
-                        if (stackModel != null)
-                        {
-                            store.Dispatch(new CreateInsertLoopNodeAction(portModel, stackModel, index, loopStack, edgesToDelete));
-                        }
-                    }
-                    else
-                    {
-                        store.Dispatch(new CreateNodeFromExecutionPortAction(portModel, position, edgesToDelete));
-                    }
-                    break;
-
-                case PortType.Loop:
-                    store.Dispatch(new CreateNodeFromLoopPortAction(portModel, position, edgesToDelete));
+                    store.Dispatch(new CreateNodeFromExecutionPortAction(portModel, localPosition, edgesToDelete));
                     break;
             }
         }
@@ -314,7 +300,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
 
         public virtual IEnumerable<INodeModel> GetEntryPoints(VSGraphModel vsGraphModel)
         {
-            return vsGraphModel.StackModels.OfType<IFunctionModel>().Where(x => x.IsEntryPoint && x.State == ModelState.Enabled);
+            return Enumerable.Empty<INodeModel>();
         }
 
         public virtual void OnInspectorGUI()
@@ -356,7 +342,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         /// <param name="portModel"></param>
         /// <param name="capacity"></param>
         /// <returns></returns>
-        public virtual bool GetPortCapacity(PortModel portModel, out Port.Capacity capacity)
+        public virtual bool GetPortCapacity(PortModel portModel, out PortCapacity capacity)
         {
             capacity = default;
             return false;
@@ -385,7 +371,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
     public interface IFrameData
     {
         int Frame { get; }
-        IEnumerable<TracingStep> GetDebuggingSteps(IGraphModel context);
+        IEnumerable<TracingStep> GetDebuggingSteps(Stencil stencil);
     }
 
     /// <summary>
@@ -396,7 +382,9 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         /// <summary>
         /// Setup called when the tracing plugin is starting
         /// </summary>
-        void Start();
+        /// <param name="graphModel">The current graph model</param>
+        /// <param name="tracingEnabled">The initial tracing state</param>
+        void Start(IGraphModel graphModel, bool tracingEnabled);
 
         /// <summary>
         /// Tear down called when the tracing plugin is stopping
@@ -435,5 +423,12 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         /// <param name="currentTracingTarget">The current target</param>
         /// <returns>The trace of all frames relevant to this specific graph and target tuple</returns>
         IGraphTrace GetGraphTrace(IGraphModel assetModelGraphModel, int currentTracingTarget);
+
+        /// <summary>
+        /// Called when the tracing is toggle in a graph
+        /// </summary>
+        /// <param name="currentGraphModel"></param>
+        /// <param name="enabled"></param>
+        void OnToggleTracing(IGraphModel currentGraphModel, bool enabled);
     }
 }

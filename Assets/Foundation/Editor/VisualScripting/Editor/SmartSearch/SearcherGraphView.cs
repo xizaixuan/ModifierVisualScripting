@@ -3,18 +3,26 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
 {
-    public sealed class SearcherGraphView : GraphView
+    public class SearcherGraphView : GraphView
     {
-        public Store Store { get; }
-
-        public SearcherGraphView(Store store)
+        public SearcherGraphView(Store store) : base(store)
         {
-            Store = store;
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "SearcherGraphView.uss"));
 
             contentContainer.style.flexBasis = StyleKeyword.Auto;
 
             AddToClassList("searcherGraphView");
-            this.AddStylesheet("SearcherGraphView.uss");
+
+            UnregisterCallback<ValidateCommandEvent>(OnValidateCommand);
+            UnregisterCallback<ExecuteCommandEvent>(OnExecuteCommand);
+            RegisterCallback<AttachToPanelEvent>(OnEnterPanel);
+        }
+
+        void OnEnterPanel(AttachToPanelEvent e)
+        {
+            base.OnEnterPanel();
+
+            panel.visualTree.UnregisterCallback<KeyDownEvent>(OnKeyDownShortcut);
         }
     }
 }

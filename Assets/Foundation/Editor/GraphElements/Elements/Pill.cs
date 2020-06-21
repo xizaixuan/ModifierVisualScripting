@@ -133,23 +133,23 @@ namespace Unity.Modifier.GraphElements
             if (m_Left != null)
             {
                 AddToClassList("has-left");
-                m_LeftContainer.style.visibility = StyleKeyword.Null;
+                if (m_LeftContainer != null) m_LeftContainer.style.visibility = StyleKeyword.Null;
             }
             else
             {
                 RemoveFromClassList("has-left");
-                m_LeftContainer.style.visibility = Visibility.Hidden;
+                if (m_LeftContainer != null) m_LeftContainer.style.visibility = Visibility.Hidden;
             }
 
             if (m_Right != null)
             {
                 AddToClassList("has-right");
-                m_RightContainer.style.visibility = StyleKeyword.Null;
+                if (m_RightContainer != null) m_RightContainer.style.visibility = StyleKeyword.Null;
             }
             else
             {
                 RemoveFromClassList("has-right");
-                m_RightContainer.style.visibility = Visibility.Hidden;
+                if (m_RightContainer != null) m_RightContainer.style.visibility = Visibility.Hidden;
             }
         }
 

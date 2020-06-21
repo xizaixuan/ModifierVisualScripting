@@ -5,7 +5,7 @@ namespace Unity.Modifier.GraphElements
 {
     internal struct InsertInfo
     {
-        public static readonly InsertInfo nil = new InsertInfo { target = null, index = -1, localPosition = Vector2.zero};
+        public static readonly InsertInfo nil = new InsertInfo { target = null, index = -1, localPosition = Vector2.zero };
         public VisualElement target;
         public int index;
         public Vector2 localPosition;

@@ -91,7 +91,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
 
         internal static IEnumerable<SearcherItem> GetPropertySearcherItems(PropertyGroupBaseNodeModel model, int maxDepth)
         {
-            var stencil = model.GraphModel.Stencil;
+            var stencil = model.VSGraphModel.Stencil;
             TypeHandle instanceTypeRef = model.GetConnectedInstanceType();
 
             if (instanceTypeRef == TypeHandle.ThisType)

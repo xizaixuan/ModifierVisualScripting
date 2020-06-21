@@ -4,7 +4,7 @@ using System;
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
     /** Types of unary operators supported
-* */
+    * */
     public enum UnaryOperatorKind
     {
         Minus,

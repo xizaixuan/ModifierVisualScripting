@@ -9,15 +9,15 @@ namespace Unity.Modifier.GraphElements
 {
     public partial class StackNode : IDropTarget
     {
-        private bool m_DragEntered;
-        private IList<VisualElement> m_RemovedPreviews;
-        private IList<VisualElement> m_CurrentPreviews;
-        private int m_CurrentInsertIndex;
+        private bool m_DragEntered;             // Indicates whether a drag has entered
+        private IList<VisualElement> m_RemovedPreviews; // The preview being removed
+        private IList<VisualElement> m_CurrentPreviews; // The current preview
+        private int m_CurrentInsertIndex;       // The current index where the dragged item will be inserted once dropped
 
         private const string k_PreviewClass = "stack-node-preview";
         private Func<GraphElement, VisualElement> m_DropPreviewTemplate;
 
-        private bool m_InstantAdd = false;
+        private bool m_InstantAdd = false; // Temporarily set to true right after an item is detached from the stack to show its preview right away (instead of being animated)
 
         private List<IValueAnimation> m_AddAnimations;
         private List<IValueAnimation> m_RemoveAnimations;
@@ -56,7 +56,7 @@ namespace Unity.Modifier.GraphElements
         private VisualElement CreateDropPreview(GraphElement element)
         {
             VisualElement preview = dropPreviewTemplate(element);
-            preview.Add(new Label(element.title));
+            preview.Add(new Label((element.Model as IHasTitle)?.Title));
             preview.AddToClassList(k_PreviewClass);
             return preview;
         }
@@ -197,7 +197,7 @@ namespace Unity.Modifier.GraphElements
             dragEntered = true;
 
             int insertIndex = 0;
-            Vector2 localMousePosition = graphView.ChangeCoordinatesTo(contentContainer, graphView.WorldToLocal(evt.mousePosition));
+            Vector2 localMousePosition = GraphView.ChangeCoordinatesTo(contentContainer, GraphView.WorldToLocal(evt.mousePosition));
             int previewIndex = m_CurrentPreviews?.FirstOrDefault()?.parent.IndexOf(m_CurrentPreviews.First()) ?? -1;
             int maxIndex = 0;
 
@@ -294,9 +294,9 @@ namespace Unity.Modifier.GraphElements
             if (m_CurrentInsertIndex != -1)
             {
                 // Notify the model that an element should be inserted at the specified index
-                if (graphView != null && graphView.elementsInsertedToStackNode != null)
+                if (GraphView != null && GraphView.elementsInsertedToStackNode != null)
                 {
-                    graphView.elementsInsertedToStackNode(this, m_CurrentInsertIndex, m_DraggedElements);
+                    GraphView.elementsInsertedToStackNode(this, m_CurrentInsertIndex, m_DraggedElements);
                 }
 
                 int cnt = 0;

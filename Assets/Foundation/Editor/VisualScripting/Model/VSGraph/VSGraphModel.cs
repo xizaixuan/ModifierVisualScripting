@@ -26,8 +26,14 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         [SerializeReference]
         List<VariableDeclarationModel> m_GraphVariableModels = new List<VariableDeclarationModel>();
 
+        [SerializeReference]
+        List<VariableDeclarationModel> m_GraphPortalModels = new List<VariableDeclarationModel>();
+
         public IEnumerable<IVariableDeclarationModel> GraphVariableModels => m_GraphVariableModels;
+        public IEnumerable<IVariableDeclarationModel> GraphPortalModels => m_GraphVariableModels;
+
         public override IList<VariableDeclarationModel> VariableDeclarations => m_GraphVariableModels;
+        public override IList<VariableDeclarationModel> PortalDeclarations => m_GraphPortalModels;
 
         public IEnumerable<IStackModel> StackModels => NodeModels.OfType<IStackModel>();
 
@@ -43,7 +49,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             foreach (var field in m_GraphVariableModels)
             {
                 if (field != null)
-                    field.GraphModel = this;
+                    field.VSGraphModel = this;
                 else
                     Debug.LogError("Null graphVariableModels in graph. Should only happen during tests for some reason");
             }
@@ -100,34 +106,25 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                 if (LastChanges != null)
                 {
                     LastChanges.BlackBoardChanged = true;
-                    if (variableModel.Owner is IFunctionModel fun)
-                        LastChanges.ChangedElements.Add(fun);
                 }
                 if (variableModel.VariableType == VariableType.GraphVariable || variableModel.VariableType == VariableType.ComponentQueryField)
                 {
                     m_GraphVariableModels.Remove(variableModel);
                 }
-                else if (variableModel.VariableType == VariableType.FunctionVariable)
-                {
-                    var functionModel = ((FunctionModel)variableModel.FunctionModel);
-                    Assert.IsNotNull(functionModel, "Function Variable must reference the invokable owning them");
-                    Undo.RegisterCompleteObjectUndo(functionModel.SerializableAsset, "Remove Function Variable");
-                    functionModel.RemoveFunctionVariableDeclaration(variableModel);
-                }
-                else if (variableModel.VariableType == VariableType.FunctionParameter)
-                {
-                    var functionModel = ((FunctionModel)variableModel.FunctionModel);
-                    Assert.IsNotNull(functionModel, "Function Parameter must reference the invokable owning them");
-                    Undo.RegisterCompleteObjectUndo(functionModel.SerializableAsset, "Remove Function Parameter");
-                    functionModel.RemoveFunctionParameterDeclaration(variableModel);
-                }
-
                 if (deleteUsages)
                 {
                     var nodesToDelete = FindUsages(variableModel).Cast<INodeModel>().ToList();
                     DeleteNodes(nodesToDelete, DeleteConnections.True);
                 }
             }
+        }
+
+        public VariableDeclarationModel CreateGraphPortalDeclaration(string portalName)
+        {
+            var field = VariableDeclarationModel.Create(portalName, TypeHandle.Unknown, false, this, VariableType.EdgePortal, ModifierFlags.ReadWrite);
+            Undo.RegisterCompleteObjectUndo((Object)AssetModel, "Create Graph Portal Declaration Model");
+            m_GraphPortalModels.Add(field);
+            return field;
         }
 
         public NodeModel DuplicateUnstackedNode(INodeModel copiedNode, Dictionary<INodeModel, NodeModel> mapping, Vector2 delta)
@@ -175,31 +172,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                     DuplicateNode(stackedNodeStruct.stackedNodeModel, mapping,
                         pastedStackModel, delta, stackInsertionIndex != -1 ? stackInsertionIndex++ : -1);
             }
-
-            if (copiedNode is FunctionModel copiedFunctionModel && pastedStackModel is FunctionModel pastedFunctionModel)
-            {
-                pastedFunctionModel.ClearVariableDeclarations();
-                foreach (IVariableDeclarationModel functionVariableModel in copiedFunctionModel.FunctionVariableModels)
-                {
-                    VariableDeclarationModel variableDeclaration = ((VariableDeclarationModel)functionVariableModel).Clone();
-
-                    // Reset name to be the exact same as the original since they are in different scopes
-                    variableDeclaration.Name = functionVariableModel.Name;
-                    variableDeclaration.Owner = pastedFunctionModel;
-                    pastedFunctionModel.VariableDeclarations.Add(variableDeclaration);
-                }
-
-                pastedFunctionModel.ClearParameterDeclarations();
-                foreach (IVariableDeclarationModel functionParameterModel in copiedFunctionModel.FunctionParameterModels)
-                {
-                    VariableDeclarationModel parameterDeclaration = ((VariableDeclarationModel)functionParameterModel).Clone();
-
-                    // Reset name to be the exact same as the original since they are in different scopes
-                    parameterDeclaration.Name = functionParameterModel.Name;
-                    parameterDeclaration.Owner = pastedFunctionModel;
-                    pastedFunctionModel.FunctionParameters.Add(parameterDeclaration);
-                }
-            }
         }
 
         public void MoveVariableDeclaration(IVariableDeclarationModel variableDeclarationModel, IHasVariableDeclaration destination)
@@ -226,9 +198,14 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         //            return baseName;
         //        }
 
-        public IEnumerable<VariableNodeModel> FindUsages(VariableDeclarationModel decl)
+        public IEnumerable<IHasVariableDeclarationModel> FindUsages(VariableDeclarationModel decl)
         {
-            return decl.FindReferencesInGraph().Cast<VariableNodeModel>();
+            return decl.FindReferencesInGraph();
+        }
+
+        public IEnumerable<T> FindUsages<T>(VariableDeclarationModel decl) where T : IHasVariableDeclarationModel
+        {
+            return decl.FindReferencesInGraph().OfType<T>();
         }
 
         public CompilationResult Compile(AssemblyType assemblyType, ITranslator translator, CompilationOptions compilationOptions, IEnumerable<IPluginHandler> pluginHandlers = null)
@@ -260,12 +237,12 @@ namespace UnityEditor.Modifier.VisualScripting.Model
 
         public bool CheckIntegrity(Verbosity errors)
         {
-            Assert.IsTrue((UnityEngine.Object)AssetModel, "graph asset is invalid");
+            Assert.IsTrue((Object)AssetModel, "graph asset is invalid");
             for (var i = 0; i < m_EdgeModels.Count; i++)
             {
                 var edge = m_EdgeModels[i];
-                Assert.IsNotNull(edge.InputPortModel, $"Edge {i} input is null, output: {edge.OutputPortModel}");
-                Assert.IsNotNull(edge.OutputPortModel, $"Edge {i} output is null, input: {edge.InputPortModel}");
+                Assert.IsNotNull(edge.ToPort, $"Edge {i} input is null, output: {edge.FromPort}");
+                Assert.IsNotNull(edge.FromPort, $"Edge {i} output is null, input: {edge.ToPort}");
             }
             CheckNodeList(m_GraphNodeModels);
             if (errors == Verbosity.Verbose)
@@ -281,7 +258,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             {
                 INodeModel node = nodeModels[i];
 
-                Assert.IsTrue(node.GraphModel != null, $"Node {i} {node} graph is null");
+                Assert.IsTrue(node.VSGraphModel != null, $"Node {i} {node} graph is null");
                 Assert.IsTrue(node.SerializableAsset != null, $"Node {i} {node} asset is null");
                 Assert.IsNotNull(node, $"Node {i} is null");
                 Assert.IsTrue(AssetModel.IsSameAsset(node.AssetModel), $"Node {i} asset is not matching its actual asset");
@@ -324,7 +301,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             for (var i = m_EdgeModels.Count - 1; i >= 0; i--)
             {
                 var edge = m_EdgeModels[i];
-                if (edge?.InputPortModel == null || edge.OutputPortModel == null)
+                if (edge?.ToPort == null || edge.FromPort == null)
                     m_EdgeModels.RemoveAt(i);
             }
 

@@ -4,7 +4,7 @@ using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
-    public interface IConstantNodeModel : IHasMainOutputPort
+    public interface IConstantNodeModel : IHasMainOutputPort, IHasSingleOutputPort
     {
         object ObjectValue { get; }
         bool IsLocked { get; }

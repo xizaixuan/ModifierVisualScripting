@@ -64,8 +64,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             var adapter = stencil.GetSearcherAdapter(state.CurrentGraphModel, "Add an input node");
             var dbProvider = stencil.GetSearcherDatabaseProvider();
             var dbs = dbProvider.GetGraphElementsSearcherDatabases()
-                .Concat(dbProvider.GetGraphVariablesSearcherDatabases(
-                    state.CurrentGraphModel, stackModel?.OwningFunctionModel))
+                .Concat(dbProvider.GetGraphVariablesSearcherDatabases(state.CurrentGraphModel))
                 .Concat(dbProvider.GetDynamicSearcherDatabases(portModel))
                 .ToList();
 
@@ -79,9 +78,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             var filter = stencil.GetSearcherFilterProvider()?.GetOutputToStackSearcherFilter(portModel, stackModel);
             var adapter = stencil.GetSearcherAdapter(stackModel, "Add a stack Node");
             var dbProvider = stencil.GetSearcherDatabaseProvider();
-            var dbs = dbProvider.GetGraphElementsSearcherDatabases()
-                .Concat(dbProvider.GetTypeMembersSearcherDatabases(portModel.DataType))
-                .ToList();
+            var dbs = dbProvider.GetGraphElementsSearcherDatabases().ToList();
 
             PromptSearcher(dbs, filter, adapter, position, callback);
         }
@@ -91,11 +88,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
         {
             var stencil = state.CurrentGraphModel.Stencil;
             var filter = stencil.GetSearcherFilterProvider()?.GetOutputToGraphSearcherFilter(portModel);
-            var adapter = stencil.GetSearcherAdapter(state.CurrentGraphModel, $"Choose an action for {portModel.DataType.GetMetadata(stencil).FriendlyName}");
+            var adapter = stencil.GetSearcherAdapter(state.CurrentGraphModel, $"Choose an action for {portModel.DataTypeHandle.GetMetadata(stencil).FriendlyName}");
             var dbProvider = stencil.GetSearcherDatabaseProvider();
-            var dbs = dbProvider.GetGraphElementsSearcherDatabases()
-                .Concat(dbProvider.GetTypeMembersSearcherDatabases(portModel.DataType))
-                .ToList();
+            var dbs = dbProvider.GetGraphElementsSearcherDatabases().ToList();
 
             PromptSearcher(dbs, filter, adapter, position, callback);
         }
@@ -107,9 +102,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             var filter = stencil.GetSearcherFilterProvider()?.GetEdgeSearcherFilter(edgeModel);
             var adapter = stencil.GetSearcherAdapter(state.CurrentGraphModel, "Insert Node");
             var dbProvider = stencil.GetSearcherDatabaseProvider();
-            var dbs = dbProvider.GetGraphElementsSearcherDatabases()
-                .Concat(dbProvider.GetTypeMembersSearcherDatabases(edgeModel.OutputPortModel.DataType))
-                .ToList();
+            var dbs = dbProvider.GetGraphElementsSearcherDatabases().ToList();
 
             PromptSearcher(dbs, filter, adapter, position, callback);
         }
@@ -121,7 +114,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             var adapter = stencil.GetSearcherAdapter(state.CurrentGraphModel, "Add a graph node");
             var dbProvider = stencil.GetSearcherDatabaseProvider();
             var dbs = dbProvider.GetGraphElementsSearcherDatabases()
-                .Concat(dbProvider.GetReferenceItemsSearcherDatabases())
                 .Concat(dbProvider.GetDynamicSearcherDatabases(null))
                 .ToList();
 
@@ -135,9 +127,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             var filter = stencil.GetSearcherFilterProvider()?.GetStackSearcherFilter(stackModel);
             var adapter = searcherAdapter ?? stencil.GetSearcherAdapter(stackModel, "Add a stack node");
             var dbProvider = stencil.GetSearcherDatabaseProvider();
-            var dbs = dbProvider.GetGraphElementsSearcherDatabases()
-                .Concat(dbProvider.GetReferenceItemsSearcherDatabases())
-                .ToList();
+            var dbs = dbProvider.GetGraphElementsSearcherDatabases().ToList();
 
             PromptSearcher(dbs, filter, adapter, position, callback);
         }
@@ -333,10 +323,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
                         break;
                     }
             }
-
-            // find current function/event
-            string method = node.ParentStackModel?.OwningFunctionModel?.Title;
-            title = method == null ? title : ($"{title} ({method})");
 
             return new FindInGraphAdapter.FindSearcherItem(node, title, children: children);
         }

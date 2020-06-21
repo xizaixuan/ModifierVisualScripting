@@ -65,12 +65,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             return this;
         }
 
-        public SearcherFilter WithFunctionReferences()
-        {
-            this.RegisterFunctionRef(data => data.FunctionModel != null);
-            return this;
-        }
-
         public SearcherFilter WithVariables(Stencil stencil, IPortModel portModel)
         {
             this.RegisterVariable(data =>
@@ -78,8 +72,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
                 if (portModel.NodeModel is IOperationValidator operationValidator)
                     return operationValidator.HasValidOperationForInput(portModel, data.Type);
 
-                return portModel.DataType == TypeHandle.Unknown
-                || portModel.DataType.IsAssignableFrom(data.Type, stencil);
+                return portModel.DataTypeHandle == TypeHandle.Unknown
+                || portModel.DataTypeHandle.IsAssignableFrom(data.Type, stencil);
             });
             return this;
         }
@@ -120,21 +114,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             return this;
         }
 
-        public SearcherFilter WithEmptyFunction()
-        {
-            this.RegisterEmptyFunction(data => true);
-            return this;
-        }
-
         public SearcherFilter WithStack()
         {
             this.RegisterStack(data => true);
-            return this;
-        }
-
-        public SearcherFilter WithInlineExpression()
-        {
-            this.RegisterInlineExpression(data => true);
             return this;
         }
 
@@ -162,42 +144,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             return this;
         }
 
-        public SearcherFilter WithControlFlows()
-        {
-            this.RegisterControlFlow(data => data.Type != null);
-            return this;
-        }
-
-        public SearcherFilter WithControlFlow(Type type)
-        {
-            this.RegisterControlFlow(data => data.Type != null && type.IsAssignableFrom(data.Type));
-            return this;
-        }
-
-        public SearcherFilter WithControlFlows(IStackModel stackModel)
-        {
-            this.RegisterControlFlow(data => data.Type != null && stackModel.AcceptNode(data.Type));
-            return this;
-        }
-
-        public SearcherFilter WithControlFlow(Type type, IStackModel stackModel)
-        {
-            this.RegisterControlFlow(data => data.Type != null
-                && type.IsAssignableFrom(data.Type)
-                && stackModel.AcceptNode(type));
-            return this;
-        }
-
-        public SearcherFilter WithIfConditions(TypeHandle inputType, IStackModel stackModel)
-        {
-            this.RegisterControlFlow(data => data.Type == typeof(IfConditionNodeModel)
-                && stackModel.AcceptNode(data.Type)
-                && inputType == TypeHandle.Bool
-            );
-
-            return this;
-        }
-
         public SearcherFilter WithConstants(Stencil stencil, IPortModel portModel)
         {
             this.RegisterConstant(data =>
@@ -205,8 +151,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
                 if (portModel.NodeModel is IOperationValidator operationValidator)
                     return operationValidator.HasValidOperationForInput(portModel, data.Type);
 
-                return portModel.DataType == TypeHandle.Unknown
-                || portModel.DataType.IsAssignableFrom(data.Type, stencil);
+                return portModel.DataTypeHandle == TypeHandle.Unknown
+                || portModel.DataTypeHandle.IsAssignableFrom(data.Type, stencil);
             });
             return this;
         }
@@ -214,136 +160,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
         public SearcherFilter WithConstants()
         {
             this.RegisterConstant(data => true);
-            return this;
-        }
-
-        public SearcherFilter WithMethods(Type declaringType)
-        {
-            this.RegisterMethod(data =>
-            {
-                MethodInfo info = data.MethodInfo;
-
-                if (info == null)
-                    return false;
-
-                return typeof(Unknown) == declaringType
-                || data.MethodInfo.ReflectedType == declaringType
-                || data.MethodInfo.IsStatic
-                && data.MethodInfo.GetParameters().Any(p => p.ParameterType.IsAssignableFrom(declaringType));
-            });
-
-            return this;
-        }
-
-        public SearcherFilter WithMethods()
-        {
-            this.RegisterMethod(data => data.MethodInfo != null);
-            return this;
-        }
-
-        public SearcherFilter WithMethods(Type declaringType, Type returnType)
-        {
-            this.RegisterMethod(data =>
-            {
-                MethodInfo info = data.MethodInfo;
-
-                if (info == null)
-                    return false;
-
-                return (typeof(Unknown) == declaringType
-                    || data.MethodInfo.ReflectedType == declaringType
-                    || data.MethodInfo.IsStatic
-                    && data.MethodInfo.GetParameters().Any(p => p.ParameterType.IsAssignableFrom(declaringType)))
-                && (returnType == typeof(Unknown) || returnType.IsAssignableFrom(data.MethodInfo.ReturnType));
-            });
-
-            return this;
-        }
-
-        public SearcherFilter WithProperties(Stencil stencil, IPortModel portModel)
-        {
-            this.RegisterProperty(data =>
-            {
-                if (portModel.NodeModel is IOperationValidator operationValidator)
-                {
-                    TypeHandle propertyType = data.PropertyInfo.PropertyType.GenerateTypeHandle(stencil);
-                    return operationValidator.HasValidOperationForInput(portModel, propertyType);
-                }
-
-                return portModel.DataType == TypeHandle.Unknown
-                || portModel.DataType.IsAssignableFrom(data.PropertyInfo.PropertyType.GenerateTypeHandle(stencil), stencil);
-            });
-            return this;
-        }
-
-        public SearcherFilter WithProperties(Type declaringType, bool allowStaticConstant = true)
-        {
-            this.RegisterProperty(data =>
-            {
-                PropertyInfo info = data.PropertyInfo;
-                if (info == null || !allowStaticConstant && info.IsStaticConstant())
-                    return false;
-
-                return typeof(Unknown) == declaringType || data.PropertyInfo.DeclaringType == declaringType;
-            });
-            return this;
-        }
-
-        public SearcherFilter WithProperties(Type declaringType, Type propertyType, bool allowStaticConstant = true)
-        {
-            this.RegisterProperty(data =>
-            {
-                PropertyInfo info = data.PropertyInfo;
-                if (info == null || !allowStaticConstant && info.IsStaticConstant())
-                    return false;
-
-                return (typeof(Unknown) == declaringType || info.DeclaringType == declaringType)
-                && (typeof(Unknown) == propertyType || propertyType.IsAssignableFrom(info.PropertyType));
-            });
-
-            return this;
-        }
-
-        public SearcherFilter WithProperties()
-        {
-            this.RegisterProperty(data => data.PropertyInfo != null);
-            return this;
-        }
-
-        public SearcherFilter WithConstructors()
-        {
-            this.RegisterConstructor(data => data.ConstructorInfo != null);
-            return this;
-        }
-
-        public SearcherFilter WithConstantFields(Type fieldType)
-        {
-            this.RegisterField(data => data.FieldInfo != null
-                && (typeof(Unknown) == fieldType || data.FieldInfo.FieldType == fieldType)
-                && data.FieldInfo.IsConstantOrStatic());
-            return this;
-        }
-
-        public SearcherFilter WithConstantFields()
-        {
-            this.RegisterField(data => data.FieldInfo != null && data.FieldInfo.IsConstantOrStatic());
-            return this;
-        }
-
-        public SearcherFilter WithFields(Type declaringType)
-        {
-            this.RegisterField(data => data.FieldInfo != null
-                && (typeof(Unknown) == declaringType || data.FieldInfo.ReflectedType == declaringType)
-                && !data.FieldInfo.IsConstantOrStatic());
-            return this;
-        }
-
-        public SearcherFilter WithFields(Type declaringType, Type fieldType)
-        {
-            this.RegisterField(data => data.FieldInfo != null
-                && (typeof(Unknown) == declaringType || data.FieldInfo.ReflectedType == declaringType)
-                && (typeof(Unknown) == fieldType || fieldType.IsAssignableFrom(data.FieldInfo.FieldType))
-                && !data.FieldInfo.IsConstantOrStatic());
             return this;
         }
 

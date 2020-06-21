@@ -8,9 +8,8 @@ namespace Unity.Modifier.GraphElements
         bool m_Active;
         Edge m_Edge;
         Vector2 m_PressPos;
-        Port m_ConnectedPort;
         EdgeDragHelper m_ConnectedEdgeDragHelper;
-        Port m_DetachedPort;
+        IGTFPortModel m_DetachedPort;
         bool m_DetachedFromInputPort;
         static int s_StartDragDistance = 10;
         MouseDownEvent m_LastMouseDownEvent;
@@ -42,7 +41,6 @@ namespace Unity.Modifier.GraphElements
         {
             m_Active = false;
             m_Edge = null;
-            m_ConnectedPort = null;
             m_ConnectedEdgeDragHelper = null;
             m_DetachedPort = null;
             m_DetachedFromInputPort = false;
@@ -91,9 +89,18 @@ namespace Unity.Modifier.GraphElements
                     return;
                 }
 
+                var graphView = m_Edge.GetFirstAncestorOfType<GraphView>();
+                var outputPortUI = m_Edge.Output.GetUI<Port>(graphView);
+                var inputPortUI = m_Edge.Input.GetUI<Port>(graphView);
+
+                if (outputPortUI == null || inputPortUI == null)
+                {
+                    return;
+                }
+
                 // Determine which end is the nearest to the mouse position then detach it.
-                Vector2 outputPos = new Vector2(m_Edge.output.GetGlobalCenter().x, m_Edge.output.GetGlobalCenter().y);
-                Vector2 inputPos = new Vector2(m_Edge.input.GetGlobalCenter().x, m_Edge.input.GetGlobalCenter().y);
+                Vector2 outputPos = new Vector2(outputPortUI.GetGlobalCenter().x, outputPortUI.GetGlobalCenter().y);
+                Vector2 inputPos = new Vector2(inputPortUI.GetGlobalCenter().x, inputPortUI.GetGlobalCenter().y);
 
                 float distanceFromOutput = (m_PressPos - outputPos).sqrMagnitude;
                 float distanceFromInput = (m_PressPos - inputPos).sqrMagnitude;
@@ -105,28 +112,30 @@ namespace Unity.Modifier.GraphElements
 
                 m_DetachedFromInputPort = distanceFromInput < distanceFromOutput;
 
+                IGTFPortModel connectedPort;
+                Port connectedPortUI;
+
                 if (m_DetachedFromInputPort)
                 {
-                    m_ConnectedPort = m_Edge.output;
-                    m_DetachedPort = m_Edge.input;
-                    m_DetachedPort.Disconnect(m_Edge);
+                    connectedPort = m_Edge.Output;
+                    connectedPortUI = outputPortUI;
 
-                    m_Edge.input = null;
+                    m_DetachedPort = m_Edge.Input;
                 }
                 else
                 {
-                    m_ConnectedPort = m_Edge.input;
-                    m_DetachedPort = m_Edge.output;
-                    m_DetachedPort.Disconnect(m_Edge);
+                    connectedPort = m_Edge.Input;
+                    connectedPortUI = inputPortUI;
 
-                    m_Edge.output = null;
+                    m_DetachedPort = m_Edge.Output;
                 }
 
                 // Use the edge drag helper of the still connected port
-                m_ConnectedEdgeDragHelper = m_ConnectedPort.edgeConnector.edgeDragHelper;
-                m_ConnectedEdgeDragHelper.draggedPort = m_ConnectedPort;
-                m_ConnectedEdgeDragHelper.edgeCandidate = m_Edge;
-                m_Edge.candidatePosition = evt.mousePosition;
+                m_ConnectedEdgeDragHelper = connectedPortUI.EdgeConnector.edgeDragHelper;
+                m_ConnectedEdgeDragHelper.originalEdge = m_Edge;
+                m_ConnectedEdgeDragHelper.draggedPort = connectedPort;
+                m_ConnectedEdgeDragHelper.CreateEdgeCandidate(connectedPort.GraphModel);
+                m_ConnectedEdgeDragHelper.edgeCandidateModel.EndPoint = evt.mousePosition;
 
                 // Redirect the last mouse down event to active the drag helper
 
@@ -138,6 +147,7 @@ namespace Unity.Modifier.GraphElements
                 {
                     Reset();
                 }
+
                 m_LastMouseDownEvent = null;
             }
 
@@ -152,10 +162,6 @@ namespace Unity.Modifier.GraphElements
                 target.ReleaseMouse();
                 if (m_Active)
                 {
-                    // Restore the detached port before potentially delete or reconnect it.
-                    // This is to ensure that the edge has valid input and output so it can be properly handled by the model.
-                    RestoreDetachedPort();
-
                     m_ConnectedEdgeDragHelper.HandleMouseUp(evt);
                 }
                 Reset();
@@ -169,29 +175,11 @@ namespace Unity.Modifier.GraphElements
             {
                 if (evt.keyCode == KeyCode.Escape)
                 {
-                    RestoreDetachedPort();
-
                     m_ConnectedEdgeDragHelper.Reset();
                     Reset();
                     target.ReleaseMouse();
                     evt.StopPropagation();
                 }
-            }
-        }
-
-        private void RestoreDetachedPort()
-        {
-            if (m_DetachedFromInputPort)
-            {
-                m_Edge.input = m_DetachedPort;
-
-                m_DetachedPort.Connect(m_Edge);
-            }
-            else
-            {
-                m_Edge.output = m_DetachedPort;
-
-                m_DetachedPort.Connect(m_Edge);
             }
         }
     }

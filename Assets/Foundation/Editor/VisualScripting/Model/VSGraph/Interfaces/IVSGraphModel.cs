@@ -7,5 +7,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
     {
         IEnumerable<IStackModel> StackModels { get; }
         IEnumerable<IVariableDeclarationModel> GraphVariableModels { get; }
+
+        IEnumerable<IVariableDeclarationModel> GraphPortalModels { get; }
     }
 }

@@ -108,13 +108,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 }
                 else if (model is IVariableDeclarationModel decl)
                 {
-                    if (decl.Owner is IFunctionModel functionModel)
-                    {
-                        m_NodesToRebuild.Add(functionModel);
-                        var refFuncCalls = existingElementModels.OfType<FunctionRefCallNodeModel>().Where(f => functionModel == (IFunctionModel)f.Function);
-                        m_NodesToRebuild.AddRange(refFuncCalls);
-                    }
-                    else if (decl.Owner is IGraphModel)
+                    if (decl.Owner is IGraphModel)
                         BlackboardChanged = true;
                 }
                 else if (model is IStickyNoteModel)
@@ -142,22 +136,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     if (node.Destroyed)
                     {
                         var graphElement = existingElements[node];
-                        if (graphElement is Unity.Modifier.GraphElements.Node)
+                        if (graphElement is Unity.GraphElements.CollapsiblePortNode)
                             m_EdgesToDelete.AddRange(node.GetConnectedEdges());
-                        m_GraphElementsToDelete.Add(graphElement);
-                    }
-                }
-                else if (elementModel is VariableDeclarationModel decl)
-                {
-                    if (decl == null)
-                    {
-                        var graphElement = existingElements[elementModel];
-                        if (decl.Owner is IFunctionModel functionModel)
-                        {
-                            var refFuncCalls = existingElements.Keys.OfType<FunctionRefCallNodeModel>().Where(f => functionModel == (IFunctionModel)f.Function);
-                            m_NodesToRebuild.AddRange(refFuncCalls);
-                        }
-
                         m_GraphElementsToDelete.Add(graphElement);
                     }
                 }
@@ -252,20 +232,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             foreach (GraphElement graphElement in m_GraphElementsToDelete)
             {
-                if (graphElement is Edge edge)
-                {
-                    edge.input?.Disconnect(edge);
-                    edge.output?.Disconnect(edge);
-                    edge.input = null;
-                    edge.output = null;
-                }
-
-                if (graphElement is Placemat placemat)
-                {
-                    if (placemat.Collapsed)
-                        placemat.ShowHiddenElements();
-                }
-
                 m_DeleteElement(graphElement);
                 m_NumDeleted++;
             }

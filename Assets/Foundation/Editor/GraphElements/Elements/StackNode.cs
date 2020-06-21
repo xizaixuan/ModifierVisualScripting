@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public partial class StackNode : Node
+    public partial class StackNode : CollapsiblePortNode
     {
         private VisualElement m_ContentContainer;
         private VisualElement m_SeparatorContainer;
@@ -15,30 +15,30 @@ namespace Unity.Modifier.GraphElements
         private StackNodePlaceholder m_Placeholder;
 
         public VisualElement headerContainer { get; private set; }
-
         public override VisualElement contentContainer => m_ContentContainer;
-
-        internal GraphView graphView { get; set; }
 
         private static CustomStyleProperty<float> s_SeparatorHeight = new CustomStyleProperty<float>("--separator-height");
         private static CustomStyleProperty<float> s_SeparatorExtent = new CustomStyleProperty<float>("--separator-extent");
 
         private float m_SeparatorHeight = 4f;
-
         private float separatorHeight => m_SeparatorHeight;
 
         private float m_SeparatorExtent = 15f;
-
         private float separatorExtent => m_SeparatorExtent;
 
-        public StackNode() : base("StackNode.uxml")
+        public StackNode()
         {
+            // PF: Dirty hack
+            Clear();
+            var tpl = GraphElementsHelper.LoadUXML("StackNode.uxml");
+            tpl.CloneTree(this);
+
             VisualElement stackNodeContentContainerPlaceholder = this.Q("stackNodeContentContainerPlaceholder");
 
             headerContainer = this.Q("stackNodeHeaderContainer");
             m_SeparatorContainer = this.Q("stackSeparatorContainer");
             m_PlaceholderContainer = this.Q("stackPlaceholderContainer");
-            m_PlaceholderContainer.Add(m_Placeholder = new StackNodePlaceholder("SpaceBar to Add Node"));
+            m_PlaceholderContainer.Add(m_Placeholder = new StackNodePlaceholder("Spacebar to Add Node"));
 
             m_ContentContainer = new StackNodeContentContainer();
             m_ContentContainer.name = "stackNodeContentContainer";
@@ -58,21 +58,12 @@ namespace Unity.Modifier.GraphElements
             {
                 UpdateSeparators();
             }
-            else if (evt.eventTypeId == DetachFromPanelEvent.TypeId())
-            {
-                graphView = null;
-            }
             else if (evt.eventTypeId == AttachToPanelEvent.TypeId())
             {
-                graphView = GetFirstAncestorOfType<GraphView>();
-
-                if (graphView != null)
+                // Restore selections on children.
+                foreach (var child in Children().OfType<GraphElement>())
                 {
-                    // Restore selections on children.
-                    foreach (var child in Children().OfType<GraphElement>())
-                    {
-                        graphView.RestorePersitentSelectionForElement(child);
-                    }
+                    GraphView.RestorePersitentSelectionForElement(child);
                 }
             }
         }
@@ -80,10 +71,9 @@ namespace Unity.Modifier.GraphElements
         private bool AcceptsElementInternal(GraphElement element, ref int proposedIndex, int maxIndex)
         {
             // TODO: we probably need a "Stackable" capability
-            return element != null && !(element is Scope)
+            return element != null
                 && !(element is StackNode) && !(element is TokenNode)
                 && !(element is Placemat)
-                && (element.GetContainingScope() as Group) == null
                 && AcceptsElement(element, ref proposedIndex, maxIndex);
         }
 
@@ -107,10 +97,7 @@ namespace Unity.Modifier.GraphElements
             Insert(index, element);
             OnChildAdded(element);
 
-            if (graphView != null)
-            {
-                graphView.RestorePersitentSelectionForElement(element);
-            }
+            GraphView?.RestorePersitentSelectionForElement(element);
         }
 
         public void RemoveElement(GraphElement element)
@@ -256,7 +243,7 @@ namespace Unity.Modifier.GraphElements
 
         public virtual int GetInsertionIndex(Vector2 worldPosition)
         {
-            var ve = graphView.currentInsertLocation as VisualElement;
+            var ve = GraphView.currentInsertLocation as VisualElement;
             if (ve == null)
                 return -1;
 
@@ -264,7 +251,7 @@ namespace Unity.Modifier.GraphElements
             if (this == ve.GetFirstAncestorOfType<StackNode>())
             {
                 InsertInfo insertInfo;
-                graphView.currentInsertLocation.GetInsertInfo(worldPosition, out insertInfo);
+                GraphView.currentInsertLocation.GetInsertInfo(worldPosition, out insertInfo);
                 return insertInfo.index;
             }
 
@@ -273,21 +260,15 @@ namespace Unity.Modifier.GraphElements
 
         public virtual void OnStartDragging(GraphElement ge)
         {
-            var node = ge as Node;
+            var node = ge as CollapsiblePortNode;
             if (node != null)
             {
                 ge.RemoveFromHierarchy();
 
-                graphView.AddElement(ge);
+                GraphView.AddElement(ge);
                 // Reselect it because RemoveFromHierarchy unselected it
-                ge.Select(graphView, true);
+                ge.Select(GraphView, true);
             }
-        }
-
-        public override void CollectElements(HashSet<GraphElement> collectedElementSet, Func<GraphElement, bool> conditionFunc)
-        {
-            base.CollectElements(collectedElementSet, conditionFunc);
-            GraphView.CollectElements(Children().OfType<GraphElement>(), collectedElementSet, conditionFunc);
         }
     }
 }

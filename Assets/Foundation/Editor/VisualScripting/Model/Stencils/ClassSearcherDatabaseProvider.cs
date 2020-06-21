@@ -34,7 +34,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
 
         readonly Stencil m_Stencil;
         List<SearcherDatabase> m_GraphElementsSearcherDatabases;
-        List<SearcherDatabase> m_ReferenceItemsSearcherDatabases;
         SearcherDatabase m_StaticTypesSearcherDatabase;
         List<ITypeMetadata> m_PrimitiveTypes;
         int m_AssetVersion = AssetWatcher.Version;
@@ -59,32 +58,10 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
                 new GraphElementSearcherDatabase(m_Stencil)
                     .AddNodesWithSearcherItemAttribute()
                     .AddStickyNote()
-                    .AddEmptyFunction()
                     .AddStack()
                     .AddConstants(k_ConstantTypes.Concat(GetCustomConstantVariables()))
-                    .AddInlineExpression()
                     .AddUnaryOperators()
                     .AddBinaryOperators()
-                    .AddControlFlows()
-                    .AddMembers(
-                        k_PredefinedSearcherTypes.Concat(GetCustomTypeMembers()),
-                        MemberFlags.Constructor | MemberFlags.Field | MemberFlags.Method | MemberFlags.Property | MemberFlags.Extension,
-                        BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public
-                    )
-                    .AddFields(GetCustomFields())
-                    .AddProperties(GetCustomProperties())
-                    .AddMethods(GetCustomMethods())
-                    .AddMacros()
-                    .Build()
-            });
-        }
-
-        public virtual List<SearcherDatabase> GetReferenceItemsSearcherDatabases()
-        {
-            return m_ReferenceItemsSearcherDatabases ?? (m_ReferenceItemsSearcherDatabases = new List<SearcherDatabase>
-            {
-                new GraphElementSearcherDatabase(m_Stencil)
-                    .AddGraphsMethods()
                     .Build()
             });
         }
@@ -102,31 +79,11 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
             };
         }
 
-        public virtual List<SearcherDatabase> GetTypeMembersSearcherDatabases(TypeHandle typeHandle)
-        {
-            // TODO : Need to be handled by TypeHandle.Resolve
-            Type type = typeHandle == TypeHandle.ThisType
-                ? m_Stencil.GetThisType().Resolve(m_Stencil)
-                : typeHandle.Resolve(m_Stencil);
-
-            return new List<SearcherDatabase>
-            {
-                new GraphElementSearcherDatabase(m_Stencil)
-                    .AddMembers(
-                    new[] { type },
-                    MemberFlags.Field | MemberFlags.Method | MemberFlags.Property | MemberFlags.Extension,
-                    BindingFlags.Instance | BindingFlags.Public
-                    )
-                    .Build()
-            };
-        }
-
-        public virtual List<SearcherDatabase> GetGraphVariablesSearcherDatabases(IGraphModel graphModel, IFunctionModel functionModel = null)
+        public virtual List<SearcherDatabase> GetGraphVariablesSearcherDatabases(IGraphModel graphModel)
         {
             return new List<SearcherDatabase>
             {
                 new GraphElementSearcherDatabase(m_Stencil)
-                    .AddFunctionMembers(functionModel)
                     .AddGraphVariables(graphModel)
                     .Build()
             };
@@ -140,11 +97,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         public virtual void ClearGraphElementsSearcherDatabases()
         {
             m_GraphElementsSearcherDatabases = null;
-        }
-
-        public virtual void ClearReferenceItemsSearcherDatabases()
-        {
-            m_ReferenceItemsSearcherDatabases = null;
         }
 
         public virtual void ClearTypesItemsSearcherDatabases()

@@ -60,6 +60,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         class VSSelectionDragger : SelectionDragger
         {
+            public VSSelectionDragger(GraphView graphView)
+                : base(graphView) { }
+
             public bool IsActive => m_Active;
         }
 
@@ -67,7 +70,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public override bool supportsWindowedBlackboard => true;
 
-        public VseGraphView(VseWindow window, Store store, string graphViewName = "VisualScript")
+        public VseGraphView(VseWindow window, Store store, string graphViewName = "VisualScript") : base(store)
         {
             viewDataKey = "VSEditor";
 
@@ -92,7 +95,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             this.AddManipulator(clickable);
 
             this.AddManipulator(new ContentDragger());
-            var selectionDragger = new VSSelectionDragger();
+            var selectionDragger = new VSSelectionDragger(this);
             this.AddManipulator(selectionDragger);
             this.AddManipulator(new RectangleSelector());
             this.AddManipulator(new FreehandSelector());
@@ -123,7 +126,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                         : elemModel.Position; // floating ones do
                     Vector2 startPos = contentViewContainer.ChangeCoordinatesTo(elem.hierarchy.parent, elemPos);
 
-                    bool requireShiftToMoveDependencies = !(elemModel.GraphModel?.Stencil?.MoveNodeDependenciesByDefault).GetValueOrDefault();
+                    bool requireShiftToMoveDependencies = !(elemModel.VSGraphModel?.Stencil?.MoveNodeDependenciesByDefault).GetValueOrDefault();
                     bool hasShift = evt.modifiers.HasFlag(EventModifiers.Shift);
                     bool moveNodeDependencies = requireShiftToMoveDependencies == hasShift;
 
@@ -217,50 +220,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (delta == Vector2.zero)
                 return graphViewChange;
 
-            var nodeGuids = new HashSet<GUID>();
-            var nodeModelsToMove = new HashSet<NodeModel>();
-            var stickyModelsToMove = new HashSet<StickyNoteModel>();
-            var placematModelsToMove = new HashSet<PlacematModel>();
-            var edgeModelsToMove = new HashSet<IEdgeModel>();
-
             List<IMovable> movableElements = graphViewChange.movedElements.OfType<IMovable>().ToList();
-
-            foreach (var movedElement in movableElements)
-            {
-                switch (((IHasGraphElementModel)movedElement)?.GraphElementModel)
-                {
-                    case PlacematModel placematModel:
-                        placematModelsToMove.Add(placematModel);
-                        break;
-
-                    case NodeModel nodeModel:
-                        if (movedElement.NeedStoreDispatch)
-                        {
-                            nodeModelsToMove.Add(nodeModel);
-                            nodeGuids.Add(nodeModel.Guid);
-                        }
-                        break;
-
-                    case StickyNoteModel stickyModel:
-                        stickyModelsToMove.Add(stickyModel);
-                        break;
-                }
-            }
-
-            IGraphModel graphModel = (VSGraphModel)m_Store.GetState().CurrentGraphModel;
-            foreach (var edgeModel in graphModel.EdgeModels)
-            {
-                if (nodeGuids.Contains(edgeModel.InputNodeGuid) && nodeGuids.Contains(edgeModel.OutputNodeGuid))
-                {
-                    edgeModelsToMove.Add(edgeModel);
-                }
-            }
-
-            // TODO It would be nice to have a single way of moving things around and thus not having to deal with
-            // separate collections.
-            if (nodeModelsToMove.Any() || stickyModelsToMove.Any() || placematModelsToMove.Any())
-                m_Store.Dispatch(new MoveElementsAction(delta, nodeModelsToMove, placematModelsToMove, stickyModelsToMove, edgeModelsToMove));
-
             foreach (var movedElement in movableElements)
             {
                 movedElement.UpdatePinning();
@@ -400,31 +360,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 !variableDeclarations.Any() && !stickyNotes.Any() && !placemats.Any());
         }
 
-        protected internal override void CollectCopyableGraphElements(IEnumerable<GraphElement> elements, HashSet<GraphElement> elementsToCopySet)
-        {
-            var elementsList = elements.ToList();
-            base.CollectCopyableGraphElements(elementsList, elementsToCopySet);
-
-            // Remove readonly event/function nodes
-            List<GraphElement> elementsToRemove =
-                elementsToCopySet.Where(e => e is FunctionNode node && !node.m_FunctionModel.AllowMultipleInstances).ToList();
-
-            foreach (var elementToRemove in elementsToRemove.ToList())
-                elementsToRemove.AddRange(elementToRemove.Query<GraphElement>().ToList());
-            elementsToCopySet.ExceptWith(elementsToRemove);
-
-            // Add token declarations (only known to Visual Scripting)
-            elementsToCopySet.UnionWith(elementsList.OfType<TokenDeclaration>());
-
-            // Also take blackboard fields (TODO: move this to base class)
-            elementsToCopySet.UnionWith(elementsList.OfType<IVisualScriptingField>().Cast<GraphElement>());
-
-            // And finally sticky notes
-            elementsToCopySet.UnionWith(elementsList.OfType<StickyNote>());
-        }
-
-        static readonly int k_CloneStringLength = "(Clone)".Length;
-
         static CopyPasteData s_LastCopiedData;
         public static string OnSerializeGraphElements(IEnumerable<GraphElement> elements)
         {
@@ -466,7 +401,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 .ToList();
 
             List<StackedNodesStruct> implicitStackedNodesToCopy = new List<StackedNodesStruct>();
-            int nodeIndex = 0;
             foreach (var asset in nodesToCopy)
             {
                 if (asset is IStackModel stackModel)
@@ -517,11 +451,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             }
             foreach (var n in stickyNotesToCopy)
             {
-                topLeftNodePosition = Vector2.Min(topLeftNodePosition, n.Position.position);
+                topLeftNodePosition = Vector2.Min(topLeftNodePosition, n.PositionAndSize.position);
             }
             foreach (var n in placematsToCopy)
             {
-                topLeftNodePosition = Vector2.Min(topLeftNodePosition, n.Position.position);
+                topLeftNodePosition = Vector2.Min(topLeftNodePosition, n.PositionAndSize.position);
             }
             if (topLeftNodePosition == Vector2.positiveInfinity)
             {
@@ -611,20 +545,18 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 List<IVariableDeclarationModel> variableDeclarationModels =
                     copyPasteData.variableDeclarations.Cast<IVariableDeclarationModel>().ToList();
 
-                var duplicatedModels = targetInfo.TargetStack == null
-                    ? graph.DuplicateGraphVariableDeclarations(variableDeclarationModels)
-                    : ((FunctionModel)targetInfo.TargetStack.OwningFunctionModel).DuplicateFunctionVariableDeclarations(
-                    variableDeclarationModels);
+                var duplicatedModels = graph.DuplicateGraphVariableDeclarations(variableDeclarationModels);
                 editorDataModel?.SelectElementsUponCreation(duplicatedModels, true);
             }
 
             foreach (var stickyNote in copyPasteData.stickyNotes)
             {
-                var newPosition = new Rect(stickyNote.Position.position + targetInfo.Delta, stickyNote.Position.size);
+                var newPosition = new Rect(stickyNote.PositionAndSize.position + targetInfo.Delta, stickyNote.PositionAndSize.size);
                 var pastedStickyNote = (StickyNoteModel)graph.CreateStickyNote(newPosition);
-                pastedStickyNote.UpdateBasicSettings(stickyNote.Title, stickyNote.Contents);
-                pastedStickyNote.UpdateTheme(stickyNote.Theme);
-                pastedStickyNote.UpdateTextSize(stickyNote.TextSize);
+                pastedStickyNote.Title = stickyNote.Title;
+                pastedStickyNote.Contents = stickyNote.Contents;
+                pastedStickyNote.Theme = stickyNote.Theme;
+                pastedStickyNote.TextSize = stickyNote.TextSize;
                 editorDataModel?.SelectElementsUponCreation(new[] { pastedStickyNote }, true);
                 elementMapping.Add(stickyNote.GetId(), pastedStickyNote);
             }
@@ -633,7 +565,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             // Keep placemats relative order
             foreach (var placemat in copyPasteData.placemats.OrderBy(p => p.ZOrder))
             {
-                var newPosition = new Rect(placemat.Position.position + targetInfo.Delta, placemat.Position.size);
+                var newPosition = new Rect(placemat.PositionAndSize.position + targetInfo.Delta, placemat.PositionAndSize.size);
                 var newTitle = "Copy of " + placemat.Title;
                 var pastedPlacemat = (PlacematModel)graph.CreatePlacemat(newTitle, newPosition);
                 pastedPlacemat.Color = placemat.Color;
@@ -684,7 +616,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             {
                 if ((element is StackNode stackNode))
                 {
-                    targetStack = (StackBaseModel)stackNode.stackModel;
+                    targetStack = (StackBaseModel)stackNode.StackModel;
                     targetStackInsertionIndex =
                         stackNode.GetInsertionIndex(this.LocalToWorld(copyPasteData.topLeftNodePosition));
                 }
@@ -733,7 +665,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             List<Node> droppedNodes = dropElements.OfType<Node>().ToList();
 
-            if (droppedNodes.Any(e => !(e.model is IVariableModel)) && variablesToCreate.Any())
+            if (droppedNodes.Any(e => !(e.NodeModel is IVariableModel)) && variablesToCreate.Any())
             {
                 // fail because in the current setup this would mean dispatching several actions
                 throw new ArgumentException("Unhandled case, dropping blackboard/variables fields and nodes at the same time");
@@ -747,13 +679,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 {
                     if (node.Stack == null)
                     {
-                        if (node.model != null)
+                        if (node.NodeModel != null)
                         {
-                            if (!stackedNodesToMove.ContainsKey(node.model.ParentStackModel))
+                            if (!stackedNodesToMove.ContainsKey(node.NodeModel.ParentStackModel))
                             {
-                                stackedNodesToMove[node.model.ParentStackModel] = new StackCreationOptions(node.layout.position, new List<INodeModel>());
+                                stackedNodesToMove[node.NodeModel.ParentStackModel] = new StackCreationOptions(node.layout.position, new List<INodeModel>());
                             }
-                            stackedNodesToMove[node.model.ParentStackModel].NodeModels.Add(node.model);
+                            stackedNodesToMove[node.NodeModel.ParentStackModel].NodeModels.Add(node.NodeModel);
                         }
 
                         continue;
@@ -761,7 +693,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
                     var newIndex = node.FindIndexInStack();
                     if (node.selectedIndex != newIndex)
-                        m_Store.Dispatch(new MoveStackedNodesAction(new[] { node.model }, node.Stack.stackModel, newIndex));
+                        m_Store.Dispatch(new MoveStackedNodesAction(new[] { node.NodeModel }, node.Stack.StackModel, newIndex));
                 }
             }
 
@@ -880,14 +812,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_DragStarted = true;
         }
 
-        public override List<Unity.Modifier.GraphElements.Port> GetCompatiblePorts(Unity.Modifier.GraphElements.Port startPort, NodeAdapter nodeAdapter)
+        public override List<Unity.GraphElements.Port> GetCompatiblePorts(IGTFPortModel startPortModel, NodeAdapter nodeAdapter)
         {
-            var startPortStack = startPort.GetFirstAncestorOfType<StackNode>();
+            var startPort = startPortModel.GetUI<Port>(this);
+
+            var startPortStack = (startPortModel.NodeModel as INodeModel)?.ParentStackModel;
             var startPortToken = startPort.GetFirstAncestorOfType<Token>();
+            var startEdgePortalModel = startPortToken?.GraphElementModel as IEdgePortalModel;
 
             return ports.ToList().Where(p =>
             {
-                var portStack = p.GetFirstAncestorOfType<StackNode>();
+                var portStack = (p.PortModel.NodeModel as INodeModel)?.ParentStackModel;
                 var portToken = p.GetFirstAncestorOfType<Token>();
 
                 var stackInvolved = (startPortStack != null || portStack != null);
@@ -896,9 +831,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     (startPort.node != null && startPort.node.ClassListContains("standalone")) ||
                     (p.node != null && p.node.ClassListContains("standalone"));
 
-                if (startPort.portType == typeof(ExecutionFlow) && p.portType != typeof(ExecutionFlow))
+                if (startPort.PortModel.PortDataType == typeof(ExecutionFlow) && p.PortModel.PortDataType != typeof(ExecutionFlow))
                     return false;
-                if (p.portType == typeof(ExecutionFlow) && startPort.portType != typeof(ExecutionFlow))
+                if (p.PortModel.PortDataType == typeof(ExecutionFlow) && startPort.PortModel.PortDataType != typeof(ExecutionFlow))
                     return false;
 
                 // Check for preexisting uphill connections
@@ -906,7 +841,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 {
                     // We have an uphill connection, but is it between the same two ports? If not, it's fine.
                     // (i.e. we might be connected to a "then" port of an uphill node, but not the "else" one).
-                    if (startPort.connections.Any(e => e.input == p && e.output == startPort))
+                    if (startPortModel.ConnectedEdges.Any(e => e.ToPort == p.PortModel && e.FromPort == startPort.PortModel))
                         return false;
                 }
 
@@ -916,31 +851,35 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     ((p.node != null || startPort.node != null) && (p.node == startPort.node)))
                     return false;
 
+                // No good if it's on the same portal either.
+                if (p.node is Token token && token.GraphElementModel is IEdgePortalModel edgePortalModel)
+                {
+                    if (edgePortalModel.DeclarationModel.GetId() == startEdgePortalModel?.DeclarationModel.GetId())
+                        return false;
+                }
+
                 // This is true for all ports
-                if (p.direction == startPort.direction)
+                if (p.PortModel.Direction == startPort.PortModel.Direction)
                     return false;
 
-                var currentPortModel = (PortModel)p.userData;
-                var startPortModel = (PortModel)startPort.userData;
+                var currentPortModel = (PortModel)p.PortModel;
                 if (tokenInvolved || floatingNodeInvolved ||
                     !stackInvolved && currentPortModel.PortType != PortType.Loop &&
-                    startPortModel.PortType != PortType.Loop)
-                    return p.orientation == startPort.orientation && currentPortModel.PortType == startPortModel.PortType;
+                    (startPortModel as IPortModel)?.PortType != PortType.Loop)
+                    return p.PortModel.Orientation == startPort.PortModel.Orientation && currentPortModel.PortType == (startPortModel as IPortModel)?.PortType;
 
                 // Need to dig deeper since orientations are conflicting
-                INodeModel candidateNode = ((PortModel)p.userData).NodeModel;
-                INodeModel connectedNode = ((PortModel)startPort.userData).NodeModel;
+                INodeModel candidateNode = ((PortModel)p.PortModel).NodeModel;
+                INodeModel connectedNode = ((PortModel)startPort.PortModel).NodeModel;
 
-                INodeModel outputNode = p.direction == Direction.Output ? candidateNode : connectedNode;
-                INodeModel inputNode = p.direction == Direction.Output ? connectedNode : candidateNode;
-                var inputPort = (PortModel)(p.direction == Direction.Output ? startPort : p).userData;
+                INodeModel outputNode = p.PortModel.Direction == Direction.Output ? candidateNode : connectedNode;
+                INodeModel inputNode = p.PortModel.Direction == Direction.Output ? connectedNode : candidateNode;
+                var inputPort = (PortModel)(p.PortModel.Direction == Direction.Output ? startPort : p).PortModel;
 
                 if (outputNode.IsInsertLoop && inputNode is IStackModel && inputPort.PortType == PortType.Execution)
                 {
                     switch (inputNode)
                     {
-                        case LoopStackModel _:
-                            return outputNode.LoopConnectionType == LoopConnectionType.LoopStack;
                         case StackBaseModel _:
                             return outputNode.LoopConnectionType == LoopConnectionType.Stack;
                         default:
@@ -949,23 +888,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 }
 
                 // Last resort: same orientation required
-                return p.orientation == startPort.orientation;
+                return p.PortModel.Orientation == startPort.PortModel.Orientation;
             })
+
                 // deep in GraphView's EdgeDragHelper, this list is used to find the first port to use when dragging an
                 // edge. as ports are returned in hierarchy order (back to front), in case of a conflict, the one behind
                 // the others is returned. reverse the list to get the most logical one, the one on top of everything else
                 .Reverse()
                 .ToList();
-        }
-
-        public override EventPropagation DeleteSelection()
-        {
-            IGraphElementModel[] elementsToRemove = selection.OfType<IHasGraphElementModel>()
-                .Select(x => x.GraphElementModel)
-                .Where(m => m != null).ToArray(); // 'this' has no model
-            m_Store.Dispatch(new DeleteElementsAction(elementsToRemove));
-
-            return elementsToRemove.Any() ? EventPropagation.Stop : EventPropagation.Continue;
         }
 
         public EventPropagation RemoveSelection()
@@ -974,14 +904,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 .Select(x => x.GraphElementModel).OfType<INodeModel>().ToArray();
 
             INodeModel[] connectedNodes = selectedNodes.Where(x => x.InputsById.Values
-                .Any(y => y.Connected) && x.OutputsById.Values.Any(y => y.Connected))
+                .Any(y => y.IsConnected) && x.OutputsById.Values.Any(y => y.IsConnected))
                 .ToArray();
 
             bool canSelectionBeBypassed = connectedNodes.Any();
             if (canSelectionBeBypassed)
                 m_Store.Dispatch(new RemoveNodesAction(connectedNodes, selectedNodes));
             else
-                m_Store.Dispatch(new DeleteElementsAction(selectedNodes.Cast<IGraphElementModel>().ToArray()));
+                m_Store.Dispatch(new DeleteElementsAction(selectedNodes.Cast<IGTFGraphElementModel>().ToArray()));
 
             return selectedNodes.Any() ? EventPropagation.Stop : EventPropagation.Continue;
         }
@@ -1080,6 +1010,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         // TODO: Trunk change to come
         public override void ClearSelection()
         {
+            m_Window.ClearNodeInSidePanel();
+
             if (m_PersistedSelectionRestoreEnabled)
                 base.ClearSelection();
             else
@@ -1103,7 +1035,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             evt.StopPropagation();
         }
 
-        void OnElementsInsertedToStackNode(Unity.Modifier.GraphElements.StackNode graphStackNode, int index, IEnumerable<GraphElement> elements)
+        void OnElementsInsertedToStackNode(Unity.GraphElements.StackNode graphStackNode, int index, IEnumerable<GraphElement> elements)
         {
             if (!(graphStackNode is StackNode dropStack))
                 return;
@@ -1113,21 +1045,21 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (firstScheduled)
                 schedule.Execute(() => PositionDependenciesManagers.RelayoutScheduledStackedNodes());
 
-            m_Store.Dispatch(new MoveStackedNodesAction(nodeElements.Select(n => n.model).ToList(), dropStack.stackModel, index));
+            m_Store.Dispatch(new MoveStackedNodesAction(nodeElements.Select(n => n.NodeModel).ToList(), dropStack.StackModel, index));
         }
 
-        void OnElementsRemovedFromStackNode(Unity.Modifier.GraphElements.StackNode graphStackNode, IEnumerable<GraphElement> elements)
+        void OnElementsRemovedFromStackNode(Unity.GraphElements.StackNode graphStackNode, IEnumerable<GraphElement> elements)
         {
-            RemovePositionDependencies(((StackNode)graphStackNode).stackModel.Guid, elements.Cast<IHasGraphElementModel>().Select(x => x.GraphElementModel).Cast<INodeModel>());
+            RemovePositionDependencies(((StackNode)graphStackNode).StackModel.Guid, elements.Cast<IHasGraphElementModel>().Select(x => x.GraphElementModel).Cast<INodeModel>());
         }
 
         bool CanPerformSelectionOperation => selection.OfType<TokenDeclaration>().Any() ||
         selection.OfType<IVisualScriptingField>().Any() ||
         selection.OfType<StickyNote>().Any();
 
-        protected internal override bool canCopySelection => CanPerformSelectionOperation || base.canCopySelection;
-        protected internal override bool canCutSelection => CanPerformSelectionOperation || base.canCutSelection;
-        protected internal override bool canPaste => CanPerformSelectionOperation || base.canPaste;
+        protected override bool canCopySelection => CanPerformSelectionOperation || base.canCopySelection;
+        protected override bool canCutSelection => CanPerformSelectionOperation || base.canCutSelection;
+        protected override bool canPaste => CanPerformSelectionOperation || base.canPaste;
 
         public bool CanCutSelection() => canCutSelection;
         public bool CanCopySelection() => canCopySelection;
@@ -1149,22 +1081,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public override void AddToSelection(ISelectable selectable)
         {
-            // A bit of cleanup (stack nodes, when selected, should override any child selection state)
-            switch (selectable)
-            {
-                case TokenDeclaration _:
-                case IVisualScriptingField _:
-                    {
-                        var parentFunction = (selectable as VisualElement)?.GetFirstAncestorOfType<FunctionNode>();
-                        if (parentFunction != null && selection.Contains(parentFunction))
-                            return;
-                    }
-                    break;
-                case FunctionNode functionNode:
-                    functionNode.FilterOutChildrenFromSelection();
-                    break;
-            }
-
             base.AddToSelection(selectable);
 
             // m_PersistedSelectionRestoreEnabled check: when clicking on a GO with the same graph while a token/node/
@@ -1190,16 +1106,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 // Fallback when no CustomEditor is defined
                 if (Selection.activeObject == null && hasModel.GraphElementModel.SerializableAsset is Object obj)
                 {
-                    m_Window.ShowNodeInSidePanel(selectable);
                     Selection.activeObject = obj;
                 }
             }
+
+            m_Window.ShowNodeInSidePanel(selectable, true);
 
             // TODO: convince UIElements to add proper support for Z Order as this won't survive a refresh
             // alternative: reorder models or store our own z order in models
             if (selectable is VisualElement visualElement)
             {
-                if (visualElement is Token || visualElement is Unity.Modifier.GraphElements.StackNode)
+                if (visualElement is Token || visualElement is Unity.GraphElements.StackNode)
                     visualElement.BringToFront();
                 else if (visualElement is Node node)
                 {
@@ -1216,8 +1133,22 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public override void RemoveFromSelection(ISelectable selectable)
         {
             base.RemoveFromSelection(selectable);
-
+            m_Window.ShowNodeInSidePanel(selectable, false);
             OnSelectionChangedCallback?.Invoke(selection);
+        }
+
+        internal override void OnViewDataReady()
+        {
+            base.OnViewDataReady();
+
+            if (selection.OfType<Node>().Any())
+            {
+                m_Window.ShowNodeInSidePanel(selection.OfType<Node>().Last(), true);
+            }
+            else
+            {
+                m_Window.ShowNodeInSidePanel(null, false);
+            }
         }
 
         internal PositionDependenciesManager PositionDependenciesManagers;
@@ -1264,13 +1195,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (!graphModel.NodesByGuid.TryGetValue(nodeGuid, out var nodeModel))
                 return;
 
-            GraphElement graphElement = this.Query<Node>().Where(e => ReferenceEquals(e.model, nodeModel)).First();
-            if (graphElement == null)
-            {
-                var methodUINodes = this.Query<FunctionNode>().ToList();
-                graphElement = methodUINodes?.FirstOrDefault(e => e.m_FunctionModel == nodeModel);
-            }
-
+            GraphElement graphElement = this.Query<Node>().Where(e => ReferenceEquals(e.NodeModel, nodeModel)).First();
             if (graphElement == null)
             {
                 var stackUINodes = this.Query<StackNode>().ToList();
@@ -1287,14 +1212,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             FrameSelection();
         }
 
-        public override Unity.Modifier.GraphElements.Blackboard GetBlackboard()
+        public override Unity.GraphElements.Blackboard GetBlackboard()
         {
             return UIController.Blackboard;
         }
 
-        protected override Unity.Modifier.GraphElements.PlacematContainer CreatePlacematContainer()
+        protected override PlacematContainer CreatePlacematContainer()
         {
-            return new PlacematContainer(m_Store, this);
+            return new PlacematContainer(this);
         }
     }
 }

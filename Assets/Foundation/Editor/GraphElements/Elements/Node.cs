@@ -7,475 +7,88 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public class Node : GraphElement, ICollectibleElement
+    public class Node : GraphElement, IMovable
     {
-        public VisualElement mainContainer { get; private set; }
-        public VisualElement titleContainer { get; private set; }
-        public VisualElement inputContainer { get; private set; }
-        public VisualElement outputContainer { get; private set; }
-        public VisualElement titleButtonContainer { get; private set; }
+        public IGTFNodeModel NodeModel => Model as IGTFNodeModel;
+        [CanBeNull]
+        protected VisualElement TitleContainer { get; set; }
+        [CanBeNull]
+        protected SmartNodeTitle TitleLabel { get; set; }
 
-        private VisualElement m_InputContainerParent;
-        private VisualElement m_OutputContainerParent;
+        protected ContextualMenuManipulator m_ContextualMenuManipulator;
 
-        // This directly contains input and output containers
-        public VisualElement topContainer { get; private set; }
-        public VisualElement extensionContainer { get; private set; }
-        private VisualElement m_CollapsibleArea;
+        public static readonly string k_UssClassName = "ge-node";
 
-        private GraphView m_GraphView;
-
-        private GraphView graphView
+        public Node()
         {
-            get
-            {
-                if (m_GraphView == null)
-                {
-                    m_GraphView = GetFirstAncestorOfType<GraphView>();
-                }
+            RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
 
-                return m_GraphView;
-            }
+            m_ContextualMenuManipulator = new ContextualMenuManipulator(BuildContextualMenu);
+            this.AddManipulator(m_ContextualMenuManipulator);
         }
 
-        private bool m_Expanded;
-
-        public virtual bool expanded
+        protected override void BuildUI()
         {
-            get { return m_Expanded; }
-            set
-            {
-                if (m_Expanded == value)
-                    return;
+            base.BuildUI();
 
-                m_Expanded = value;
-                RefreshExpandedState();
-            }
-        }
-
-        public void RefreshExpandedState()
-        {
-            UpdateExpandedButtonState();
-
-            bool hasPorts = RefreshPorts();
-
-            VisualElement contents = mainContainer.Q("contents");
-
-            if (contents == null)
-            {
-                return;
-            }
-
-            VisualElement divider = contents.Q("divider");
-
-            if (divider != null)
-            {
-                SetElementVisible(divider, hasPorts);
-            }
-
-            UpdateCollapsibleAreaVisibility();
-        }
-
-        void UpdateCollapsibleAreaVisibility()
-        {
-            if (m_CollapsibleArea == null)
-            {
-                return;
-            }
-
-            bool displayBottom = expanded && extensionContainer.childCount > 0;
-
-            if (displayBottom)
-            {
-                if (m_CollapsibleArea.parent == null)
-                {
-                    VisualElement contents = mainContainer.Q("contents");
-
-                    if (contents == null)
-                    {
-                        return;
-                    }
-
-                    contents.Add(m_CollapsibleArea);
-                }
-
-                m_CollapsibleArea.BringToFront();
-            }
-            else
-            {
-                if (m_CollapsibleArea.parent != null)
-                {
-                    m_CollapsibleArea.RemoveFromHierarchy();
-                }
-            }
-        }
-
-        private readonly Label m_TitleLabel;
-
-        public override string title
-        {
-            get { return m_TitleLabel != null ? m_TitleLabel.text : string.Empty; }
-            set { if (m_TitleLabel != null) m_TitleLabel.text = value; }
-        }
-
-        protected readonly VisualElement m_CollapseButton;
-        protected readonly VisualElement m_ButtonContainer;
-
-        private const string k_ExpandedStyleClass = "expanded";
-        private const string k_CollapsedStyleClass = "collapsed";
-
-        private void UpdateExpandedButtonState()
-        {
-            RemoveFromClassList(m_Expanded ? k_CollapsedStyleClass : k_ExpandedStyleClass);
-            AddToClassList(m_Expanded ? k_ExpandedStyleClass : k_CollapsedStyleClass);
-        }
-
-        public override Rect GetPosition()
-        {
-            if (resolvedStyle.position == Position.Absolute)
-                return new Rect(resolvedStyle.left, resolvedStyle.top, layout.width, layout.height);
-            return layout;
-        }
-
-        public override void SetPosition(Rect newPos)
-        {
-            style.position = Position.Absolute;
-            style.left = newPos.x;
-            style.top = newPos.y;
-        }
-
-        protected virtual void OnPortRemoved(Port port)
-        {}
-
-        public virtual Port InstantiatePort(Orientation orientation, Direction direction, Port.Capacity capacity, Type type)
-        {
-            return Port.Create<Edge>(orientation, direction, capacity, type);
-        }
-
-        private void SetElementVisible(VisualElement element, bool isVisible)
-        {
-            const string k_HiddenClassList = "hidden";
-
-            if (isVisible)
-            {
-                // Restore default value for visibility by setting it to StyleKeyword.Null.
-                // Setting it to Visibility.Visible would make it visible even if parent is hidden.
-                element.style.visibility = StyleKeyword.Null;
-                element.RemoveFromClassList(k_HiddenClassList);
-            }
-            else
-            {
-                element.style.visibility = Visibility.Hidden;
-                element.AddToClassList(k_HiddenClassList);
-            }
-        }
-
-        private bool AllElementsHidden(VisualElement element)
-        {
-            for (int i = 0; i < element.childCount; ++i)
-            {
-                if (element[i].visible)
-                    return false;
-            }
-
-            return true;
-        }
-
-        private int ShowPorts(bool show, IList<Port> currentPorts)
-        {
-            int count = 0;
-            foreach (var port in currentPorts)
-            {
-                if ((show || port.connected) && !port.collapsed)
-                {
-                    SetElementVisible(port, true);
-                    count++;
-                }
-                else
-                {
-                    SetElementVisible(port, false);
-                }
-            }
-            return count;
-        }
-
-        public bool RefreshPorts()
-        {
-            bool expandedState = expanded;
-
-            // Refresh the lists after all additions and everything took place
-            var updatedInputs = inputContainer.Query<Port>().ToList();
-            var updatedOutputs = outputContainer.Query<Port>().ToList();
-
-            foreach (Port input in updatedInputs)
-            {
-                // Make sure we don't register these more than once.
-                input.OnConnect -= OnPortConnectAction;
-                input.OnDisconnect -= OnPortConnectAction;
-
-                input.OnConnect += OnPortConnectAction;
-                input.OnDisconnect += OnPortConnectAction;
-            }
-
-            foreach (Port output in updatedOutputs)
-            {
-                // Make sure we don't register these more than once.
-                output.OnConnect -= OnPortConnectAction;
-                output.OnDisconnect -= OnPortConnectAction;
-
-                output.OnConnect += OnPortConnectAction;
-                output.OnDisconnect += OnPortConnectAction;
-            }
-
-            int inputCount = ShowPorts(expandedState, updatedInputs);
-            int outputCount = ShowPorts(expandedState, updatedOutputs);
-
-            VisualElement divider = topContainer.Q("divider");
-
-            bool outputVisible = outputCount > 0 || !AllElementsHidden(outputContainer);
-            bool inputVisible = inputCount > 0 || !AllElementsHidden(inputContainer);
-
-            // Show output container only if we have one or more child
-            if (outputVisible)
-            {
-                if (outputContainer.hierarchy.parent != m_OutputContainerParent)
-                {
-                    m_OutputContainerParent.hierarchy.Add(outputContainer);
-                    outputContainer.BringToFront();
-                }
-            }
-            else
-            {
-                if (outputContainer.hierarchy.parent == m_OutputContainerParent)
-                {
-                    outputContainer.RemoveFromHierarchy();
-                }
-            }
-
-            if (inputVisible)
-            {
-                if (inputContainer.hierarchy.parent != m_InputContainerParent)
-                {
-                    m_InputContainerParent.hierarchy.Add(inputContainer);
-                    inputContainer.SendToBack();
-                }
-            }
-            else
-            {
-                if (inputContainer.hierarchy.parent == m_InputContainerParent)
-                {
-                    inputContainer.RemoveFromHierarchy();
-                }
-            }
-
-            if (divider != null)
-            {
-                SetElementVisible(divider, inputVisible && outputVisible);
-            }
-
-            return inputVisible || outputVisible;
-        }
-
-        private void OnPortConnectAction(Port port)
-        {
-            bool canCollapse = false;
-            var updatedInputs = inputContainer.Query<Port>().ToList();
-            var updatedOutputs = outputContainer.Query<Port>().ToList();
-            foreach (Port input in updatedInputs)
-            {
-                if (!input.connected)
-                {
-                    canCollapse = true;
-                    break;
-                }
-            }
-
-            if (!canCollapse)
-            {
-                foreach (Port output in updatedOutputs)
-                {
-                    if (!output.connected)
-                    {
-                        canCollapse = true;
-                        break;
-                    }
-                }
-            }
-
-            if (m_CollapseButton != null)
-            {
-                if (canCollapse)
-                    m_CollapseButton.SetDisabledPseudoState(false);
-                else
-                    m_CollapseButton.SetDisabledPseudoState(true);
-            }
-        }
-
-        protected virtual void ToggleCollapse()
-        {
-            expanded = !expanded;
-        }
-
-        protected void UseDefaultStyling()
-        {
-            this.AddStylesheet("Node.uss");
-        }
-
-        public Node() : this("Node.uxml")
-        {
-            UseDefaultStyling();
-        }
-
-        public Node(string uiFile)
-        {
-            var tpl = GraphElementsHelper.LoadUXML(uiFile);
-
-            tpl.CloneTree(this);
-
-            VisualElement main = this;
-            VisualElement borderContainer = main.Q(name: "node-border");
-
-            if (borderContainer != null)
-            {
-                borderContainer.style.overflow = Overflow.Hidden;
-                mainContainer = borderContainer;
-                var selection = main.Q(name: "selection-border");
-                if (selection != null)
-                {
-                    selection.style.overflow = Overflow.Visible;
-                }
-            }
-            else
-            {
-                mainContainer = main;
-            }
-
-            titleContainer = main.Q(name: "title");
-            inputContainer = main.Q(name: "input");
-
-            if (inputContainer != null)
-            {
-                m_InputContainerParent = inputContainer.hierarchy.parent;
-            }
-
-            m_CollapsibleArea = main.Q(name: "collapsible-area");
-            extensionContainer = main.Q("extension");
-            VisualElement output = main.Q(name: "output");
-            outputContainer = output;
-
-            if (outputContainer != null)
-            {
-                m_OutputContainerParent = outputContainer.hierarchy.parent;
-                topContainer = output.parent;
-            }
-
-            m_TitleLabel = main.Q<Label>(name: "title-label");
-            titleButtonContainer = main.Q(name: "title-button-container");
-            m_CollapseButton = main.Q(name: "collapse-button");
-            m_CollapseButton.AddManipulator(new Clickable(ToggleCollapse));
-
-            elementTypeColor = new Color(0.9f, 0.9f, 0.9f, 0.5f);
-
-            if (main != this)
-            {
-                Add(main);
-            }
-
-            AddToClassList("node");
-
-            capabilities |= Capabilities.Selectable | Capabilities.Movable | Capabilities.Deletable | Capabilities.Ascendable | Capabilities.Copiable;
             usageHints = UsageHints.DynamicTransform;
 
-            m_Expanded = true;
-            UpdateExpandedButtonState();
-            UpdateCollapsibleAreaVisibility();
+            AddToClassList(k_UssClassName);
+            this.AddStylesheet("Node.uss");
 
-            this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
-
-            style.position = Position.Absolute;
-        }
-
-        void AddConnectionToDeleteSet(VisualElement container, ref HashSet<GraphElement> toDelete)
-        {
-            List<GraphElement> toDeleteList = new List<GraphElement>();
-            container.Query<Port>().ForEach(elem =>
+            if (NodeModel is IHasTitle)
             {
-                if (elem.connected)
-                {
-                    foreach (Edge c in elem.connections)
-                    {
-                        if ((c.capabilities & Capabilities.Deletable) == 0)
-                            continue;
+                bool isRenamable = Model is IRenamable renamable && renamable.IsRenamable;
+                TitleContainer = new VisualElement { name = "title-container" };
+                TitleContainer.AddToClassList(k_UssClassName + "__title-container");
+                TitleLabel = new SmartNodeTitle(isRenamable, null);
+                TitleLabel.AddToClassList(k_UssClassName + "__title");
 
-                        toDeleteList.Add(c);
-                    }
-                }
-            });
+                TitleContainer.Add(TitleLabel);
+                Add(TitleContainer);
 
-            toDelete.UnionWith(toDeleteList);
-        }
-
-        void DisconnectAll(DropdownMenuAction a)
-        {
-            HashSet<GraphElement> toDelete = new HashSet<GraphElement>();
-
-            AddConnectionToDeleteSet(inputContainer, ref toDelete);
-            AddConnectionToDeleteSet(outputContainer, ref toDelete);
-            toDelete.Remove(null);
-
-            if (graphView != null)
-            {
-                graphView.DeleteElements(toDelete);
-            }
-            else
-            {
-                Debug.Log("Disconnecting nodes that are not in a GraphView will not work.");
+                if (isRenamable)
+                    TitleLabel.RegisterCallback<ChangeEvent<string>>(OnRename);
             }
         }
 
-        DropdownMenuAction.Status DisconnectAllStatus(DropdownMenuAction a)
+        public override void UpdateFromModel()
         {
-            VisualElement[] containers =
-            {
-                inputContainer, outputContainer
-            };
+            base.UpdateFromModel();
 
-            foreach (var container in containers)
+            var newPos = NodeModel.Position;
+            style.left = newPos.x;
+            style.top = newPos.y;
+
+            if (TitleLabel != null)
             {
-                var currentInputs = container.Query<Port>().ToList();
-                foreach (var elem in currentInputs)
-                {
-                    if (elem.connected)
-                    {
-                        return DropdownMenuAction.Status.Normal;
-                    }
-                }
+                TitleLabel.Text = (NodeModel as IHasTitle)?.Title.Nicify() ?? String.Empty;
             }
 
-            return DropdownMenuAction.Status.Disabled;
+            EnableInClassList(k_UssClassName + "--empty", childCount == 0);
         }
 
-        public virtual void BuildContextualMenu(ContextualMenuPopulateEvent evt)
+        protected virtual void BuildContextualMenu(ContextualMenuPopulateEvent evt) { }
+
+        protected virtual void UpdateEdgeLayout() { }
+
+        public virtual void MarkEdgesDirty() { }
+
+        void OnGeometryChanged(GeometryChangedEvent e)
         {
-            if (evt.target is Node)
-            {
-                evt.menu.AppendAction("Disconnect all", DisconnectAll, DisconnectAllStatus);
-                evt.menu.AppendSeparator();
-            }
+            if (e.target == this)
+                UpdateEdgeLayout();
         }
 
-        void CollectConnectedEdges(HashSet<GraphElement> edgeSet)
+        void OnRename(ChangeEvent<string> e)
         {
-            edgeSet.UnionWith(inputContainer.Children().OfType<Port>().SelectMany(c => c.connections)
-                .Where(d => (d.capabilities & Capabilities.Deletable) != 0)
-                .Cast<GraphElement>());
-            edgeSet.UnionWith(outputContainer.Children().OfType<Port>().SelectMany(c => c.connections)
-                .Cast<GraphElement>());
+            Store.Dispatch(new RenameElementAction(Model as IRenamable, e.newValue));
         }
 
-        public virtual void CollectElements(HashSet<GraphElement> collectedElementSet, Func<GraphElement, bool> conditionFunc)
+        public virtual void UpdatePinning()
         {
-            CollectConnectedEdges(collectedElementSet);
         }
+
+        public virtual bool IsMovable => true;
     }
 }

@@ -18,14 +18,13 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         Action<IChangeEvent, Store, IPortModel> EmbeddedValueEditorValueChangedOverride { get; set; }
         bool CreateEmbeddedValueIfNeeded { get; }
 
+        IEnumerable<IEdgeModel> ConnectedEdges { get; }
         IEnumerable<IPortModel> ConnectionPortModels { get; }
+        bool IsConnected { get; }
 
         Direction Direction { get; }
         PortType PortType { get; }
-        TypeHandle DataType { get; }
-        Port.Capacity Capacity { get; }
-        bool Connected { get; }
+        TypeHandle DataTypeHandle { get; }
         Action OnValueChanged { get; set; }
-        string ToolTip { get; }
     }
 }

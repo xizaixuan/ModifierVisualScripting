@@ -103,7 +103,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     provider.ClearTypeMembersSearcherDatabases();
                     provider.ClearGraphElementsSearcherDatabases();
                     provider.ClearGraphVariablesSearcherDatabases();
-                    provider.ClearReferenceItemsSearcherDatabases();
                 });
                 MenuItem("Integrity Check", false, () => vsGraphModel.CheckIntegrity(GraphModel.Verbosity.Verbose));
                 MenuItem("Graph cleanup", false, () =>
@@ -144,6 +143,28 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 foreach (IPluginHandler pluginType in m_Store.GetState().EditorDataModel.PluginRepository.RegisteredPlugins)
                 {
                     pluginType.OptionsMenu(menu);
+                }
+
+                var compilationResult = m_Store.GetState()?.CompilationResultModel?.GetLastResult();
+                if (compilationResult?.pluginSourceCode != null)
+                {
+                    foreach (var pluginType in compilationResult.pluginSourceCode.Keys)
+                    {
+                        MenuMapToggle(title: "CodeViewer/Plugin/" + pluginType.Name, match: () => pref.PluginTypePref == pluginType, onToggle: () =>
+                        {
+                            VseUtility.UpdateCodeViewer(show: true, pluginIndex: pluginType,
+                                compilationResult: compilationResult,
+                                selectionDelegate: lineMetadata =>
+                                {
+                                    if (lineMetadata == null)
+                                        return;
+
+                                    GUID nodeGuid = (GUID)lineMetadata;
+                                    m_Store.Dispatch(new PanToNodeAction(nodeGuid));
+                                });
+                            pref.PluginTypePref = pluginType;
+                        });
+                    }
                 }
             }
 

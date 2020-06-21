@@ -7,12 +7,14 @@ using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
-    public interface IGraphModel : IDisposable
+    public interface IGraphModel
     {
         string Name { get; }
         IGraphAssetModel AssetModel { get; }
         IReadOnlyList<INodeModel> NodeModels { get; }
         IReadOnlyList<IEdgeModel> EdgeModels { get; }
+        IReadOnlyList<IStickyNoteModel> StickyNoteModels { get; }
+        IReadOnlyList<IPlacematModel> PlacematModels { get; }
         string GetAssetPath();
         IEnumerable<IEdgeModel> GetEdgesConnections(IPortModel portModel);
         IEnumerable<IPortModel> GetConnections(IPortModel portModel);

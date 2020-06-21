@@ -18,7 +18,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 if (base.text == value)
                     return;
                 base.text = value;
-                (parent as Edge)?.Rename(value);
             }
         }
 

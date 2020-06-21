@@ -77,11 +77,11 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                 mi.MemberType);
         }
 
-        public static MemberInfoValue ToMemberInfoValue(this MemberInfo mi, CSharpTypeSerializer serializer)
+        public static MemberInfoValue ToMemberInfoValue(this MemberInfo mi)
         {
             return new MemberInfoValue(
-                serializer.GenerateTypeHandle(mi.ReflectedType),
-                serializer.GenerateTypeHandle(mi.GetUnderlyingType()),
+                CSharpTypeSerializer.GenerateTypeHandle(mi.ReflectedType),
+                CSharpTypeSerializer.GenerateTypeHandle(mi.GetUnderlyingType()),
                 mi.Name,
                 mi.MemberType);
         }

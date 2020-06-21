@@ -46,7 +46,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         Vector2 m_StartPos;
         List<KeyValuePair<Node, Rect>> m_ScheduledItems = new List<KeyValuePair<Node, Rect>>();
         VSPreferences m_Preferences;
-        public Dictionary<PortModel, Unity.Modifier.GraphElements.Port> portModelToPort;
+        public Dictionary<PortModel, Unity.GraphElements.Port> portModelToPort;
 
         public PositionDependenciesManager(VseGraphView vseGraphView, VSPreferences vsPreferences)
         {
@@ -238,9 +238,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     hasModel.GraphElementModel is INodeModel nodeModel)
                 {
                     if (m_GraphModel == null)
-                        m_GraphModel = (VSGraphModel)nodeModel.GraphModel;
+                        m_GraphModel = (VSGraphModel)nodeModel.VSGraphModel;
                     else
-                        Assert.AreEqual(nodeModel.GraphModel, m_GraphModel);
+                        Assert.AreEqual(nodeModel.VSGraphModel, m_GraphModel);
                     m_ModelsToMove.Add(nodeModel);
                 }
             }
@@ -293,7 +293,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     Rect cur = hierarchyParent.ChangeCoordinatesTo(m_VseGraphView.contentViewContainer, pair.Key.layout);
 
                     Vector2 d = cur.position - pair.Value.position;
-                    ProcessDependency(pair.Key.model, d, (graphElement, model, delta, _) =>
+                    ProcessDependency(pair.Key.NodeModel, d, (graphElement, model, delta, _) =>
                     {
                         Vector2 prevPos = model.DependentNode.Position;
                         Rect posRect = graphElement.GetPosition();
@@ -313,8 +313,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             // Warning: Don't try to use the VisualElement.layout Rect as it is not up to date yet.
             // Use Node.GetPosition() when possible
 
-            var parentUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
-            var depUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[dependency.DependentNode];
+            var parentUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
+            var depUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[dependency.DependentNode];
 
             switch (dependency)
             {
@@ -324,12 +324,12 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     if (prev.IsStacked && prev.IsCondition && linked.DependentNode is IStackModel)
                     {
                         prev = prev.ParentStackModel;
-                        parentUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
+                        parentUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
                     }
 
                     var parentPosition = parentUI.GetPosition();
-                    if (parentUI is Unity.Modifier.GraphElements.StackNode &&
-                        element is Unity.Modifier.GraphElements.StackNode)
+                    if (parentUI is Unity.GraphElements.StackNode &&
+                        element is Unity.GraphElements.StackNode)
                     {
                         if (linked.count > 1)
                         {
@@ -405,8 +405,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             topMostModels.Clear();
 
-            var selectedNodeModels = selection.OfType<Node>().Select(e => e.model);
-            var nodeModelsFromSelectedEdges = selection.OfType<Edge>().SelectMany(e => e.model.GetPortModels().Select(p => p.NodeModel));
+            var selectedNodeModels = selection.OfType<Node>().Select(e => e.NodeModel);
+            var nodeModelsFromSelectedEdges = selection.OfType<Edge>().SelectMany(e => e.VSEdgeModel.GetPortModels().Select(p => p.NodeModel));
             var affectedNodeModels = selectedNodeModels.Concat(nodeModelsFromSelectedEdges);
 
             foreach (INodeModel stackedNode in affectedNodeModels.Where(n => n.IsStacked))
@@ -417,7 +417,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             bool anyEdge = false;
             foreach (Edge edge in selection.OfType<Edge>())
             {
-                if (!edge.GraphElementModel.GraphModel.Stencil.CreateDependencyFromEdge(edge.model, out LinkedNodesDependency dependency, out INodeModel parent))
+                if (!edge.GraphElementModel.VSGraphModel.Stencil.CreateDependencyFromEdge(edge.VSEdgeModel, out LinkedNodesDependency dependency, out INodeModel parent))
                     continue;
                 anyEdge = true;
 
@@ -484,9 +484,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         void InitModelPositionFromUI(INodeModel stackedNode)
         {
-            var nodeUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackedNode];
+            var nodeUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackedNode];
             IStackModel stackNode = stackedNode.ParentStackModel;
-            var stackUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackNode];
+            var stackUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackNode];
 
             Vector2 nodePos = nodeUI.GetPosition().position;
 
@@ -504,7 +504,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public void AddPositionDependency(IEdgeModel model)
         {
-            if (!model.GraphModel.Stencil.CreateDependencyFromEdge(model, out var dependency, out INodeModel parent))
+            if (!model.VSGraphModel.Stencil.CreateDependencyFromEdge(model, out var dependency, out INodeModel parent))
                 return;
             Add(parent, dependency);
             LogDependencies();

@@ -3,7 +3,7 @@
 namespace UnityEditor.Modifier.VisualScripting.Runtime
 {
     [AttributeUsage(AttributeTargets.Field)]
-    public class TypeSearcherAttribute : Attribute
+    public class TypeSearcherAttribute : PropertyAttribute
     {
         public Type FilteredType { get; protected set; }
 

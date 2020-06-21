@@ -19,12 +19,13 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         object Target { get; set; }
         bool IsExcluded(object value);
     }
+
     public interface INodeModel : IGraphElementModelWithGuid, IUndoRedoAware
     {
+        Vector2 Position { get; set; }
         ModelState State { get; }
         IStackModel ParentStackModel { get; }
         string Title { get; }
-        Vector2 Position { get; set; }
         GUID Guid { get; }
         IReadOnlyDictionary<string, IPortModel> InputsById { get; }
         IReadOnlyDictionary<string, IPortModel> OutputsById { get; }
@@ -46,7 +47,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         void PostGraphLoad();
 
-        Port.Capacity GetPortCapacity(PortModel portModel);
+        PortCapacity GetPortCapacity(PortModel portModel);
     }
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
@@ -59,7 +60,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         public static IEnumerable<IEdgeModel> GetConnectedEdges(this INodeModel nodeModel)
         {
-            var graphModel = nodeModel.GraphModel;
+            var graphModel = nodeModel.VSGraphModel;
             return nodeModel.GetPortModels().SelectMany(p => graphModel.GetEdgesConnections(p));
         }
 

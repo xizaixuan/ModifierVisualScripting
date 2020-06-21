@@ -30,37 +30,59 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Rename Placemat");
             EditorUtility.SetDirty((Object)previousState.AssetModel);
-            foreach (var placematModel in action.PlacematModels)
+            foreach (var placematModel in action.Models)
             {
-                placematModel.Title = action.Title;
+                placematModel.Rename(action.Value);
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, placematModel);
             }
-            previousState.MarkForUpdate(UpdateFlags.None);
             return previousState;
         }
 
         static State ChangePlacematPosition(State previousState, ChangePlacematPositionAction action)
         {
+            if (action.ResizeFlags == ResizeFlags.None)
+                return previousState;
+
             Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Resize Placemat");
             EditorUtility.SetDirty((Object)previousState.AssetModel);
-            foreach (var placematModel in action.PlacematModels)
+            foreach (var placematModel in action.Models)
             {
-                placematModel.Move(action.Position);
+                var newRect = placematModel.PositionAndSize;
+                if ((action.ResizeFlags & ResizeFlags.Left) == ResizeFlags.Left)
+                {
+                    newRect.x = action.Value.x;
+                }
+                if ((action.ResizeFlags & ResizeFlags.Top) == ResizeFlags.Top)
+                {
+                    newRect.y = action.Value.y;
+                }
+                if ((action.ResizeFlags & ResizeFlags.Width) == ResizeFlags.Width)
+                {
+                    newRect.width = action.Value.width;
+                }
+                if ((action.ResizeFlags & ResizeFlags.Height) == ResizeFlags.Height)
+                {
+                    newRect.height = action.Value.height;
+                }
+                placematModel.PositionAndSize = newRect;
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, placematModel);
             }
-            previousState.MarkForUpdate(UpdateFlags.None);
             return previousState;
         }
 
         static State ChangePlacematZOrders(State previousState, ChangePlacematZOrdersAction action)
         {
-            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Change placemats zOrders");
+            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Change Placemats Ordering");
             EditorUtility.SetDirty((Object)previousState.AssetModel);
 
-            var models = action.PlacematModels;
-            for (int i = 0; i < models.Length; i++)
+            for (var index = 0; index < action.Models.Length; index++)
             {
-                models[i].ZOrder = action.ZOrders[i];
+                var placematModel = action.Models[index];
+                var zOrder = action.Value[index];
+                placematModel.ZOrder = zOrder;
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, placematModel);
             }
-            previousState.MarkForUpdate(UpdateFlags.None);
+
             return previousState;
         }
 
@@ -68,16 +90,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, action.Collapse ? "Collapse Placemat" : "Expand Placemat");
             EditorUtility.SetDirty((Object)previousState.AssetModel);
+
             action.PlacematModel.Collapsed = action.Collapse;
-            if (action.PlacematModel.Collapsed)
-            {
-                action.PlacematModel.HiddenElementsGuid = new List<string>(action.CollapsedElements);
-            }
-            else
-            {
-                action.PlacematModel.HiddenElementsGuid = null;
-            }
-            previousState.MarkForUpdate(UpdateFlags.None);
+            action.PlacematModel.HiddenElements = action.PlacematModel.Collapsed ? action.CollapsedElements : null;
+
+            previousState.MarkForUpdate(UpdateFlags.UpdateView, action.PlacematModel);
             return previousState;
         }
     }

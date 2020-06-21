@@ -7,7 +7,6 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
     public interface IStackModel : INodeModel
     {
         IList<INodeModel> NodeModels { get; }
-        IFunctionModel OwningFunctionModel { get; }
         bool AcceptNode(Type nodeType);
         bool DelegatesOutputsToNode(out INodeModel del);
         void CleanUp();

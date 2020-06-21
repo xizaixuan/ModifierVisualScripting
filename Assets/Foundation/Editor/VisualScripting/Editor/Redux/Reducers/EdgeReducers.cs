@@ -19,8 +19,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public static void Register(Store store)
         {
-            store.Register<CreateNodeFromLoopPortAction>(CreateNodeFromLoopPort);
-            store.Register<CreateInsertLoopNodeAction>(CreateInsertLoopNode);
             store.Register<CreateNodeFromExecutionPortAction>(CreateNodeFromExecutionPort);
             store.Register<CreateNodeFromInputPortAction>(CreateGraphNodeFromInputPort);
             store.Register<CreateStackedNodeFromOutputPortAction>(CreateStackedNodeFromOutputPort);
@@ -28,57 +26,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             store.Register<CreateEdgeAction>(CreateEdge);
             store.Register<SplitEdgeAndInsertNodeAction>(SplitEdgeAndInsertNode);
             store.Register<CreateNodeOnEdgeAction>(CreateNodeOnEdge);
-            store.Register<AddControlPointOnEdgeAction>(AddControlPointOnEdge);
-            store.Register<MoveEdgeControlPointAction>(MoveEdgeControlPoint);
-            store.Register<RemoveEdgeControlPointAction>(RemoveEdgeControlPoint);
-            store.Register<SetEdgeEditModeAction>(SetEdgeEditMode);
-        }
-
-        static State CreateNodeFromLoopPort(State previousState, CreateNodeFromLoopPortAction action)
-        {
-            var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            graphModel.DeleteEdges(action.EdgesToDelete);
-
-            var stackPosition = action.Position - Vector2.right * k_StackOffset;
-
-            if (action.PortModel.NodeModel is LoopNodeModel loopNodeModel)
-            {
-                var loopStackType = loopNodeModel.MatchingStackType;
-                var loopStack = graphModel.CreateLoopStack(loopStackType, stackPosition);
-
-                graphModel.CreateEdge(loopStack.InputPort, action.PortModel);
-            }
-            else
-            {
-                var stack = graphModel.CreateStack(null, stackPosition);
-                graphModel.CreateEdge(stack.InputPorts[0], action.PortModel);
-            }
-
-            graphModel.LastChanges?.ChangedElements.Add(action.PortModel.NodeModel);
-
-            return previousState;
-        }
-
-        static State CreateInsertLoopNode(State previousState, CreateInsertLoopNodeAction action)
-        {
-            var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            Undo.RegisterCompleteObjectUndo((Object)graphModel.AssetModel, "Create InsertLoop Node");
-            Assert.IsTrue(graphModel.AssetModel as Object);
-            graphModel.DeleteEdges(action.EdgesToDelete);
-
-            var loopNode = ((StackBaseModel)action.StackModel).CreateStackedNode(
-                action.LoopStackModel.MatchingStackedNodeType, "", action.Index);
-
-            graphModel.CreateEdge(action.PortModel, loopNode.OutputsByDisplayOrder.First());
-            graphModel.LastChanges?.ChangedElements.Add(action.PortModel.NodeModel);
-
-            return previousState;
+            store.Register<AddControlPointOnEdgeAction>(AddControlPointOnEdgeAction.DefaultReducer);
+            store.Register<MoveEdgeControlPointAction>(MoveEdgeControlPointAction.DefaultReducer);
+            store.Register<RemoveEdgeControlPointAction>(RemoveEdgeControlPointAction.DefaultReducer);
+            store.Register<SetEdgeEditModeAction>(SetEdgeEditModeAction.DefaultReducer);
+            store.Register<ConvertEdgesToPortalsAction>(ConvertEdgesToPortals);
         }
 
         static State CreateNodeFromExecutionPort(State previousState, CreateNodeFromExecutionPortAction action)
         {
             var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            graphModel.DeleteEdges(action.EdgesToDelete);
+            graphModel.DeleteEdges(action.EdgesToDelete.OfType<IEdgeModel>());
 
             var stackPosition = action.Position - Vector2.right * k_StackOffset;
             var stack = graphModel.CreateStack(string.Empty, stackPosition);
@@ -96,7 +54,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         static State CreateGraphNodeFromInputPort(State previousState, CreateNodeFromInputPortAction action)
         {
             var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            graphModel.DeleteEdges(action.EdgesToDelete);
+            graphModel.DeleteEdges(action.EdgesToDelete.OfType<IEdgeModel>());
 
             var position = action.Position - Vector2.up * k_NodeOffset;
             var elementModels = action.SelectedItem.CreateElements.Invoke(
@@ -105,9 +63,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (elementModels.Length == 0 || !(elementModels[0] is INodeModel selectedNodeModel))
                 return previousState;
 
-            var outputPortModel = action.PortModel.DataType == TypeHandle.Unknown
+            var outputPortModel = action.PortModel.DataTypeHandle == TypeHandle.Unknown
                 ? selectedNodeModel.OutputsByDisplayOrder.FirstOrDefault()
-                : GetFirstPortModelOfType(action.PortModel.DataType, selectedNodeModel.OutputsByDisplayOrder);
+                : GetFirstPortModelOfType(action.PortModel.DataTypeHandle, selectedNodeModel.OutputsByDisplayOrder, true);
 
             if (outputPortModel != null)
             {
@@ -125,7 +83,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
             Undo.RegisterCompleteObjectUndo((Object)graphModel.AssetModel, "Create Node From Output Port");
-            graphModel.DeleteEdges(action.EdgesToDelete);
+            graphModel.DeleteEdges(action.EdgesToDelete.OfType<IEdgeModel>());
 
             var elementModels = action.SelectedItem.CreateElements.Invoke(
                 new StackNodeCreationData(action.StackModel, action.Index));
@@ -151,7 +109,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         static State CreateNodeFromOutputPort(State previousState, CreateNodeFromOutputPortAction action)
         {
             var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            graphModel.DeleteEdges(action.EdgesToDelete);
+            graphModel.DeleteEdges(action.EdgesToDelete.OfType<IEdgeModel>());
 
             var position = action.Position - Vector2.up * k_NodeOffset;
             var elementModels = action.SelectedItem.CreateElements.Invoke(
@@ -160,9 +118,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (!elementModels.Any() || !(elementModels[0] is INodeModel selectedNodeModel))
                 return previousState;
 
-            var inputPortModel = action.PortModel.DataType == TypeHandle.Unknown
+            var inputPortModel = action.PortModel.DataTypeHandle == TypeHandle.Unknown
                 ? selectedNodeModel.InputsByDisplayOrder.FirstOrDefault()
-                : GetFirstPortModelOfType(action.PortModel.DataType, selectedNodeModel.InputsByDisplayOrder);
+                : GetFirstPortModelOfType(action.PortModel.DataTypeHandle, selectedNodeModel.InputsByDisplayOrder, true);
 
             if (inputPortModel == null)
                 return previousState;
@@ -202,17 +160,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             graphModel.DeleteEdge(action.EdgeModel);
 
             // Connect input port
-            var inputPortModel = selectedNodeModel is FunctionCallNodeModel
-                ? selectedNodeModel.InputsByDisplayOrder.FirstOrDefault(p =>
-                p.DataType.Equals(edgeOutput.DataType))
-                : selectedNodeModel.InputsByDisplayOrder.FirstOrDefault();
+            var inputPortModel = selectedNodeModel.InputsByDisplayOrder.FirstOrDefault();
 
             if (inputPortModel != null)
                 graphModel.CreateEdge(inputPortModel, edgeOutput);
 
             // Find first matching output type and connect it
-            var outputPortModel = GetFirstPortModelOfType(edgeInput.DataType,
-                selectedNodeModel.OutputsByDisplayOrder);
+            var outputPortModel = GetFirstPortModelOfType(edgeInput.DataTypeHandle,
+                selectedNodeModel.OutputsByDisplayOrder, true);
 
             if (outputPortModel != null)
                 graphModel.CreateEdge(edgeInput, outputPortModel);
@@ -225,16 +180,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
 
             if (action.EdgeModelsToDelete != null)
-                graphModel.DeleteEdges(action.EdgeModelsToDelete);
+                graphModel.DeleteEdges(action.EdgeModelsToDelete.OfType<IEdgeModel>());
 
-            IPortModel outputPortModel = action.OutputPortModel;
-            IPortModel inputPortModel = action.InputPortModel;
-
-            if (inputPortModel.NodeModel is LoopStackModel loopStackModel)
-            {
-                if (!loopStackModel.MatchingStackedNodeType.IsInstanceOfType(outputPortModel.NodeModel))
-                    return previousState;
-            }
+            // PF remove cast
+            IPortModel outputPortModel = action.OutputPortModel as IPortModel;
+            IPortModel inputPortModel = action.InputPortModel as IPortModel;
 
             CreateItemizedNode(previousState, graphModel, ref outputPortModel);
             graphModel.CreateEdge(inputPortModel, outputPortModel);
@@ -263,9 +213,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         }
 
         [CanBeNull]
-        static IPortModel GetFirstPortModelOfType(TypeHandle typeHandle, IEnumerable<IPortModel> portModels)
+        static IPortModel GetFirstPortModelOfType(TypeHandle typeHandle, IEnumerable<IPortModel> portModels, bool fallbackToFirstPort)
         {
-            Stencil stencil = portModels.First().GraphModel.Stencil;
+            Stencil stencil = portModels.First().VSGraphModel.Stencil;
             IPortModel unknownPortModel = null;
 
             // Return the first matching Input portModel
@@ -273,17 +223,20 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             // Else return null.
             foreach (IPortModel portModel in portModels)
             {
-                if (portModel.DataType == TypeHandle.Unknown && unknownPortModel == null)
+                if (portModel.DataTypeHandle == TypeHandle.Unknown && unknownPortModel == null)
                 {
                     unknownPortModel = portModel;
                 }
 
-                if (typeHandle.IsAssignableFrom(portModel.DataType, stencil))
+                if (typeHandle.IsAssignableFrom(portModel.DataTypeHandle, stencil))
                 {
                     return portModel;
                 }
             }
-            return unknownPortModel;
+
+            if (unknownPortModel != null)
+                return unknownPortModel;
+            return fallbackToFirstPort ? portModels.FirstOrDefault() : null;
         }
 
         static void CreateItemizedNode(State state, VSGraphModel graphModel, ref IPortModel outputPortModel)
@@ -291,7 +244,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             ItemizeOptions currentItemizeOptions = state.Preferences.CurrentItemizeOptions;
 
             // automatically itemize, i.e. duplicate variables as they get connected
-            if (!outputPortModel.Connected || currentItemizeOptions == ItemizeOptions.Nothing)
+            if (!outputPortModel.IsConnected || currentItemizeOptions == ItemizeOptions.Nothing)
                 return;
 
             INodeModel nodeToConnect = outputPortModel.NodeModel;
@@ -310,42 +263,110 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             }
         }
 
-        static State AddControlPointOnEdge(State previousState, AddControlPointOnEdgeAction action)
-        {
-            action.EdgeModel.InsertEdgeControlPoint(action.AtIndex, action.Position, 100);
-            return previousState;
-        }
+        static readonly Vector2 k_EntryPortalBaseOffset = Vector2.right * 75;
+        static readonly Vector2 k_ExitPortalBaseOffset = Vector2.left * 250;
+        const int k_PortalHeight = 24;
 
-        static State MoveEdgeControlPoint(State previousState, MoveEdgeControlPointAction action)
+        static State ConvertEdgesToPortals(State previousState, ConvertEdgesToPortalsAction action)
         {
-            action.EdgeModel.ModifyEdgeControlPoint(action.EdgeIndex, action.NewPosition, action.NewTightness);
-            return previousState;
-        }
+            var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
 
-        static State RemoveEdgeControlPoint(State previousState, RemoveEdgeControlPointAction action)
-        {
-            action.EdgeModel.RemoveEdgeControlPoint(action.EdgeIndex);
-            return previousState;
-        }
+            if (action.EdgeData == null)
+                return previousState;
 
-        static State SetEdgeEditMode(State previousState, SetEdgeEditModeAction action)
-        {
-            var graphModel = previousState.CurrentGraphModel;
-            if (action.Value)
+            var edgeData = action.EdgeData.ToList();
+            if (!edgeData.Any())
+                return previousState;
+
+            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Convert edges to portals");
+            EditorUtility.SetDirty((Object)previousState.AssetModel);
+
+            var existingPortalEntries = new Dictionary<IPortModel, IEdgePortalEntryModel>();
+            var existingPortalExits = new Dictionary<IPortModel, List<IEdgePortalExitModel>>();
+
+            foreach (var edgeModel in edgeData)
+                ConvertEdgeToPortals(edgeModel);
+
+            // Adjust placement in case of multiple incoming exit portals so they don't overlap
+            foreach (var portalList in existingPortalExits.Values.Where(l => l.Count > 1))
             {
-                foreach (var edge in graphModel.EdgeModels)
+                var cnt = portalList.Count;
+                bool isEven = cnt % 2 == 0;
+                int offset = isEven ? k_PortalHeight / 2 : 0;
+                for (int i = (cnt - 1) / 2; i >= 0; i--)
                 {
-                    if (edge.EditMode)
-                    {
-                        edge.EditMode = false;
-                        graphModel.LastChanges?.ChangedElements.Add(edge);
-                    }
+                    portalList[i].Position = new Vector2(portalList[i].Position.x, portalList[i].Position.y - offset);
+                    portalList[cnt - 1 - i].Position = new Vector2(portalList[cnt - 1 - i].Position.x, portalList[cnt - 1 - i].Position.y + offset);
+                    offset += k_PortalHeight;
                 }
             }
 
-            action.EdgeModel.EditMode = action.Value;
-            graphModel.LastChanges?.ChangedElements.Add(action.EdgeModel);
+            graphModel.DeleteEdges(edgeData.Select(d => d.edge));
+            previousState.MarkForUpdate(UpdateFlags.GraphTopology);
             return previousState;
+
+            void ConvertEdgeToPortals((IEdgeModel edgeModel, Vector2 startPos, Vector2 endPos) data)
+            {
+                // Only a single portal per output port. Don't recreate if we already created one.
+                var outputPortModel = data.edgeModel.OutputPortModel;
+                if (!existingPortalEntries.TryGetValue(outputPortModel, out var portalEntry))
+                {
+                    if (outputPortModel.PortType == PortType.Execution)
+                        portalEntry = graphModel.CreateNode<ExecutionEdgePortalEntryModel>();
+                    else
+                        portalEntry = graphModel.CreateNode<DataEdgePortalEntryModel>();
+                    existingPortalEntries[outputPortModel] = portalEntry;
+
+                    var nodeModel = outputPortModel.NodeModel;
+                    portalEntry.Position = data.startPos + k_EntryPortalBaseOffset;
+
+                    // y offset based on port order. hurgh.
+                    var idx = nodeModel.OutputsByDisplayOrder.IndexOf(outputPortModel);
+                    portalEntry.Position += Vector2.down * (k_PortalHeight * idx + 16); // Fudgy.
+
+                    string portalName;
+                    if (nodeModel is IConstantNodeModel constantNodeModel)
+                        portalName = constantNodeModel.Type.FriendlyName();
+                    else
+                    {
+                        portalName = nodeModel.Title;
+                        if (!string.IsNullOrEmpty(outputPortModel.Name))
+                            portalName += " - " + outputPortModel.Name;
+                    }
+
+                    ((EdgePortalModel)portalEntry).DeclarationModel = graphModel.CreateGraphPortalDeclaration(portalName);
+
+                    graphModel.CreateEdge(portalEntry.InputPort, outputPortModel);
+                }
+
+                // We can have multiple portals on input ports however
+                var inputPortModel = data.edgeModel.InputPortModel;
+                if (!existingPortalExits.TryGetValue(inputPortModel, out var portalExits))
+                {
+                    portalExits = new List<IEdgePortalExitModel>();
+                    existingPortalExits[inputPortModel] = portalExits;
+                }
+
+                IEdgePortalExitModel portalExit;
+                if (inputPortModel.PortType == PortType.Execution)
+                    portalExit = graphModel.CreateNode<ExecutionEdgePortalExitModel>();
+                else
+                    portalExit = graphModel.CreateNode<DataEdgePortalExitModel>();
+
+                portalExits.Add(portalExit);
+
+                portalExit.Position = data.endPos + k_ExitPortalBaseOffset;
+                {
+                    var nodeModel = inputPortModel.NodeModel;
+                    // y offset based on port order. hurgh.
+                    var idx = nodeModel.InputsByDisplayOrder.IndexOf(inputPortModel);
+                    portalExit.Position += Vector2.down * (k_PortalHeight * idx + 16); // Fudgy.
+                }
+
+                ((EdgePortalModel)portalExit).DeclarationModel = portalEntry.DeclarationModel;
+
+                graphModel.CreateEdge(inputPortModel, portalExit.OutputPort);
+            }
         }
     }
 }

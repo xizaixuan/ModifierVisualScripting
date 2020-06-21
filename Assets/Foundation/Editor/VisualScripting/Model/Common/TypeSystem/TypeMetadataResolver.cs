@@ -5,7 +5,8 @@ namespace UnityEditor.Modifier.VisualScripting.Model
 {
     public class TypeMetadataResolver : ITypeMetadataResolver
     {
-        readonly ConcurrentDictionary<TypeHandle, ITypeMetadata> m_MetadataCache = new ConcurrentDictionary<TypeHandle, ITypeMetadata>();
+        readonly ConcurrentDictionary<TypeHandle, ITypeMetadata> m_MetadataCache
+            = new ConcurrentDictionary<TypeHandle, ITypeMetadata>();
         GraphContext m_GraphContext;
         public TypeMetadataResolver(GraphContext graphContext)
         {

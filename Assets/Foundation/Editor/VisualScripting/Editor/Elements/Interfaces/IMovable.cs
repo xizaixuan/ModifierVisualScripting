@@ -3,7 +3,6 @@
     public interface IMovable
     {
         void UpdatePinning();
-
-        bool NeedStoreDispatch { get; }
+        bool IsMovable { get; }
     }
 }

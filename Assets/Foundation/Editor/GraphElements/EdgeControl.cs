@@ -9,68 +9,163 @@ namespace Unity.Modifier.GraphElements
 {
     public class EdgeControl : VisualElement
     {
-        struct EdgeCornerSweepValues
+        struct BezierSegment
         {
-            public Vector2 circleCenter;
-            public double sweepAngle;
-            public double startAngle;
-            public double endAngle;
-            public Vector2 crossPoint1;
-            public Vector2 crossPoint2;
-            public float radius;
+            // P0 is previous segment last point.
+            public Vector2 p1;
+            public Vector2 p2;
+            public Vector2 p3;
         }
 
-        private VisualElement m_FromCap;
-        private VisualElement m_ToCap;
-        private GraphView m_GraphView;
+        VisualElement m_ControlPointContainer;
+        List<BezierSegment> m_BezierSegments = new List<BezierSegment>();
+        List<int> m_LineSegmentIndex = new List<int>();
 
-        private static Stack<VisualElement> capPool = new Stack<VisualElement>();
+        const int k_IntersectionSquaredRadius = 10000;
+        const float k_ContainsPointDistance = 25f;
 
-        private static VisualElement GetCap()
+        public Vector2 BubblePosition
         {
-            VisualElement result = null;
-            if (capPool.Count > 0)
+            get
             {
-                result = capPool.Pop();
-            }
-            else
-            {
-                result = new VisualElement();
-                result.AddToClassList("edgeCap");
-            }
+                if (RenderPoints.Count > 0)
+                {
+                    // Find the segment that intersect a circle of radius sqrt(targetSqDistance) centered at from.
+                    float targetSqDistance = Mathf.Min(k_IntersectionSquaredRadius, (to - from).sqrMagnitude / 4);
+                    var localFrom = parent.ChangeCoordinatesTo(this, from);
+                    for (var index = 0; index < RenderPoints.Count; index++)
+                    {
+                        var point = RenderPoints[index];
+                        if ((point - localFrom).sqrMagnitude >= targetSqDistance)
+                        {
+                            return this.ChangeCoordinatesTo(parent, RenderPoints[index]);
+                        }
+                    }
+                }
 
-            return result;
-        }
-
-        private static void RecycleCap(VisualElement cap)
-        {
-            capPool.Push(cap);
+                return this.ChangeCoordinatesTo(parent, Vector2.zero);
+            }
         }
 
         public EdgeControl()
         {
             RegisterCallback<DetachFromPanelEvent>(OnLeavePanel);
 
-            m_FromCap = null;
-            m_ToCap = null;
-
             pickingMode = PickingMode.Ignore;
 
             generateVisualContent += OnGenerateVisualContent;
+
+            m_ControlPointContainer = new VisualElement { name = "control-points-container" };
+            m_ControlPointContainer.style.position = Position.Absolute;
+            pickingMode = PickingMode.Position;
+
+            RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
+            RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
         }
 
-        bool m_ControlPointsDirty = true;
-        bool m_RenderPointsDirty = true;
+        void OnAttachToPanel(AttachToPanelEvent e)
+        {
+            parent.Add(m_ControlPointContainer);
+        }
+
+        void OnDetachFromPanel(DetachFromPanelEvent e)
+        {
+            m_ControlPointContainer.RemoveFromHierarchy();
+        }
+
+        public void FindNearestCurveSegment(Vector2 localPoint, out float minSquareDistance, out int nearestControlPointIndex, out int nearestRenderPointIndex)
+        {
+            minSquareDistance = Single.MaxValue;
+            nearestRenderPointIndex = Int32.MaxValue;
+            for (var index = 0; index < RenderPoints.Count - 1; index++)
+            {
+                var a = RenderPoints[index];
+                var b = RenderPoints[index + 1];
+                var squareDistance = SquaredDistanceToSegment(localPoint, a, b);
+                if (squareDistance < minSquareDistance)
+                {
+                    minSquareDistance = squareDistance;
+                    nearestRenderPointIndex = index;
+                }
+            }
+
+            nearestControlPointIndex = 0;
+            while (nearestControlPointIndex < m_LineSegmentIndex.Count && nearestRenderPointIndex >= m_LineSegmentIndex[nearestControlPointIndex])
+            {
+                nearestControlPointIndex++;
+            }
+
+            nearestControlPointIndex--;
+        }
+
+        static float SquaredDistanceToSegment(Vector2 p, Vector2 s0, Vector2 s1)
+        {
+            var x = p.x;
+            var y = p.y;
+            var x1 = s0.x;
+            var y1 = s0.y;
+            var x2 = s1.x;
+            var y2 = s1.y;
+
+            var a = x - x1;
+            var b = y - y1;
+            var c = x2 - x1;
+            var d = y2 - y1;
+
+            var dot = a * c + b * d;
+            var lenSq = c * c + d * d;
+            float param = -1;
+            if (lenSq > 0.000001f) //in case of 0 length line
+                param = dot / lenSq;
+
+            float xx, yy;
+
+            if (param < 0)
+            {
+                xx = x1;
+                yy = y1;
+            }
+            else if (param > 1)
+            {
+                xx = x2;
+                yy = y2;
+            }
+            else
+            {
+                xx = x1 + param * c;
+                yy = y1 + param * d;
+            }
+
+            var dx = x - xx;
+            var dy = y - yy;
+            return dx * dx + dy * dy;
+        }
+
+        public void RebuildControlPointsUI()
+        {
+            var edgeModel = (parent as Edge)?.EdgeModel;
+
+            if (edgeModel == null)
+                return;
+
+            while (m_ControlPointContainer.childCount > edgeModel.EdgeControlPoints.Count)
+            {
+                m_ControlPointContainer.RemoveAt(m_ControlPointContainer.childCount - 1);
+            }
+
+            while (m_ControlPointContainer.childCount < edgeModel.EdgeControlPoints.Count)
+            {
+                var cp = new EdgeControlPoint(this, edgeModel, m_ControlPointContainer.childCount);
+                m_ControlPointContainer.Add(cp);
+            }
+
+            UpdateLayout();
+        }
 
         Mesh m_Mesh;
-        public const float k_MinEdgeWidth = 1.75f;
-
-        const float k_EdgeLengthFromPort = 12.0f;
-        const float k_EdgeTurnDiameter = 16.0f;
-        const float k_EdgeSweepResampleRatio = 4.0f;
-        const int k_EdgeStraightLineSegmentDivisor = 5;
 
         Orientation m_InputOrientation;
+
         public Orientation inputOrientation
         {
             get { return m_InputOrientation; }
@@ -84,22 +179,18 @@ namespace Unity.Modifier.GraphElements
         }
 
         Orientation m_OutputOrientation;
+
         public Orientation outputOrientation
         {
-            get { return m_OutputOrientation; }
-            set
-            {
-                if (m_OutputOrientation == value)
-                    return;
-                m_OutputOrientation = value;
-                MarkDirtyRepaint();
-            }
+            get => m_OutputOrientation;
+            set => m_OutputOrientation = value;
         }
 
         Color m_InputColor = Color.grey;
+
         public Color inputColor
         {
-            get { return m_InputColor; }
+            get => m_InputColor;
             set
             {
                 if (m_InputColor != value)
@@ -111,9 +202,10 @@ namespace Unity.Modifier.GraphElements
         }
 
         Color m_OutputColor = Color.grey;
+
         public Color outputColor
         {
-            get { return m_OutputColor; }
+            get => m_OutputColor;
             set
             {
                 if (m_OutputColor != value)
@@ -124,56 +216,8 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        private Color m_FromCapColor;
-        public Color fromCapColor
-        {
-            get { return m_FromCapColor; }
-            set
-            {
-                if (m_FromCapColor == value)
-                    return;
-                m_FromCapColor = value;
-
-                if (m_FromCap != null)
-                {
-                    m_FromCap.style.backgroundColor = m_FromCapColor;
-                }
-                MarkDirtyRepaint();
-            }
-        }
-
-        private Color m_ToCapColor;
-        public Color toCapColor
-        {
-            get { return m_ToCapColor; }
-            set
-            {
-                if (m_ToCapColor == value)
-                    return;
-                m_ToCapColor = value;
-
-                if (m_ToCap != null)
-                {
-                    m_ToCap.style.backgroundColor = m_ToCapColor;
-                }
-                MarkDirtyRepaint();
-            }
-        }
-
-        private float m_CapRadius = 5;
-        public float capRadius
-        {
-            get { return m_CapRadius; }
-            set
-            {
-                if (m_CapRadius == value)
-                    return;
-                m_CapRadius = value;
-                MarkDirtyRepaint();
-            }
-        }
-
         int m_EdgeWidth = 2;
+
         public int edgeWidth
         {
             get { return m_EdgeWidth; }
@@ -188,6 +232,7 @@ namespace Unity.Modifier.GraphElements
         }
 
         float m_InterceptWidth = 5;
+
         public float interceptWidth
         {
             get { return m_InterceptWidth; }
@@ -195,124 +240,15 @@ namespace Unity.Modifier.GraphElements
         }
 
         // The start of the edge in graph coordinates.
-        private Vector2 m_From;
-        public Vector2 from
-        {
-            get { return m_From; }
-            set
-            {
-                if ((m_From - value).sqrMagnitude > 0.25f)
-                {
-                    m_From = value;
-                    if (m_FromCap != null)
-                    {
-                        m_FromCap.style.left = value.x - m_FromCap.resolvedStyle.width / 2;
-                        m_FromCap.style.top = value.y - m_FromCap.resolvedStyle.height / 2;
-                    }
-                    PointsChanged();
-                }
-            }
-        }
+        public Vector2 from => (parent as Edge)?.From ?? Vector2.zero;
 
         // The end of the edge in graph coordinates.
-        private Vector2 m_To;
-        public Vector2 to
-        {
-            get { return m_To; }
-            set
-            {
-                if ((m_To - value).sqrMagnitude > 0.25f)
-                {
-                    m_To = value;
-                    if (m_ToCap != null)
-                    {
-                        m_ToCap.style.left = value.x - m_ToCap.resolvedStyle.width / 2;
-                        m_ToCap.style.top = value.y - m_ToCap.resolvedStyle.height / 2;
-                    }
-                    PointsChanged();
-                }
-            }
-        }
+        public Vector2 to => (parent as Edge)?.To ?? Vector2.zero;
 
         public Vector2 ControlPointOffset { get; set; }
 
         // The control points in graph coordinates.
-        private Vector2[] m_ControlPoints;
-        public Vector2[] controlPoints
-        {
-            get
-            {
-                return m_ControlPoints;
-            }
-        }
-
-        public bool drawFromCap
-        {
-            get { return m_FromCap != null; }
-            set
-            {
-                if (!value)
-                {
-                    if (m_FromCap != null)
-                    {
-                        m_FromCap.RemoveFromHierarchy();
-                        RecycleCap(m_FromCap);
-                        m_FromCap = null;
-                    }
-                }
-                else
-                {
-                    if (m_FromCap == null)
-                    {
-                        m_FromCap = GetCap();
-                        m_FromCap.style.backgroundColor = m_FromCapColor;
-                        parent.Add(m_FromCap);
-                    }
-                }
-            }
-        }
-
-        public bool drawToCap
-        {
-            get { return m_ToCap != null; }
-            set
-            {
-                if (!value)
-                {
-                    if (m_ToCap != null)
-                    {
-                        m_ToCap.RemoveFromHierarchy();
-                        RecycleCap(m_ToCap);
-                        m_ToCap = null;
-                    }
-                }
-                else
-                {
-                    if (m_ToCap == null)
-                    {
-                        m_ToCap = GetCap();
-                        m_ToCap.style.backgroundColor = m_ToCapColor;
-                        parent.Add(m_ToCap);
-                    }
-                }
-            }
-        }
-
-        void UpdateEdgeCaps()
-        {
-            if (m_FromCap != null)
-            {
-                Vector2 size = m_FromCap.layout.size;
-                if ((size.x > 0) && (size.y > 0))
-                    m_FromCap.SetLayout(new Rect(parent.ChangeCoordinatesTo(this, m_From) - (size / 2), size));
-            }
-            if (m_ToCap != null)
-            {
-                Vector2 size = m_ToCap.layout.size;
-                if ((size.x > 0) && (size.y > 0))
-                    m_ToCap.SetLayout(new Rect(parent.ChangeCoordinatesTo(this, m_To) - (size / 2), size));
-            }
-        }
+        Vector2[] m_ControlPoints;
 
         void OnGenerateVisualContent(MeshGenerationContext mgc)
         {
@@ -323,62 +259,8 @@ namespace Unity.Modifier.GraphElements
 
         public override bool ContainsPoint(Vector2 localPoint)
         {
-            Profiler.BeginSample("EdgeControl.ContainsPoint");
-
-            if (!base.ContainsPoint(localPoint))
-            {
-                Profiler.EndSample();
-                return false;
-            }
-
-            // bounding box check succeeded, do more fine grained check by measuring distance to bezier points
-            // exclude endpoints
-
-            float capMaxDist = 4 * capRadius * capRadius; //(2 * CapRadius)^2
-
-            if ((from - localPoint).sqrMagnitude <= capMaxDist ||
-                (to - localPoint).sqrMagnitude <= capMaxDist)
-            {
-                Profiler.EndSample();
-                return false;
-            }
-
-            var allPoints = m_RenderPoints;
-
-            if (allPoints.Count > 0)
-            {
-                //we use squareDistance to avoid sqrts
-                float distance = (allPoints[0] - localPoint).sqrMagnitude;
-                float interceptWidth2 = interceptWidth * interceptWidth;
-                for (var i = 0; i < allPoints.Count - 1; i++)
-                {
-                    Vector2 currentPoint = allPoints[i];
-                    Vector2 nextPoint = allPoints[i + 1];
-
-                    Vector2 next2Current = nextPoint - currentPoint;
-                    float distanceNext = (nextPoint - localPoint).sqrMagnitude;
-                    float distanceLine = next2Current.sqrMagnitude;
-
-                    // if the point is somewhere between the two points
-                    if (distance < distanceLine && distanceNext < distanceLine)
-                    {
-                        //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-                        var d = next2Current.y * localPoint.x -
-                            next2Current.x * localPoint.y + nextPoint.x * currentPoint.y -
-                            nextPoint.y * currentPoint.x;
-                        if (d * d < interceptWidth2 * distanceLine)
-                        {
-                            Profiler.EndSample();
-                            return true;
-                        }
-                    }
-
-                    distance = distanceNext;
-                }
-            }
-
-            Profiler.EndSample();
-            return false;
+            FindNearestCurveSegment(localPoint, out var minDistance, out _, out _);
+            return minDistance < k_ContainsPointDistance;
         }
 
         public override bool Overlaps(Rect rect)
@@ -395,9 +277,8 @@ namespace Unity.Modifier.GraphElements
             return false;
         }
 
-        protected virtual void PointsChanged()
+        public void PointsChanged()
         {
-            m_ControlPointsDirty = true;
             MarkDirtyRepaint();
         }
 
@@ -405,399 +286,235 @@ namespace Unity.Modifier.GraphElements
         List<Vector2> m_RenderPoints = new List<Vector2>();
         protected List<Vector2> RenderPoints => m_RenderPoints;
 
-        static bool Approximately(Vector2 v1, Vector2 v2)
-        {
-            return Mathf.Approximately(v1.x, v2.x) && Mathf.Approximately(v1.y, v2.y);
-        }
-
-        public virtual void UpdateLayout()
+        public void UpdateLayout()
         {
             if (parent == null) return;
-            if (m_ControlPointsDirty)
-            {
-                ComputeControlPoints(); // Computes the control points in parent ( graph ) coordinates
-                ComputeLayout(); // Update the element layout based on the control points.
-                m_ControlPointsDirty = false;
-            }
-            UpdateEdgeCaps();
+            ComputeLayout();
             MarkDirtyRepaint();
-        }
-
-        private List<Vector2> lastLocalControlPoints = new List<Vector2>();
-
-        void RenderStraightLines(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
-        {
-            float safeSpan = outputOrientation == Orientation.Horizontal
-                ? Mathf.Abs((p1.x + k_EdgeLengthFromPort) - (p4.x - k_EdgeLengthFromPort))
-                : Mathf.Abs((p1.y + k_EdgeLengthFromPort) - (p4.y - k_EdgeLengthFromPort));
-
-            float safeSpan3 = safeSpan / k_EdgeStraightLineSegmentDivisor;
-            float nodeToP2Dist = Mathf.Min(safeSpan3, k_EdgeTurnDiameter);
-            nodeToP2Dist = Mathf.Max(0, nodeToP2Dist);
-
-            var offset = outputOrientation == Orientation.Horizontal
-                ? new Vector2(k_EdgeTurnDiameter - nodeToP2Dist, 0)
-                : new Vector2(0, k_EdgeTurnDiameter - nodeToP2Dist);
-
-            m_RenderPoints.Add(p1);
-            m_RenderPoints.Add(p2 - offset);
-            m_RenderPoints.Add(p3 + offset);
-            m_RenderPoints.Add(p4);
         }
 
         protected virtual void UpdateRenderPoints()
         {
-            ComputeControlPoints(); // This should have been updated before : make sure anyway.
+            // TODO
+            // Dirty system
 
-            if (m_RenderPointsDirty == false && m_ControlPoints != null)
+            ComputeLayout();
+
+            RenderPoints.Clear();
+            m_LineSegmentIndex.Clear();
+
+            Vector2 p0 = parent.ChangeCoordinatesTo(this, from);
+            Vector2 p3 = parent.ChangeCoordinatesTo(this, to);
+            for (var index = 0; index < m_BezierSegments.Count; index++)
             {
+                var bezierSegment = m_BezierSegments[index];
+                m_LineSegmentIndex.Add(RenderPoints.Count);
+
+                Vector2 p1 = parent.ChangeCoordinatesTo(this, bezierSegment.p1);
+                Vector2 p2 = parent.ChangeCoordinatesTo(this, bezierSegment.p2);
+                p3 = parent.ChangeCoordinatesTo(this, bezierSegment.p3);
+
+                int deepness = 0;
+                GenerateRenderPoints(p0, p1, p2, p3, deepness);
+
+                p0 = p3;
+            }
+
+            RenderPoints.Add(p3);
+            m_LineSegmentIndex.Add(RenderPoints.Count);
+        }
+
+        static bool StraightEnough(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3)
+        {
+            // This computes an upper bound on the distance between the Bezier curve
+            // and a straight line going from p0 to p3.
+            // See https://hcklbrrfnn.files.wordpress.com/2012/08/bez.pdf
+            // Summary: - define a straight Bezier line L going from p0 and p3 in terms of p0, p1, p2 and p3
+            //          - subtract both curves: B - L =  (1 − t)t ((1 − t) u + t v)
+            //          - compute the magnitude of the difference: D = ||B - L||^2
+            //          - compute an upper bound on the magnitude: 1/16 * (Max(ux^2, vx^2) + Max(uy^2, vy^2))
+            var u = 3 * p1 - 2 * p0 - p3;
+            var v = 3 * p2 - 2 * p3 - p0;
+            u = Vector2.Max(u, v);
+
+            // Return true if the curve does not deviate from a straight line by more than 1.
+            return u.x * u.x + u.y * u.y < 0.0625f;
+        }
+
+        void GenerateRenderPoints(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, int deepness)
+        {
+            if (StraightEnough(p0, p1, p2, p3) || deepness > 6)
+            {
+                RenderPoints.Add(p0);
                 return;
             }
 
-            Vector2 p1 = parent.ChangeCoordinatesTo(this, m_ControlPoints[0]);
-            Vector2 p2 = parent.ChangeCoordinatesTo(this, m_ControlPoints[1]);
-            Vector2 p3 = parent.ChangeCoordinatesTo(this, m_ControlPoints[2]);
-            Vector2 p4 = parent.ChangeCoordinatesTo(this, m_ControlPoints[3]);
+            // DeCasteljau algorithm.
 
-            // Only compute this when the "local" points have actually changed
-            if (lastLocalControlPoints.Count == 4)
-            {
-                if (Approximately(p1, lastLocalControlPoints[0]) &&
-                    Approximately(p2, lastLocalControlPoints[1]) &&
-                    Approximately(p3, lastLocalControlPoints[2]) &&
-                    Approximately(p4, lastLocalControlPoints[3]))
-                {
-                    m_RenderPointsDirty = false;
-                    return;
-                }
-            }
+            var midpoint = (p1 + p2) * 0.5f;
+            var left1 = (p0 + p1) * 0.5f;
+            var right2 = (p2 + p3) * 0.5f;
 
-            Profiler.BeginSample("EdgeControl.UpdateRenderPoints");
-            lastLocalControlPoints.Clear();
-            lastLocalControlPoints.Add(p1);
-            lastLocalControlPoints.Add(p2);
-            lastLocalControlPoints.Add(p3);
-            lastLocalControlPoints.Add(p4);
-            m_RenderPointsDirty = false;
+            var left2 = (left1 + midpoint) * 0.5f;
+            var right1 = (right2 + midpoint) * 0.5f;
 
-            m_RenderPoints.Clear();
+            var split = (left2 + right1) * 0.5f;
 
-            float diameter = k_EdgeTurnDiameter;
-
-            // We have to handle a special case of the edge when it is a straight line, but not
-            // when going backwards in space (where the start point is in front in y to the end point).
-            // We do this by turning the line into 3 linear segments with no curves. This also
-            // avoids possible NANs in later angle calculations.
-            bool sameOrientations = outputOrientation == inputOrientation;
-            if (sameOrientations &&
-                ((outputOrientation == Orientation.Horizontal && Mathf.Abs(p1.y - p4.y) < 2 && p1.x + k_EdgeLengthFromPort < p4.x - k_EdgeLengthFromPort) ||
-                 (outputOrientation == Orientation.Vertical && Mathf.Abs(p1.x - p4.x) < 2 && p1.y + k_EdgeLengthFromPort < p4.y - k_EdgeLengthFromPort)))
-            {
-                RenderStraightLines(p1, p2, p3, p4);
-                Profiler.EndSample();
-                return;
-            }
-
-            bool renderBothCorners = true;
-
-            EdgeCornerSweepValues corner1 = GetCornerSweepValues(p1, p2, p3, diameter, Direction.Output);
-            EdgeCornerSweepValues corner2 = GetCornerSweepValues(p2, p3, p4, diameter, Direction.Input);
-
-            if (!ValidateCornerSweepValues(ref corner1, ref corner2))
-            {
-                if (sameOrientations)
-                {
-                    RenderStraightLines(p1, p2, p3, p4);
-                    Profiler.EndSample();
-                    return;
-                }
-
-                renderBothCorners = false;
-
-                //we try to do it with a single corner instead
-                Vector2 px = (outputOrientation == Orientation.Horizontal) ? new Vector2(p4.x, p1.y) : new Vector2(p1.x, p4.y);
-
-                corner1 = GetCornerSweepValues(p1, px, p4, diameter, Direction.Output);
-            }
-
-            m_RenderPoints.Add(p1);
-
-            if (!sameOrientations && renderBothCorners)
-            {
-                //if the 2 corners or endpoints are too close, the corner sweep angle calculations can't handle different orientations
-                float minDistance = 2 * diameter * diameter;
-                if ((p3 - p2).sqrMagnitude < minDistance ||
-                    (p4 - p1).sqrMagnitude < minDistance)
-                {
-                    Vector2 px = (p2 + p3) * 0.5f;
-                    corner1 = GetCornerSweepValues(p1, px, p4, diameter, Direction.Output);
-                    renderBothCorners = false;
-                }
-            }
-
-            GetRoundedCornerPoints(m_RenderPoints, corner1, Direction.Output);
-            if (renderBothCorners)
-                GetRoundedCornerPoints(m_RenderPoints, corner2, Direction.Input);
-
-            m_RenderPoints.Add(p4);
-            Profiler.EndSample();
-        }
-
-        bool ValidateCornerSweepValues(ref EdgeCornerSweepValues corner1, ref EdgeCornerSweepValues corner2)
-        {
-            // Get the midpoint between the two corner circle centers.
-            Vector2 circlesMidpoint = (corner1.circleCenter + corner2.circleCenter) / 2;
-
-            // Find the angle to the corner circles midpoint so we can compare it to the sweep angles of each corner.
-            Vector2 p2CenterToCross1 = corner1.circleCenter - corner1.crossPoint1;
-            Vector2 p2CenterToCirclesMid = corner1.circleCenter - circlesMidpoint;
-            double angleToCirclesMid = outputOrientation == Orientation.Horizontal
-                ? Math.Atan2(p2CenterToCross1.y, p2CenterToCross1.x) - Math.Atan2(p2CenterToCirclesMid.y, p2CenterToCirclesMid.x)
-                : Math.Atan2(p2CenterToCross1.x, p2CenterToCross1.y) - Math.Atan2(p2CenterToCirclesMid.x, p2CenterToCirclesMid.y);
-
-            if (double.IsNaN(angleToCirclesMid))
-                return false;
-
-            // We need the angle to the circles midpoint to match the turn direction of the first corner's sweep angle.
-            angleToCirclesMid = Math.Sign(angleToCirclesMid) * 2 * Mathf.PI - angleToCirclesMid;
-            if (Mathf.Abs((float)angleToCirclesMid) > 1.5 * Mathf.PI)
-                angleToCirclesMid = -1 * Math.Sign(angleToCirclesMid) * 2 * Mathf.PI + angleToCirclesMid;
-
-            // Calculate the maximum sweep angle so that both corner sweeps and with the tangents of the 2 circles meeting each other.
-            float h = p2CenterToCirclesMid.magnitude;
-            float p2AngleToMidTangent = Mathf.Acos(corner1.radius / h);
-
-            if (double.IsNaN(p2AngleToMidTangent))
-                return false;
-
-            float maxSweepAngle = Mathf.Abs((float)corner1.sweepAngle) - p2AngleToMidTangent * 2;
-
-            // If the angle to the circles midpoint is within the sweep angle, we need to apply our maximum sweep angle
-            // calculated above, otherwise the maximum sweep angle is irrelevant.
-            if (Mathf.Abs((float)angleToCirclesMid) < Mathf.Abs((float)corner1.sweepAngle))
-            {
-                corner1.sweepAngle = Math.Sign(corner1.sweepAngle) * Mathf.Min(maxSweepAngle, Mathf.Abs((float)corner1.sweepAngle));
-                corner2.sweepAngle = Math.Sign(corner2.sweepAngle) * Mathf.Min(maxSweepAngle, Mathf.Abs((float)corner2.sweepAngle));
-            }
-
-            return true;
-        }
-
-        EdgeCornerSweepValues GetCornerSweepValues(
-            Vector2 p1, Vector2 cornerPoint, Vector2 p2, float diameter, Direction closestPortDirection)
-        {
-            EdgeCornerSweepValues corner = new EdgeCornerSweepValues();
-
-            // Calculate initial radius. This radius can change depending on the sharpness of the corner.
-            corner.radius = diameter / 2;
-
-            // Calculate vectors from p1 to cornerPoint.
-            Vector2 d1Corner = (cornerPoint - p1).normalized;
-            Vector2 d1 = d1Corner * diameter;
-            float dx1 = d1.x;
-            float dy1 = d1.y;
-
-            // Calculate vectors from p2 to cornerPoint.
-            Vector2 d2Corner = (cornerPoint - p2).normalized;
-            Vector2 d2 = d2Corner * diameter;
-            float dx2 = d2.x;
-            float dy2 = d2.y;
-
-            // Calculate the angle of the corner (divided by 2).
-            float angle = (float)(Math.Atan2(dy1, dx1) - Math.Atan2(dy2, dx2)) / 2;
-
-            // Calculate the length of the segment between the cornerPoint and where
-            // the corner circle with given radius meets the line.
-            float tan = (float)Math.Abs(Math.Tan(angle));
-            float segment = corner.radius / tan;
-
-            // If the segment is larger than the diameter, we need to cap the segment
-            // to the diameter and reduce the radius to match the segment. This is what
-            // makes the corner turn radii get smaller as the edge corners get tighter.
-            if (segment > diameter)
-            {
-                segment = diameter;
-                corner.radius = diameter * tan;
-            }
-
-            // Calculate both cross points (where the circle touches the p1-cornerPoint line
-            // and the p2-cornerPoint line).
-            corner.crossPoint1 = cornerPoint - (d1Corner * segment);
-            corner.crossPoint2 = cornerPoint - (d2Corner * segment);
-
-            // Calculation of the coordinates of the circle center.
-            corner.circleCenter = GetCornerCircleCenter(cornerPoint, corner.crossPoint1, corner.crossPoint2, segment, corner.radius);
-
-            // Calculate the starting and ending angles.
-            corner.startAngle = Math.Atan2(corner.crossPoint1.y - corner.circleCenter.y, corner.crossPoint1.x - corner.circleCenter.x);
-            corner.endAngle = Math.Atan2(corner.crossPoint2.y - corner.circleCenter.y, corner.crossPoint2.x - corner.circleCenter.x);
-
-            // Get the full sweep angle from the starting and ending angles.
-            corner.sweepAngle = corner.endAngle - corner.startAngle;
-
-            // If we are computing the second corner (into the input port), we want to start
-            // the sweep going backwards.
-            if (closestPortDirection == Direction.Input)
-            {
-                double endAngle = corner.endAngle;
-                corner.endAngle = corner.startAngle;
-                corner.startAngle = endAngle;
-            }
-
-            // Validate the sweep angle so it turns into the correct direction.
-            if (corner.sweepAngle > Math.PI)
-                corner.sweepAngle = -2 * Math.PI + corner.sweepAngle;
-            else if (corner.sweepAngle < -Math.PI)
-                corner.sweepAngle = 2 * Math.PI + corner.sweepAngle;
-
-            return corner;
-        }
-
-        Vector2 GetCornerCircleCenter(Vector2 cornerPoint, Vector2 crossPoint1, Vector2 crossPoint2, float segment, float radius)
-        {
-            float dx = cornerPoint.x * 2 - crossPoint1.x - crossPoint2.x;
-            float dy = cornerPoint.y * 2 - crossPoint1.y - crossPoint2.y;
-
-            var cornerToCenterVector = new Vector2(dx, dy);
-
-            float L = cornerToCenterVector.magnitude;
-
-            if (Mathf.Approximately(L, 0))
-            {
-                return cornerPoint;
-            }
-
-            float d = new Vector2(segment, radius).magnitude;
-            float factor = d / L;
-
-            return new Vector2(cornerPoint.x - cornerToCenterVector.x * factor, cornerPoint.y - cornerToCenterVector.y * factor);
-        }
-
-        void GetRoundedCornerPoints(List<Vector2> points, EdgeCornerSweepValues corner, Direction closestPortDirection)
-        {
-            // Calculate the number of points that will sample the arc from the sweep angle.
-            int pointsCount = Mathf.CeilToInt((float)Math.Abs(corner.sweepAngle * k_EdgeSweepResampleRatio));
-            int sign = Math.Sign(corner.sweepAngle);
-            bool backwards = (closestPortDirection == Direction.Input);
-
-            for (int i = 0; i < pointsCount; ++i)
-            {
-                // If we are computing the second corner (into the input port), the sweep is going backwards
-                // but we still need to add the points to the list in the correct order.
-                float sweepIndex = backwards ? i - pointsCount : i;
-
-                double sweepedAngle = corner.startAngle + sign * sweepIndex / k_EdgeSweepResampleRatio;
-
-                var pointX = (float)(corner.circleCenter.x + Math.Cos(sweepedAngle) * corner.radius);
-                var pointY = (float)(corner.circleCenter.y + Math.Sin(sweepedAngle) * corner.radius);
-
-                // Check if we overlap the previous point. If we do, we skip this point so that we
-                // don't cause the edge polygons to twist.
-                if (i == 0 && backwards)
-                {
-                    if (outputOrientation == Orientation.Horizontal)
-                    {
-                        if (corner.sweepAngle < 0 && points[points.Count - 1].y > pointY)
-                            continue;
-                        else if (corner.sweepAngle >= 0 && points[points.Count - 1].y < pointY)
-                            continue;
-                    }
-                    else
-                    {
-                        if (corner.sweepAngle < 0 && points[points.Count - 1].x < pointX)
-                            continue;
-                        else if (corner.sweepAngle >= 0 && points[points.Count - 1].x > pointX)
-                            continue;
-                    }
-                }
-
-                points.Add(new Vector2(pointX, pointY));
-            }
-        }
-
-        void AssignControlPoint(ref Vector2 destination, Vector2 newValue)
-        {
-            if (!Approximately(destination, newValue))
-            {
-                destination = newValue;
-                m_RenderPointsDirty = true;
-            }
-        }
-
-        protected virtual void ComputeControlPoints()
-        {
-            if (m_ControlPointsDirty == false) return;
-
-            Profiler.BeginSample("EdgeControl.ComputeControlPoints");
-
-            float offset = k_EdgeLengthFromPort + k_EdgeTurnDiameter;
-
-            // This is to ensure we don't have the edge extending
-            // left and right by the offset right when the `from`
-            // and `to` are on top of each other.
-            float fromToDistance = (to - from).magnitude;
-            offset = Mathf.Min(offset, fromToDistance * 2);
-            offset = Mathf.Max(offset, k_EdgeTurnDiameter);
-
-            if (m_ControlPoints == null || m_ControlPoints.Length != 4)
-                m_ControlPoints = new Vector2[4];
-
-            AssignControlPoint(ref m_ControlPoints[0], from);
-
-            if (outputOrientation == Orientation.Horizontal)
-                AssignControlPoint(ref m_ControlPoints[1], new Vector2(from.x + offset, from.y));
-            else
-                AssignControlPoint(ref m_ControlPoints[1], new Vector2(from.x, from.y + offset));
-
-            if (inputOrientation == Orientation.Horizontal)
-                AssignControlPoint(ref m_ControlPoints[2], new Vector2(to.x - offset, to.y));
-            else
-                AssignControlPoint(ref m_ControlPoints[2], new Vector2(to.x, to.y - offset));
-
-            AssignControlPoint(ref m_ControlPoints[3], to);
-            Profiler.EndSample();
+            GenerateRenderPoints(p0, left1, left2, split, deepness + 1);
+            GenerateRenderPoints(split, right1, right2, p3, deepness + 1);
         }
 
         void ComputeLayout()
         {
-            Profiler.BeginSample("EdgeControl.ComputeLayout");
-            Vector2 toControlPoint = m_ControlPoints[m_ControlPoints.Length - 1];
-            Vector2 fromControlPoint = m_ControlPoints[0];
+            ComputeCurveSegmentsFromControlPoints();
 
-            Rect rect = new Rect(Vector2.Min(toControlPoint, fromControlPoint), new Vector2(Mathf.Abs(fromControlPoint.x - toControlPoint.x), Mathf.Abs(fromControlPoint.y - toControlPoint.y)));
+            // Compute VisualElement position and dimension.
+            var edgeModel = (parent as Edge)?.EdgeModel;
 
-            // Make sure any control points (including tangents, are included in the rect)
-            for (int i = 1; i < m_ControlPoints.Length - 1; ++i)
+            if (edgeModel == null)
             {
-                if (!rect.Contains(m_ControlPoints[i]))
+                style.top = 0;
+                style.left = 0;
+                style.width = 0;
+                style.height = 0;
+                return;
+            }
+
+            Rect rect = new Rect(from, Vector2.zero);
+            foreach (var bezierSegment in m_BezierSegments)
+            {
+                var pt = bezierSegment.p1;
+                rect.xMin = Math.Min(rect.xMin, pt.x);
+                rect.yMin = Math.Min(rect.yMin, pt.y);
+                rect.xMax = Math.Max(rect.xMax, pt.x);
+                rect.yMax = Math.Max(rect.yMax, pt.y);
+
+                pt = bezierSegment.p2;
+                rect.xMin = Math.Min(rect.xMin, pt.x);
+                rect.yMin = Math.Min(rect.yMin, pt.y);
+                rect.xMax = Math.Max(rect.xMax, pt.x);
+                rect.yMax = Math.Max(rect.yMax, pt.y);
+
+                pt = bezierSegment.p3;
+                rect.xMin = Math.Min(rect.xMin, pt.x);
+                rect.yMin = Math.Min(rect.yMin, pt.y);
+                rect.xMax = Math.Max(rect.xMax, pt.x);
+                rect.yMax = Math.Max(rect.yMax, pt.y);
+            }
+
+            var p = rect.position;
+            var dim = rect.size;
+            style.left = p.x;
+            style.top = p.y;
+            style.width = dim.x;
+            style.height = dim.y;
+        }
+
+        void ComputeCurveSegmentsFromControlPoints()
+        {
+            var edge = parent as Edge;
+
+            if (edge == null)
+                return;
+
+            var edgeModel = (parent as Edge)?.EdgeModel;
+            var graphView = GetFirstAncestorOfType<GraphView>();
+
+            if (graphView == null)
+                return;
+
+            var fromOrientation = edge.Output?.Orientation ?? edge.Input?.Orientation ?? Orientation.Horizontal;
+            var toOrientation = edge.Input?.Orientation ?? fromOrientation;
+
+            m_BezierSegments.Clear();
+
+            var previous = from;
+            var previousTightness = 1f;
+            var directionFrom = fromOrientation == Orientation.Horizontal ? Vector2.right : Vector2.up;
+            Vector2 directionTo;
+            float length;
+            for (var i = 0; i < edgeModel?.EdgeControlPoints.Count; i++)
+            {
+                var tightness = edgeModel.EdgeControlPoints[i].Tightness / 100;
+
+                var splitPoint = edgeModel.EdgeControlPoints[i].Position;
+                splitPoint += ControlPointOffset;
+                var localSplitPoint = graphView.contentViewContainer.ChangeCoordinatesTo(parent, splitPoint);
+                length = ControlPointDistance(previous, localSplitPoint, fromOrientation);
+
+                Vector2 next;
+                if (i == edgeModel.EdgeControlPoints.Count - 1)
                 {
-                    Vector2 pt = m_ControlPoints[i];
-                    rect.xMin = Math.Min(rect.xMin, pt.x);
-                    rect.yMin = Math.Min(rect.yMin, pt.y);
-                    rect.xMax = Math.Max(rect.xMax, pt.x);
-                    rect.yMax = Math.Max(rect.yMax, pt.y);
+                    next = to;
                 }
+                else
+                {
+                    next = edgeModel.EdgeControlPoints[i + 1].Position;
+                    next += ControlPointOffset;
+                    next = graphView.contentViewContainer.ChangeCoordinatesTo(parent, next);
+                }
+                directionTo = (previous - next).normalized;
+
+                var segment = new BezierSegment()
+                {
+                    p1 = previous + directionFrom * (length * previousTightness),
+                    p2 = localSplitPoint + directionTo * (length * tightness),
+                    p3 = localSplitPoint,
+                };
+                m_BezierSegments.Add(segment);
+
+                previous = localSplitPoint;
+                previousTightness = tightness;
+                directionFrom = -directionTo;
             }
 
-            if (m_GraphView == null)
+            length = ControlPointDistance(previous, to, fromOrientation);
+            directionTo = toOrientation == Orientation.Horizontal ? Vector2.left : Vector2.down;
+
+            m_BezierSegments.Add(new BezierSegment()
             {
-                m_GraphView = GetFirstAncestorOfType<GraphView>();
-            }
+                p1 = previous + directionFrom * (length * previousTightness),
+                p2 = to + directionTo * length,
+                p3 = to,
+            });
 
-            //Make sure that we have the place to display Edges with EdgeControl.k_MinEdgeWidth at the lowest level of zoom.
-            float margin = Mathf.Max(edgeWidth * 0.5f + 1, EdgeControl.k_MinEdgeWidth / m_GraphView.minScale);
-
-            rect.xMin -= margin;
-            rect.yMin -= margin;
-            rect.width += margin;
-            rect.height += margin;
-
-            if (layout != rect)
+            // Update VisualElement positions for control point
+            for (var i = 0; i < m_BezierSegments.Count - 1; i++)
             {
-                this.SetLayout(rect);
-                m_RenderPointsDirty = true;
+                if (i >= m_ControlPointContainer.childCount)
+                    break;
+
+                (m_ControlPointContainer[i] as EdgeControlPoint)?.SetPositions(m_BezierSegments[i].p3, m_BezierSegments[i].p2, m_BezierSegments[i + 1].p1);
             }
-            Profiler.EndSample();
+        }
+
+        // Compute the distance of Bezier curve control points P1 and P2 from P0 and P3 respectively.
+        static float ControlPointDistance(Vector2 from, Vector2 to, Orientation orientation)
+        {
+            float xd, yd;
+            if (orientation == Orientation.Horizontal)
+            {
+                xd = to.x - @from.x;
+                yd = Mathf.Abs(to.y - @from.y);
+            }
+            else
+            {
+                xd = to.y - @from.y;
+                yd = Mathf.Abs(to.x - @from.x);
+            }
+
+            // Max length is half the x distance.
+            // When x distance is small or negative, we use a value based on the y distance mapped to [100, 250]
+            var yCorr = 100f + Mathf.Min(150f, yd * .8f);
+            float maxLength = Mathf.Max(xd, yCorr) * .5f;
+
+            // When distance is small, we want the control points P1 and P2 to be near P0 and P3.
+            // When distance is large, we want the control points P1 and P2 to be at maxLength from P0 and P3.
+            var d = Mathf.Max(Mathf.Abs(xd), yd) * 0.01f;
+            d *= d;
+            var factor = d / (1f + d);
+
+            return factor * maxLength;
         }
 
         void DrawEdge(MeshGenerationContext mgc)
@@ -809,8 +526,8 @@ namespace Unity.Modifier.GraphElements
             if (m_RenderPoints.Count == 0)
                 return; // Don't draw anything
 
-            Color inColor = this.inputColor;
-            Color outColor = this.outputColor;
+            Color inColor = inputColor;
+            Color outColor = outputColor;
 
 #if UNITY_EDITOR
             inColor *= GraphViewStaticBridge.EditorPlayModeTint;

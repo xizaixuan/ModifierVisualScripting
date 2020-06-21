@@ -2,7 +2,7 @@
 
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
-    public interface ISystemConstantNodeModel : IHasMainOutputPort
+    public interface ISystemConstantNodeModel : IHasMainOutputPort, IHasSingleOutputPort
     {
     }
 }

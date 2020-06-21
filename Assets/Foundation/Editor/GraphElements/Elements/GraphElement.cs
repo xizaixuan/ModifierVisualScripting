@@ -5,29 +5,23 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public abstract class GraphElement : VisualElementBridge, ISelectable
+    public abstract class GraphElement : VisualElementBridge, ISelectable, IGraphElement
     {
-        public Color elementTypeColor { get; set; }
+        public Color MinimapColor { get; protected set; }
 
         int m_Layer;
         bool m_LayerIsInline;
         public int layer
         {
-            get { return m_Layer; }
+            get => m_Layer;
             set
             {
                 m_LayerIsInline = true;
-                if (m_Layer == value)
-                    return;
                 m_Layer = value;
             }
         }
 
-        public virtual string title
-        {
-            get { return name; }
-            set { throw new NotImplementedException(); }
-        }
+        public virtual bool ShowInMiniMap { get; set; } = true;
 
         public void ResetLayer()
         {
@@ -40,21 +34,21 @@ namespace Unity.Modifier.GraphElements
 
         static CustomStyleProperty<int> s_LayerProperty = new CustomStyleProperty<int>("--layer");
 
-        private void OnCustomStyleResolved(CustomStyleResolvedEvent e)
+        void OnCustomStyleResolved(CustomStyleResolvedEvent e)
         {
             OnCustomStyleResolved(e.customStyle);
         }
 
-        protected virtual void OnCustomStyleResolved(ICustomStyle style)
+        protected virtual void OnCustomStyleResolved(ICustomStyle resolvedCustomStyle)
         {
             int prevLayer = m_Layer;
             if (!m_LayerIsInline)
-                style.TryGetValue(s_LayerProperty, out m_Layer);
+                resolvedCustomStyle.TryGetValue(s_LayerProperty, out m_Layer);
 
             UpdateLayer(prevLayer);
         }
 
-        private void UpdateLayer(int prevLayer)
+        void UpdateLayer(int prevLayer)
         {
             if (prevLayer != m_Layer)
             {
@@ -66,41 +60,16 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        private Capabilities m_Capabilities;
-
-        public Capabilities capabilities
-        {
-            get { return m_Capabilities; }
-            set
-            {
-                if (m_Capabilities == value)
-                    return;
-
-                m_Capabilities = value;
-
-                if (IsSelectable() && m_ClickSelector == null)
-                {
-                    m_ClickSelector = new ClickSelector();
-                    this.AddManipulator(m_ClickSelector);
-                }
-                else if (!IsSelectable() && m_ClickSelector != null)
-                {
-                    this.RemoveManipulator(m_ClickSelector);
-                    m_ClickSelector = null;
-                }
-            }
-        }
-
         internal ResizeRestriction resizeRestriction { get; set; }
 
-        private bool m_Selected;
-
+        bool m_Selected;
         public bool selected
         {
-            get { return m_Selected; }
+            get => m_Selected;
             set
             {
-                if ((capabilities & Capabilities.Selectable) != Capabilities.Selectable)
+                // Set new value (toggle old value)
+                if (!IsSelectable())
                     return;
 
                 if (m_Selected == value)
@@ -108,63 +77,99 @@ namespace Unity.Modifier.GraphElements
 
                 m_Selected = value;
 
-                if (m_Selected)
-                {
-                    this.SetCheckedPseudoState(true);
-                }
-                else
-                {
-                    this.SetCheckedPseudoState(false);
-                }
+                this.SetCheckedPseudoState(m_Selected);
             }
         }
 
         protected GraphElement()
         {
-            ClearClassList();
-            AddToClassList("graphElement");
-            elementTypeColor = new Color(0.9f, 0.9f, 0.9f, 0.5f);
+            AddToClassList("graph-element");
+            MinimapColor = new Color(0.9f, 0.9f, 0.9f, 0.5f);
 
             viewDataKey = Guid.NewGuid().ToString();
 
             RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
         }
 
-        ClickSelector m_ClickSelector;
+        public void Setup(IGTFGraphElementModel model, IStore store, GraphView graphView)
+        {
+            Model = model;
+            Store = store;
+            GraphView = graphView;
+
+            BuildUI();
+            UpdateFromModel();
+        }
+
+        protected virtual void BuildUI()
+        {
+            // PF: Uncomment when all graph elements have a clean Setup/BuildUI/UpdateFromModel path.
+            // BlackboardVariableField do not.
+            // FIXME: make it a separate step from BuildUI(), since subclasses may want to do stuff before their base.
+            // Clear();
+        }
+
+        public virtual void UpdateFromModel()
+        {
+            if (IsSelectable() && ClickSelector == null)
+            {
+                ClickSelector = new ClickSelector();
+                this.AddManipulator(ClickSelector);
+            }
+            else if (!IsSelectable() && ClickSelector != null)
+            {
+                this.RemoveManipulator(ClickSelector);
+                ClickSelector = null;
+            }
+        }
+
+        protected ClickSelector ClickSelector { get; private set; }
+
+        public IGTFGraphElementModel Model { get; private set; }
+
+        // PF make setter private
+        protected IStore Store { get; set; }
+        public GraphView GraphView { get; private set; }
+
 
         public virtual bool IsSelectable()
         {
-            return (capabilities & Capabilities.Selectable) == Capabilities.Selectable && visible && resolvedStyle.display != DisplayStyle.None;
+            return Model is Unity.GraphToolsFoundation.Model.ISelectable;
         }
 
-        public virtual bool IsMovable()
+        public virtual bool IsPositioned()
         {
-            return (capabilities & Capabilities.Movable) == Capabilities.Movable;
+            return Model is Unity.GraphToolsFoundation.Model.IPositioned;
+        }
+
+        public virtual bool IsDeletable()
+        {
+            return Model is Unity.GraphToolsFoundation.Model.IDeletable;
         }
 
         public virtual bool IsResizable()
         {
-            return (capabilities & Capabilities.Resizable) == Capabilities.Resizable;
+            return Model is Unity.GraphToolsFoundation.Model.IResizable;
         }
 
         public virtual bool IsDroppable()
         {
-            return (capabilities & Capabilities.Droppable) == Capabilities.Droppable;
+            return Model is Unity.GraphToolsFoundation.Model.IDroppable;
         }
 
         public virtual bool IsAscendable()
         {
-            return (capabilities & Capabilities.Ascendable) == Capabilities.Ascendable;
+            return Model is Unity.GraphToolsFoundation.Model.IAscendable;
         }
 
         public virtual bool IsRenamable()
         {
-            return (capabilities & Capabilities.Renamable) == Capabilities.Renamable;
+            return Model is Unity.GraphToolsFoundation.Model.IRenamable;
         }
 
         public virtual bool IsCopiable()
         {
-            return (capabilities & Capabilities.Copiable) == Capabilities.Copiable;
+            return Model is Unity.GraphToolsFoundation.Model.ICopiable copiable && copiable.IsCopiable;
         }
 
         static Vector2 MultiplyMatrix44Point2(Matrix4x4 lhs, Vector2 point)
@@ -175,27 +180,16 @@ namespace Unity.Modifier.GraphElements
             return res;
         }
 
-        public virtual Vector3 GetGlobalCenter()
-        {
-            var globalCenter = layout.center + parent.layout.position;
-            return MultiplyMatrix44Point2(parent.worldTransform, globalCenter);
-        }
-
-        // TODO: Temporary transition function.
-        public virtual void UpdatePresenterPosition()
-        {
-            // This can be overridden by derived class to get notified when a manipulator
-            // has *finished* changing the layout (size or position) of this element.
-        }
-
-        public virtual Rect GetPosition()
+        // PF: remove
+        public Rect GetPosition()
         {
             return layout;
         }
 
         public virtual void SetPosition(Rect newPos)
         {
-            this.SetLayout(newPos);
+            style.left = newPos.x;
+            style.top = newPos.y;
         }
 
         public virtual void OnSelected()
@@ -208,6 +202,7 @@ namespace Unity.Modifier.GraphElements
         {
         }
 
+        // TODO: remove
         public virtual bool HitTest(Vector2 localPoint)
         {
             return ContainsPoint(localPoint);
@@ -222,14 +217,15 @@ namespace Unity.Modifier.GraphElements
                 {
                     if (!additive)
                         selection.ClearSelection();
+
                     selection.AddToSelection(this);
                 }
             }
         }
 
-        public virtual void Unselect(VisualElement selectionCountainer)
+        public virtual void Unselect(VisualElement selectionContainer)
         {
-            var selection = selectionCountainer as ISelection;
+            var selection = selectionContainer as ISelection;
             if (selection != null)
             {
                 if (selection.selection.Contains(this))

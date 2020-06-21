@@ -2,7 +2,7 @@
 
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
-    public interface IVariableModel : IHasMainOutputPort
+    public interface IVariableModel : IHasMainOutputPort, IHasSingleInputPort, IHasSingleOutputPort
     {
         IVariableDeclarationModel DeclarationModel { get; }
     }

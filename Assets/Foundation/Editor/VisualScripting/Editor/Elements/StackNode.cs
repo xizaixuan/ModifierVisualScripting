@@ -9,11 +9,10 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class StackNode : Unity.Modifier.GraphElements.StackNode, IHasGraphElementModel, ICustomColor, IMovable, IVSGraphViewObserver, INodeState
+    public class StackNode : Unity.GraphElements.StackNode, ICustomColor, IVSGraphViewObserver, INodeState
     {
-        protected readonly Store m_Store;
-        public readonly IStackModel stackModel;
-        protected readonly GraphView m_GraphView;
+        public IStackModel StackModel => NodeModel as IStackModel;
+        public new Store Store => base.Store as Store;
 
         Dictionary<VisualElement, IManipulator> m_StackSeparatorManipulators = new Dictionary<VisualElement, IManipulator>();
 
@@ -26,11 +25,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         const string k_StackNodeSeparatorAddLabel = "stackNodeSeparatorAddLabel";
 
-        public StackNode(Store store, IStackModel stackModel, INodeBuilder builder)
+        public StackNode()
         {
-            m_Store = store;
-            this.stackModel = stackModel;
-            m_GraphView = builder.GraphView;
+            this.AddManipulator(new ContextualMenuManipulator(OnContextualMenuEvent));
+            RegisterCallback<AttachToPanelEvent>(OnEnterPanel);
+            RegisterCallback<DetachFromPanelEvent>(OnLeavePanel);
+            RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
+        }
+
+        protected override void BuildUI()
+        {
+            base.BuildUI();
 
             styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "StackNode.uss"));
 
@@ -38,38 +43,24 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             var borderItem = this.MandatoryQ("borderItem");
             borderItem.style.overflow = Overflow.Visible;
-
-            this.AddManipulator(new ContextualMenuManipulator(OnContextualMenuEvent));
-            RegisterCallback<AttachToPanelEvent>(OnEnterPanel);
-            RegisterCallback<DetachFromPanelEvent>(OnLeavePanel);
-            RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
-
-            userData = stackModel;
-
-            UpdateFromModel();
-
-            inputContainer.pickingMode = PickingMode.Ignore;
-            outputContainer.pickingMode = PickingMode.Ignore;
-
-            PopulateStack(m_GraphView, store, stackModel, this);
         }
 
-        void UpdateFromModel()
+        public override void UpdateFromModel()
         {
-            SetPosition(new Rect(stackModel.Position.x, stackModel.Position.y, 0, 0));
+            SetPosition(new Rect(StackModel.Position.x, StackModel.Position.y, 0, 0));
 
-            capabilities = VseUtility.ConvertCapabilities(stackModel);
+            UpdatePortsFromModels(StackModel.InputPorts, "input");
+            UpdatePortsFromModels(StackModel.OutputPorts, "output");
 
-            UpdatePortsFromModels(stackModel.InputPorts, "input");
-            UpdatePortsFromModels(stackModel.OutputPorts, "output");
+            viewDataKey = StackModel.GetId();
 
-            viewDataKey = stackModel.GetId();
-
-            if (!stackModel.NodeModels.Any())
+            if (!StackModel.NodeModels.Any())
             {
                 var contentContainerPlaceholder = this.MandatoryQ("stackNodeContentContainerPlaceholder");
                 contentContainerPlaceholder.AddToClassList("empty");
             }
+
+            PopulateStack(GraphView, Store, StackModel, this);
         }
 
         void UpdatePortsFromModels(IEnumerable<IPortModel> portModelsToCreate, string portCollectionName)
@@ -81,8 +72,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 if (inputPortModel.PortType != PortType.Execution && inputPortModel.PortType != PortType.Loop)
                     continue;
 
-                var port = Port.Create(inputPortModel, m_Store, Orientation.Vertical);
-                portsElement.Add(port);
+                if (GraphElementFactory.CreateUI<Port>(GraphView, Store, inputPortModel as IGTFPortModel) is Port port)
+                {
+                    port.Orientation = Orientation.Vertical;
+                    portsElement.Add(port);
+                }
             }
         }
 
@@ -138,31 +132,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         void OnSeparatorMouseUp()
         {
-            if (m_GraphView is VseGraphView vseGraphView)
+            if (GraphView is VseGraphView vseGraphView)
                 vseGraphView.window.DisplaySmartSearch();
-        }
-
-        public void ResetColor()
-        {
-            style.backgroundColor = StyleKeyword.Null;
-        }
-
-        public void SetColor(Color color)
-        {
-            style.backgroundColor = color;
-        }
-
-        public virtual void UpdatePinning()
-        {
-        }
-
-        public virtual bool NeedStoreDispatch => true;
-
-        public override void SetPosition(Rect newPos)
-        {
-            style.position = Position.Absolute;
-            style.left = newPos.x;
-            style.top = newPos.y;
         }
 
         protected override bool AcceptsElement(GraphElement element, ref int proposedIndex, int maxIndex)
@@ -176,12 +147,12 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             // TODO : Use stackModel.AcceptMode instead of AllowAddBranchTypeNode that relies on Node visual style
             // Order is important here, please do not switch conditions
             bool canDrop = ContainsNode(node) ||
-                !node.model.IsBranchType ||
-                AcceptNode(node.model);
+                !node.NodeModel.IsBranchType ||
+                AcceptNode(node.NodeModel);
 
             if (canDrop)
             {
-                if (node.model.IsBranchType)
+                if (node.NodeModel.IsBranchType)
                 {
                     proposedIndex = maxIndex;
                 }
@@ -190,7 +161,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     List<Node> children = Children().OfType<Node>().ToList();
                     if (proposedIndex > 0 && proposedIndex == children.Count)
                     {
-                        if (children[proposedIndex - 1].model.IsBranchType)
+                        if (children[proposedIndex - 1].NodeModel.IsBranchType)
                         {
                             proposedIndex = children.Count - 1;
                         }
@@ -203,17 +174,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         bool AcceptNode(INodeModel nodeModel)
         {
-            return stackModel.NodeModels.Any(m => m == nodeModel) || stackModel.AcceptNode(nodeModel.GetType());
+            return StackModel.NodeModels.Any(m => m == nodeModel) || StackModel.AcceptNode(nodeModel.GetType());
         }
 
         public bool HasBranchedNode()
         {
-            return stackModel.NodeModels.Any(m => m.IsBranchType);
+            return StackModel.NodeModels.Any(m => m.IsBranchType);
         }
 
         bool ContainsNode(Node node)
         {
-            return Children().OfType<Node>().Any(n => n.model == node?.model);
+            return Children().OfType<Node>().Any(n => n.NodeModel == node?.NodeModel);
         }
 
         public override int GetInsertionIndex(Vector2 worldPosition)
@@ -225,7 +196,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             return insertIndex;
         }
 
-        public IGraphElementModel GraphElementModel => stackModel;
+        public IGraphElementModel GraphElementModel => StackModel;
 
         protected virtual void OnEnterPanel(AttachToPanelEvent e)
         {
@@ -237,21 +208,18 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         protected virtual void OnContextualMenuEvent(ContextualMenuPopulateEvent evt)
         {
-            m_GraphView.BuildContextualMenu(evt);
+            GraphView.BuildContextualMenu(evt);
         }
 
         static void PopulateStack(GraphView graphView, Store store, IStackModel stackModel, StackNode stack)
         {
             foreach (var nodeModel in stackModel.NodeModels)
             {
-                var node = GraphElementFactory.CreateUI(graphView, store, nodeModel);
-                if (node != null)
+                if (GraphElementFactory.CreateUI<GraphElement>(graphView, store, nodeModel as IGTFNodeModel) is GraphElement node)
                 {
                     stack.AddElement(node);
                     if (graphView is VseGraphView vseGraphView)
-                        vseGraphView.AddPositionDependency(
-                            stack.stackModel,
-                            (INodeModel)((IHasGraphElementModel)node).GraphElementModel);
+                        vseGraphView.AddPositionDependency(stack.StackModel, nodeModel);
                     node.style.position = Position.Relative;
                 }
             }
@@ -260,18 +228,18 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         protected override void OnSeparatorContextualMenuEvent(ContextualMenuPopulateEvent evt, int separatorIndex)
         {
             evt.menu.AppendAction("Create Node", menuAction =>
-                ((VseGraphView)m_GraphView).window.DisplaySmartSearch(menuAction, separatorIndex), DropdownMenuAction.AlwaysEnabled);
+                ((VseGraphView)GraphView).window.DisplaySmartSearch(menuAction, separatorIndex), DropdownMenuAction.AlwaysEnabled);
 
             evt.menu.AppendAction("Split Stack", menuAction =>
             {
-                m_Store.Dispatch(new SplitStackAction(stackModel, separatorIndex));
-            }, action => separatorIndex == 0 || separatorIndex >= stackModel.NodeModels.Count ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
+                Store.Dispatch(new SplitStackAction(StackModel, separatorIndex));
+            }, action => separatorIndex == 0 || separatorIndex >= StackModel.NodeModels.Count ? DropdownMenuAction.Status.Disabled : DropdownMenuAction.Status.Normal);
         }
 
         public override bool DragExited()
         {
             base.DragExited();
-            ((VseGraphView)m_GraphView).ClearPlaceholdersAfterDrag();
+            ((VseGraphView)GraphView).ClearPlaceholdersAfterDrag();
             return false;
         }
 
@@ -316,13 +284,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 switch (childGraphElement)
                 {
                     case TokenDeclaration tokenDeclaration:
-                        ((VseGraphView)m_GraphView).RestoreSelectionForElement(tokenDeclaration);
+                        ((VseGraphView)GraphView).RestoreSelectionForElement(tokenDeclaration);
                         break;
-                    case IHasGraphElementModel hasGraphElementChildModel when m_Store.GetState().EditorDataModel
+                    case IHasGraphElementModel hasGraphElementChildModel when Store.GetState().EditorDataModel
                         .ShouldSelectElementUponCreation(hasGraphElementChildModel):
-                        childGraphElement.Select(m_GraphView, true);
+                        childGraphElement.Select(GraphView, true);
                         break;
-                    case IVisualScriptingField visualScriptingField when m_Store.GetState().EditorDataModel
+                    case IVisualScriptingField visualScriptingField when Store.GetState().EditorDataModel
                         .ShouldExpandElementUponCreation(visualScriptingField):
                         visualScriptingField.Expand();
                         break;

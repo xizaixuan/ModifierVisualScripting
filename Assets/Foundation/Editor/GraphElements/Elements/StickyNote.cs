@@ -3,31 +3,19 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public enum StickyNoteChange
-    {
-        Title,
-        Contents,
-        Theme,
-        FontSize,
-        Position,
-    }
-    public class StickyNoteChangeEvent : EventBase<StickyNoteChangeEvent>
-    {
-        public static StickyNoteChangeEvent GetPooled(StickyNote target, StickyNoteChange change)
-        {
-            var evt = GetPooled();
-            evt.target = target;
-            evt.change = change;
-            return evt;
-        }
-
-        public StickyNoteChange change { get; protected set; }
-    }
     public enum StickyNoteTheme
     {
         Classic,
-        Black
+        Black,
+        Dark,
+        Orange,
+        Green,
+        Blue,
+        Red,
+        Purple,
+        Teal
     }
+
     public enum StickyNoteFontSize
     {
         Small,
@@ -36,100 +24,104 @@ namespace Unity.Modifier.GraphElements
         Huge
     }
 
-    public class StickyNote : GraphElement, IResizable
+    public class StickyNote : GraphElement, IResizable, IMovable
     {
         public new class UxmlFactory : UxmlFactory<StickyNote> { }
 
+        public IGTFStickyNoteModel StickyNoteModel => Model as IGTFStickyNoteModel;
 
-        StickyNoteTheme m_Theme = StickyNoteTheme.Classic;
-        public StickyNoteTheme theme
-        {
-            get
-            {
-                return m_Theme;
-            }
-            set
-            {
-                if (m_Theme != value)
-                {
-                    m_Theme = value;
-                    UpdateThemeClasses();
-                }
-            }
-        }
-
-        StickyNoteFontSize m_FontSize = StickyNoteFontSize.Medium;
-        public StickyNoteFontSize fontSize
-        {
-            get { return m_FontSize; }
-            set
-            {
-                if (m_FontSize != value)
-                {
-                    m_FontSize = value;
-                    UpdateSizeClasses();
-                }
-            }
-        }
+        public static readonly Vector2 defaultSize = new Vector2(200, 160);
 
         Label m_Title;
         TextField m_TitleField;
-        Label m_Contents;
-        TextField m_ContentsField;
+        Label m_Content;
+        TextField m_ContentField;
 
-        public StickyNote() : this(Vector2.zero)
-        { }
-
-        public StickyNote(Vector2 position) : this("StickyNote.uxml", position)
+        public StickyNote()
         {
-            this.AddStylesheet("Selectable.uss");
-            this.AddStylesheet("StickyNote.uss");
+            this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
         }
 
-        public StickyNote(string uiFile, Vector2 position)
+        protected override void BuildUI()
         {
-            var tpl = Resources.Load<VisualTreeAsset>(uiFile);
-            if (tpl == null)
-                tpl = GraphElementsHelper.LoadUXML(uiFile);
+            base.BuildUI();
 
-            tpl.CloneTree(this);
+            GraphElementsHelper.LoadTemplateAndStylesheet(this, "StickyNote", "ge-sticky-note");
+            this.AddStylesheet("Selectable.uss");
 
-            capabilities = Capabilities.Movable | Capabilities.Deletable | Capabilities.Ascendable | Capabilities.Selectable | Capabilities.Copiable;
+            usageHints = UsageHints.DynamicTransform;
 
-            m_Title = this.Q<Label>(name: "title");
-            if (m_Title != null)
-                m_Title.RegisterCallback<MouseDownEvent>(OnTitleMouseDown);
+            m_Title = this.MandatoryQ<Label>(name: "title");
+            m_TitleField = this.MandatoryQ<TextField>(name: "title-field");
+            m_Content = this.MandatoryQ<Label>(name: "contents");
+            m_ContentField = this.MandatoryQ<TextField>(name: "contents-field");
 
-            m_TitleField = this.Q<TextField>(name: "title-field");
-            if (m_TitleField != null)
-            {
-                m_TitleField.style.display = DisplayStyle.None;
-                m_TitleField.Q("unity-text-input").RegisterCallback<BlurEvent>(OnTitleBlur);
-                m_TitleField.RegisterCallback<ChangeEvent<string>>(OnTitleChange);
-            }
+            m_Title?.RegisterCallback<MouseDownEvent>(OnTitleMouseDown);
 
+            m_TitleField.style.display = DisplayStyle.None;
+            m_TitleField.Q("unity-text-input").RegisterCallback<BlurEvent>(OnTitleBlur);
+            m_TitleField.multiline = true;
+            m_TitleField.isDelayed = true;
+            m_TitleField.RegisterCallback<ChangeEvent<string>>(OnContentChange);
 
-            m_Contents = this.Q<Label>(name: "contents");
-            if (m_Contents != null)
-            {
-                m_ContentsField = m_Contents.Q<TextField>(name: "contents-field");
-                if (m_ContentsField != null)
-                {
-                    m_ContentsField.style.display = DisplayStyle.None;
-                    m_ContentsField.multiline = true;
-                    m_ContentsField.Q("unity-text-input").RegisterCallback<BlurEvent>(OnContentsBlur);
-                }
-                m_Contents.RegisterCallback<MouseDownEvent>(OnContentsMouseDown);
-            }
+            m_Content.RegisterCallback<MouseDownEvent>(OnContentsMouseDown);
 
-            SetPosition(new Rect(position, defaultSize));
+            m_ContentField.style.display = DisplayStyle.None;
+            m_ContentField.multiline = true;
+            m_ContentField.isDelayed = true;
+            m_ContentField.Q("unity-text-input").RegisterCallback<BlurEvent>(OnContentsBlur);
+            m_ContentField.RegisterCallback<ChangeEvent<string>>(OnContentChange);
 
-            AddToClassList("sticky-note");
             AddToClassList("selectable");
+        }
+
+        public override void UpdateFromModel()
+        {
+            base.UpdateFromModel();
+
+            var newPos = StickyNoteModel.PositionAndSize;
+            style.left = newPos.x;
+            style.top = newPos.y;
+            style.width = newPos.width;
+            style.height = newPos.height;
+
+            m_Title.text = StickyNoteModel.Title;
+            m_TitleField.value = StickyNoteModel.Title;
+            m_Content.text = StickyNoteModel.Contents;
+            m_ContentField.value = StickyNoteModel.Contents;
+
             UpdateThemeClasses();
             UpdateSizeClasses();
 
-            this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
+            if (m_Title != null)
+            {
+                if (!string.IsNullOrEmpty(m_Title.text))
+                {
+                    m_Title.RemoveFromClassList("empty");
+                }
+                else
+                {
+                    m_Title.AddToClassList("empty");
+                }
+            }
+        }
+
+        public virtual void BuildContextualMenu(ContextualMenuPopulateEvent evt) { }
+
+        public static IEnumerable<string> GetThemes()
+        {
+            foreach (var s in Enum.GetNames(typeof(StickyNoteTheme)))
+            {
+                yield return s;
+            }
+        }
+
+        public static IEnumerable<string> GetSizes()
+        {
+            foreach (var s in Enum.GetNames(typeof(StickyNoteFontSize)))
+            {
+                yield return s;
+            }
         }
 
         void OnFitToText(DropdownMenuAction a)
@@ -137,7 +129,7 @@ namespace Unity.Modifier.GraphElements
             FitText(false);
         }
 
-        public void FitText(bool onlyIfSmaller)
+        void FitText(bool onlyIfSmaller)
         {
             Vector2 preferredTitleSize = Vector2.zero;
             if (!string.IsNullOrEmpty(m_Title.text))
@@ -146,12 +138,12 @@ namespace Unity.Modifier.GraphElements
             preferredTitleSize += AllExtraSpace(m_Title);
             preferredTitleSize.x += m_Title.ChangeCoordinatesTo(this, Vector2.zero).x + resolvedStyle.width - m_Title.ChangeCoordinatesTo(this, new Vector2(m_Title.layout.width, 0)).x;
 
-            Vector2 preferredContentsSizeOneLine = m_Contents.MeasureTextSize(m_Contents.text, 0, MeasureMode.Undefined, 0, MeasureMode.Undefined);
+            Vector2 preferredContentsSizeOneLine = m_Content.MeasureTextSize(m_Content.text, 0, MeasureMode.Undefined, 0, MeasureMode.Undefined);
 
-            Vector2 contentExtraSpace = AllExtraSpace(m_Contents);
+            Vector2 contentExtraSpace = AllExtraSpace(m_Content);
             preferredContentsSizeOneLine += contentExtraSpace;
 
-            Vector2 extraSpace = new Vector2(resolvedStyle.width, resolvedStyle.height) - m_Contents.ChangeCoordinatesTo(this, new Vector2(m_Contents.layout.width, m_Contents.layout.height));
+            Vector2 extraSpace = new Vector2(resolvedStyle.width, resolvedStyle.height) - m_Content.ChangeCoordinatesTo(this, new Vector2(m_Content.layout.width, m_Content.layout.height));
             extraSpace += m_Title.ChangeCoordinatesTo(this, Vector2.zero);
             preferredContentsSizeOneLine += extraSpace;
 
@@ -169,186 +161,59 @@ namespace Unity.Modifier.GraphElements
             {
                 width = Mathf.Max(preferredTitleSize.x + extraSpace.x, resolvedStyle.width);
                 float contextWidth = width - extraSpace.x - contentExtraSpace.x;
-                Vector2 preferredContentsSize = m_Contents.MeasureTextSize(m_Contents.text, contextWidth, MeasureMode.Exactly, 0, MeasureMode.Undefined);
+                Vector2 preferredContentsSize = m_Content.MeasureTextSize(m_Content.text, contextWidth, MeasureMode.Exactly, 0, MeasureMode.Undefined);
 
                 preferredContentsSize += contentExtraSpace;
 
                 height = preferredTitleSize.y + preferredContentsSize.y + extraSpace.y;
             }
+
+            ResizeFlags resizeWhat = ResizeFlags.None;
             if (!onlyIfSmaller || resolvedStyle.width < width)
-                style.width = width;
-            if (!onlyIfSmaller || resolvedStyle.height < height)
-                style.height = height;
-            if (this is IResizable)
             {
-                (this as IResizable).OnResized();
+                resizeWhat |= ResizeFlags.Width;
+                style.width = width;
+            }
+
+            if (!onlyIfSmaller || resolvedStyle.height < height)
+            {
+                resizeWhat |= ResizeFlags.Height;
+                style.height = height;
+            }
+
+            if (this is IResizable && resizeWhat != ResizeFlags.None)
+            {
+                Rect newRect = new Rect(0, 0, width, height);
+                (this as IResizable).OnResized(newRect, resizeWhat);
             }
         }
 
+        static readonly string k_ThemeClassNamePrefix = "ge-sticky-note--theme-";
+        static readonly string k_SizeClassNamePrefix = "ge-sticky-note--size-";
+
         void UpdateThemeClasses()
         {
-            foreach (StickyNoteTheme value in System.Enum.GetValues(typeof(StickyNoteTheme)))
-            {
-                if (m_Theme != value)
-                    RemoveFromClassList("theme-" + value.ToString().ToLower());
-                else
-                    AddToClassList("theme-" + value.ToString().ToLower());
-            }
+            this.PrefixRemoveFromClassList(k_ThemeClassNamePrefix);
+            AddToClassList(k_ThemeClassNamePrefix + StickyNoteModel.Theme.ToKebabCase());
         }
 
         void UpdateSizeClasses()
         {
-            foreach (StickyNoteFontSize value in System.Enum.GetValues(typeof(StickyNoteFontSize)))
+            this.PrefixRemoveFromClassList(k_SizeClassNamePrefix);
+            AddToClassList(k_SizeClassNamePrefix + StickyNoteModel.TextSize.ToKebabCase());
+        }
+
+        void OnContentChange(ChangeEvent<string> e)
+        {
+            Store.Dispatch(new UpdateStickyNoteAction(StickyNoteModel, m_TitleField.value, m_ContentField.value));
+        }
+
+        public virtual void OnResized(Rect newRect, ResizeFlags resizeWhat)
+        {
+            if (resizeWhat != ResizeFlags.None)
             {
-                if (m_FontSize != value)
-                    RemoveFromClassList("size-" + value.ToString().ToLower());
-                else
-                    AddToClassList("size-" + value.ToString().ToLower());
+                Store.Dispatch(new ResizeStickyNoteAction(StickyNoteModel, newRect, resizeWhat));
             }
-        }
-
-        public static readonly Vector2 defaultSize = new Vector2(200, 160);
-
-        public void BuildContextualMenu(ContextualMenuPopulateEvent evt)
-        {
-            if (evt.target is StickyNote)
-            {
-                if (theme == StickyNoteTheme.Black)
-                    evt.menu.AppendAction("Light Theme", OnChangeTheme, e => DropdownMenuAction.Status.Normal, StickyNoteTheme.Classic);
-                else
-                    evt.menu.AppendAction("Dark Theme", OnChangeTheme, e => DropdownMenuAction.Status.Normal, StickyNoteTheme.Black);
-
-                foreach (StickyNoteFontSize value in System.Enum.GetValues(typeof(StickyNoteFontSize)))
-                {
-                    evt.menu.AppendAction(value.ToString() + " Text Size", OnChangeSize, e => DropdownMenuAction.Status.Normal, value);
-                }
-                evt.menu.AppendSeparator();
-
-                evt.menu.AppendAction("Fit To Text", OnFitToText, e => DropdownMenuAction.Status.Normal);
-                evt.menu.AppendSeparator();
-            }
-        }
-
-        void OnTitleChange(EventBase e)
-        {
-            title = m_TitleField.value;
-        }
-
-        const string fitTextClass = "fit-text";
-
-        public override void SetPosition(Rect rect)
-        {
-            style.left = rect.x;
-            style.top = rect.y;
-            style.width = rect.width;
-            style.height = rect.height;
-        }
-
-        public override Rect GetPosition()
-        {
-            return new Rect(resolvedStyle.left, resolvedStyle.top, resolvedStyle.width, resolvedStyle.height);
-        }
-
-        public override void UpdatePresenterPosition()
-        {
-            base.UpdatePresenterPosition();
-
-            NotifyChange(StickyNoteChange.Position);
-        }
-
-        public virtual void OnStartResize()
-        { }
-
-        public virtual void OnResized()
-        {
-            NotifyChange(StickyNoteChange.Position);
-        }
-
-        public string contents
-        {
-            get { return m_Contents.text; }
-            set
-            {
-                if (m_Contents != null)
-                {
-                    m_Contents.text = value;
-                }
-            }
-        }
-
-        public override string title
-        {
-            get { return m_Title.text; }
-            set
-            {
-                if (m_Title != null)
-                {
-                    m_Title.text = value;
-
-                    if (!string.IsNullOrEmpty(m_Title.text))
-                    {
-                        m_Title.RemoveFromClassList("empty");
-                    }
-                    else
-                    {
-                        m_Title.AddToClassList("empty");
-                    }
-                }
-            }
-        }
-
-        void OnChangeTheme(DropdownMenuAction action)
-        {
-            theme = (StickyNoteTheme)action.userData;
-            NotifyChange(StickyNoteChange.Theme);
-        }
-
-        void OnChangeSize(DropdownMenuAction action)
-        {
-            fontSize = (StickyNoteFontSize)action.userData;
-            NotifyChange(StickyNoteChange.FontSize);
-
-            FitText(true);
-        }
-
-        void OnTitleBlur(BlurEvent e)
-        {
-            title = m_TitleField.value;
-            m_TitleField.style.display = DisplayStyle.None;
-
-            m_Title.UnregisterCallback<GeometryChangedEvent>(OnTitleRelayout);
-
-            //Notify change
-            NotifyChange(StickyNoteChange.Title);
-        }
-
-        void OnContentsBlur(BlurEvent e)
-        {
-            bool changed = m_Contents.text != m_ContentsField.value;
-            m_Contents.text = m_ContentsField.value;
-            m_ContentsField.style.display = DisplayStyle.None;
-
-            //Notify change
-            if (changed)
-            {
-                NotifyChange(StickyNoteChange.Contents);
-            }
-        }
-
-        void OnTitleRelayout(GeometryChangedEvent e)
-        {
-            UpdateTitleFieldRect();
-        }
-
-        void UpdateTitleFieldRect()
-        {
-            Rect rect = m_Title.layout;
-            m_Title.parent.ChangeCoordinatesTo(m_TitleField.parent, rect);
-
-            m_TitleField.style.left = rect.xMin - 1;
-            m_TitleField.style.right = rect.yMin + m_Title.resolvedStyle.marginTop;
-            m_TitleField.style.width = rect.width - m_Title.resolvedStyle.marginLeft - m_Title.resolvedStyle.marginRight;
-            m_TitleField.style.height = rect.height - m_Title.resolvedStyle.marginTop - m_Title.resolvedStyle.marginBottom;
         }
 
         void OnTitleMouseDown(MouseDownEvent e)
@@ -356,10 +221,8 @@ namespace Unity.Modifier.GraphElements
             if (e.button == (int)MouseButton.LeftMouse && e.clickCount == 2)
             {
                 m_TitleField.RemoveFromClassList("empty");
-                m_TitleField.value = m_Title.text;
-                m_TitleField.style.display = DisplayStyle.Flex;
-                UpdateTitleFieldRect();
-                m_Title.RegisterCallback<GeometryChangedEvent>(OnTitleRelayout);
+                m_Title.style.display = DisplayStyle.None;
+                m_TitleField.style.display = StyleKeyword.Null;
 
                 m_TitleField.Q(TextField.textInputUssName).Focus();
                 m_TitleField.SelectAll();
@@ -369,24 +232,29 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        void NotifyChange(StickyNoteChange change)
+        void OnTitleBlur(BlurEvent e)
         {
-            using (var evt = StickyNoteChangeEvent.GetPooled(this, change))
-            {
-                SendEvent(evt);
-            }
+            m_Title.style.display = StyleKeyword.Null;
+            m_TitleField.style.display = DisplayStyle.None;
         }
 
         void OnContentsMouseDown(MouseDownEvent e)
         {
             if (e.button == (int)MouseButton.LeftMouse && e.clickCount == 2)
             {
-                m_ContentsField.value = m_Contents.text;
-                m_ContentsField.style.display = DisplayStyle.Flex;
-                m_ContentsField.Q(TextField.textInputUssName).Focus();
+                m_Content.style.display = DisplayStyle.None;
+                m_ContentField.style.display = StyleKeyword.Null;
+                m_ContentField.Q(TextField.textInputUssName).Focus();
+                m_ContentField.SelectAll();
                 e.StopPropagation();
                 e.PreventDefault();
             }
+        }
+
+        void OnContentsBlur(BlurEvent e)
+        {
+            m_Content.style.display = StyleKeyword.Null;
+            m_ContentField.style.display = DisplayStyle.None;
         }
 
         static Vector2 AllExtraSpace(VisualElement element)
@@ -396,5 +264,11 @@ namespace Unity.Modifier.GraphElements
                 element.resolvedStyle.marginTop + element.resolvedStyle.marginBottom + element.resolvedStyle.paddingTop + element.resolvedStyle.paddingBottom + element.resolvedStyle.borderBottomWidth + element.resolvedStyle.borderTopWidth
             );
         }
+
+        public void UpdatePinning()
+        {
+        }
+
+        public bool IsMovable => true;
     }
 }

@@ -6,15 +6,6 @@ using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
-    [Serializable]
-    public struct ControlPoint
-    {
-        [SerializeField]
-        public Vector2 Position;
-        [SerializeField]
-        public float Tightness;
-    }
-
     public interface IEdgeModel : IGraphElementModel
     {
         string OutputId { get; }
@@ -24,11 +15,6 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         IPortModel InputPortModel { get; }
         IPortModel OutputPortModel { get; }
         string EdgeLabel { get; }
-        ReadOnlyCollection<ControlPoint> EdgeControlPoints { get; }
-        void InsertEdgeControlPoint(int atIndex, Vector2 point, float tightness);
-        void ModifyEdgeControlPoint(int index, Vector2 point, float tightness);
-        void RemoveEdgeControlPoint(int index);
-        bool EditMode { get; set; }
     }
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]

@@ -26,9 +26,9 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         {
             if (ReferenceEquals(InstancePort, selfConnectedPortModel))
             {
-                TypeHandle t = otherConnectedPortModel?.DataType ?? TypeHandle.Unknown;
-                InstancePort.DataType = t;
-                ValuePort.DataType = t;
+                TypeHandle t = otherConnectedPortModel?.DataTypeHandle ?? TypeHandle.Unknown;
+                InstancePort.DataTypeHandle = t;
+                ValuePort.DataTypeHandle = t;
             }
         }
 

@@ -13,111 +13,18 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class Port : Unity.Modifier.GraphElements.Port, IDropTarget, IBadgeContainer
+    public class Port : Unity.GraphElements.Port, IDropTarget, IBadgeContainer
     {
         const string k_DropHighlightClass = "drop-highlighted";
-        const string k_DropHighlightDeniedClass = "denied";
-
-        public IPortModel Model => (IPortModel)userData;
 
         VisualElement m_InputEditor; // if this port allows editing an input, holds the element editing it
 
-        Store m_Store;
-        VisualElement PortIcon { get; set; }
-
-        Rect m_BoxRect = Rect.zero;
-
-        GraphView GraphView => m_GraphView ?? (m_GraphView = GetFirstAncestorOfType<VseGraphView>());
         VseGraphView VseGraphView => GraphView as VseGraphView;
+        public new Store Store => base.Store as Store;
+        public new PortModel PortModel => base.PortModel as PortModel;
 
         public IconBadge ErrorBadge { get; set; }
         public ValueBadge ValueBadge { get; set; }
-
-        // TODO: Weird that ContainsPoint does not work out of the box (with the default implementation)
-        public override bool ContainsPoint(Vector2 localPoint)
-        {
-            if (m_BoxRect == Rect.zero)
-            {
-                Rect lRect = m_ConnectorBox.layout;
-
-                if (direction == Direction.Input)
-                {
-                    m_BoxRect = new Rect(-lRect.xMin, -lRect.yMin, lRect.width + lRect.xMin, layout.height);
-                    m_BoxRect.width += m_ConnectorText.layout.xMin - lRect.xMax;
-                }
-                else
-                {
-                    m_BoxRect = new Rect(0, -lRect.yMin, layout.width - lRect.xMin, layout.height);
-                    float leftSpace = lRect.xMin - m_ConnectorText.layout.xMax;
-
-                    m_BoxRect.xMin -= leftSpace;
-                    m_BoxRect.width += leftSpace;
-                }
-
-                float hitBoxExtraPadding = m_BoxRect.height;
-                if (orientation == Orientation.Horizontal)
-                {
-                    // Add extra padding for mouse check to the left of input port or right of output port.
-                    if (direction == Direction.Input)
-                    {
-                        // Move bounds to the left by hitBoxExtraPadding and increase width
-                        // by hitBoxExtraPadding.
-                        m_BoxRect.x -= hitBoxExtraPadding;
-                        m_BoxRect.width += hitBoxExtraPadding * ((userData as PortModel)?.NodeModel is IStackModel ? 2 : 1);
-                    }
-                    else if (direction == Direction.Output)
-                    {
-                        // Just add hitBoxExtraPadding to the width.
-                        m_BoxRect.width += hitBoxExtraPadding;
-                    }
-                }
-                else
-                {
-                    // Add extra padding for mouse check to the top of input port or bottom of output port.
-                    if (direction == Direction.Input)
-                    {
-                        // Move bounds to the top by hitBoxExtraPadding and increase height
-                        // by hitBoxExtraPadding.
-                        m_BoxRect.y -= hitBoxExtraPadding;
-                        m_BoxRect.height += hitBoxExtraPadding;
-                    }
-                    else if (direction == Direction.Output)
-                    {
-                        // Just add hitBoxExtraPadding to the height.
-                        m_BoxRect.height += hitBoxExtraPadding;
-                    }
-                }
-            }
-
-            return m_BoxRect.Contains(this.ChangeCoordinatesTo(m_ConnectorBox, localPoint));
-        }
-
-        static List<IEdgeModel> GetDropEdgeModelsToDelete(Edge edge)
-        {
-            List<IEdgeModel> edgeModelsToDelete = new List<IEdgeModel>();
-
-            if (edge.input?.capacity == Capacity.Single)
-            {
-                foreach (var e in edge.input?.connections)
-                {
-                    var edgeToDelete = (Edge)e;
-                    if (edgeToDelete != edge)
-                        edgeModelsToDelete.Add(edgeToDelete.model);
-                }
-            }
-
-            if (edge.output?.capacity == Capacity.Single)
-            {
-                foreach (var e in edge.output?.connections)
-                {
-                    var edgeToDelete = (Edge)e;
-                    if (edgeToDelete != edge)
-                        edgeModelsToDelete.Add(edgeToDelete.model);
-                }
-            }
-
-            return edgeModelsToDelete;
-        }
 
         /// <summary>
         /// Used to highlight the port when it is triggered during tracing
@@ -128,119 +35,16 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             set => EnableInClassList("execution-active", value);
         }
 
-        public static Port Create(IPortModel model, Store store, Orientation orientation, VisualElement existingIcon = null)
-        {
-            var stencil = model.GraphModel.Stencil;
-
-            var ele = new Port(orientation, model.Direction, model.Capacity, model.DataType.Resolve(stencil))
-            {
-                userData = model,
-                m_Store = store,
-                portName = model.Name,
-            };
-
-            var connector = new EdgeConnector<Edge>(new VseEdgeConnectorListener(
-                (edge, pos) => OnDropOutsideCallback(store, pos, (Edge)edge),
-                edge => OnDropCallback(store, edge)));
-
-            ele.m_EdgeConnector = connector;
-
-            ele.UpdateTooltip(model);
-
-            ele.EnableInClassList("data", model.PortType == PortType.Data);
-            ele.EnableInClassList("instance", model.PortType == PortType.Instance);
-            ele.EnableInClassList("execution", model.PortType == PortType.Execution);
-            ele.EnableInClassList("loop", model.PortType == PortType.Loop);
-            ele.EnableInClassList("event", model.PortType == PortType.Event);
-
-            ele.AddManipulator(ele.m_EdgeConnector);
-
-            if (model.PortType == PortType.Data || model.PortType == PortType.Instance)
-            {
-                if (existingIcon == null)
-                {
-                    existingIcon = new Image { name = "portIcon" };
-                    ele.Insert(1, existingIcon); // on output, flex-direction is reversed, so the icon will effectively be BEFORE the connector
-                }
-                existingIcon.AddToClassList(((PortModel)model).IconTypeString);
-            }
-
-            ele.PortIcon = existingIcon;
-
-            ele.MarkDirtyRepaint();
-
-            return ele;
-        }
-
-        IConstantNodeModel GetModelToWatch()
-        {
-            // only watch a model on input ports
-            return direction == Direction.Input ? (Model as PortModel)?.EmbeddedValue : null;
-        }
-
-        public static Port CreateInputPort(Store store, IPortModel inputPortModel, VisualElement instanceContainer, VisualElement dataContainer, VisualElement existingIcon = null, Orientation orientation = Orientation.Horizontal)
-        {
-            Assert.IsTrue(inputPortModel.Direction == Direction.Input, "Expected input port model");
-
-            var port = Create(inputPortModel, store, orientation, existingIcon);
-
-            if (inputPortModel.PortType == PortType.Instance)
-            {
-                port.AddToClassList("instance");
-                instanceContainer.Insert(0, port);
-            }
-            else
-            {
-                dataContainer.Add(port);
-
-                IConstantNodeModel modelToShow = port.GetModelToWatch();
-
-                if (modelToShow != null)
-                {
-                    var embeddedValueEditorValueChangedOverride = inputPortModel.EmbeddedValueEditorValueChangedOverride;
-                    var localInputPortModel = inputPortModel;
-                    VisualElement editor = port.CreateEditorForNodeModel(modelToShow, embeddedValueEditorValueChangedOverride != null ? new Action<IChangeEvent>(x => embeddedValueEditorValueChangedOverride.Invoke(x, store, localInputPortModel)) : (_ => store.Dispatch(new RefreshUIAction(UpdateFlags.RequestCompilation))));
-                    if (editor != null)
-                    {
-                        port.Add(editor);
-                        port.m_InputEditor = editor;
-                        port.m_InputEditor.SetEnabled(!port.Model.Connected || port.Model.ConnectionPortModels.All(p => p.NodeModel.State == ModelState.Disabled));
-                    }
-                }
-            }
-
-            return port;
-        }
-
-        static void OnDropCallback(Store store, Unity.Modifier.GraphElements.Edge edge)
-        {
-            List<IEdgeModel> edgeModelsToDelete = GetDropEdgeModelsToDelete((Edge)edge);
-
-            if (((Port)edge.input).IsConnectedTo((Port)edge.output))
-                return;
-
-            // when grabbing an existing edge's end, the edgeModel should be deleted
-            if (((Edge)edge).GraphElementModel != null)
-                edgeModelsToDelete.Add((IEdgeModel)((Edge)edge).GraphElementModel);
-
-            store.Dispatch(new CreateEdgeAction(
-                ((Port)edge.input).userData as IPortModel,
-                ((Port)edge.output).userData as IPortModel,
-                edgeModelsToDelete
-            ));
-        }
-
-        static void OnDropOutsideCallback(Store store, Vector2 pos, Edge edge)
+        static void OnDropOutsideCallback(IStore store, Vector2 pos, Unity.GraphElements.Edge edge)
         {
             VseGraphView graphView = edge.GetFirstAncestorOfType<VseGraphView>();
-            Vector2 worldPos = pos;
-            pos = graphView.contentViewContainer.WorldToLocal(pos);
+            Vector2 localPos = graphView.contentViewContainer.WorldToLocal(pos);
 
-            List<IEdgeModel> edgesToDelete = GetDropEdgeModelsToDelete(edge);
+            List<IGTFEdgeModel> edgesToDelete = EdgeConnectorListener.GetDropEdgeModelsToDelete(edge.EdgeModel);
 
             // when grabbing an existing edge's end, the edgeModel should be deleted
-            if ((edge).GraphElementModel != null)
-                edgesToDelete.Add((IEdgeModel)edge.GraphElementModel);
+            if (edge.EdgeModel != null)
+                edgesToDelete.Add(edge.EdgeModel);
 
             IStackModel targetStackModel = null;
             int targetIndex = -1;
@@ -249,81 +53,106 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             if (stackNode != null)
             {
-                targetStackModel = stackNode.stackModel;
-                targetIndex = stackNode.GetInsertionIndex(worldPos);
+                targetStackModel = stackNode.StackModel;
+                targetIndex = stackNode.GetInsertionIndex(pos);
             }
 
             IPortModel existingPortModel;
             // warning: when dragging the end of an existing edge, both ports are non null.
-            if (edge.input != null && edge.output != null)
+            if (edge.Input != null && edge.Output != null)
             {
-                float distanceToOutput = Vector2.Distance(edge.edgeControl.from, pos);
-                float distanceToInput = Vector2.Distance(edge.edgeControl.to, pos);
+                float distanceToOutput = Vector2.Distance(edge.EdgeControl.from, pos);
+                float distanceToInput = Vector2.Distance(edge.EdgeControl.to, pos);
                 // note: if the user was able to stack perfectly both ports, we'd be in trouble
                 if (distanceToOutput < distanceToInput)
-                    existingPortModel = (IPortModel)edge.input.userData;
+                    existingPortModel = edge.Input as IPortModel;
                 else
-                    existingPortModel = (IPortModel)edge.output.userData;
+                    existingPortModel = edge.Output as IPortModel;
             }
             else
             {
-                Port existingPort = (Port)(edge.input ?? edge.output);
-                existingPortModel = existingPort.userData as IPortModel;
+                var existingPort = (edge.Input ?? edge.Output);
+                existingPortModel = existingPort as IPortModel;
             }
 
-            store.GetState().CurrentGraphModel?.Stencil.CreateNodesFromPort(store, existingPortModel, pos, edgesToDelete, targetStackModel, targetIndex);
+            ((Store)store)?.GetState().CurrentGraphModel?.Stencil.CreateNodesFromPort((Store)store, existingPortModel, localPos, pos, edgesToDelete, targetStackModel, targetIndex);
         }
 
-        // TODO type might be void if a variable setter has no variable reference; use unknown instead
-        Port(Orientation portOrientation, Direction portDirection, Capacity portCapacity, Type type)
-            : base(portOrientation, portDirection, portCapacity, type == typeof(void) || type.ContainsGenericParameters ? typeof(Unknown) : type)
+        public Port()
         {
-            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Port.uss"));
-
             RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
         }
 
-        public override void Connect(Unity.Modifier.GraphElements.Edge edge)
+        void OnCustomStyleResolved(CustomStyleResolvedEvent e)
         {
-            base.Connect(edge);
-            EnableInClassList("disconnected", !connected);
+            if (m_Icon != null)
+                m_Icon.tintColor = PortColor;
         }
 
-        public override void Disconnect(Unity.Modifier.GraphElements.Edge edge)
+        Image m_Icon;
+
+        protected override void BuildUI()
         {
-            base.Disconnect(edge);
-            EnableInClassList("disconnected", !connected);
+            base.BuildUI();
+
+            if (ConnectorBox != null)
+            {
+                m_Icon = new Image();
+                m_Icon.AddToClassList(k_UssClassName + "__icon");
+                m_Icon.tintColor = PortColor;
+                var connectorBoxIndex = ConnectorBox.parent.IndexOf(ConnectorBox);
+                ConnectorBox.parent.Insert(connectorBoxIndex + 1, m_Icon);
+            }
+
+            BuildConstantEditor();
+
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Port.uss"));
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "PropertyField.uss"));
+
+            m_EdgeConnector?.SetDropOutsideDelegate((s, edge, pos) => OnDropOutsideCallback(s, pos, edge));
         }
 
-        public override void DisconnectAll()
+        static readonly string k_PortTypeClassNamePrefix = "ge-port--type-";
+        static string GetClassNameForType(PortType t)
         {
-            base.DisconnectAll();
-            EnableInClassList("disconnected", !connected);
+            return k_PortTypeClassNamePrefix + t.ToString().ToLower();
         }
 
-        bool IsConnectedTo(Port other)
+        public override void UpdateFromModel()
         {
-            // If this becomes a bottleneck we can revert to use 2 foreach() and break
-            // when we have a successful connection test
-            return (from edge in connections
-                    from otherEdge in other.connections
-                    where
-                    otherEdge.input == edge.input && otherEdge.output == edge.output
-                    select edge).Any();
+            base.UpdateFromModel();
+
+            this.PrefixRemoveFromClassList(k_PortTypeClassNamePrefix);
+            AddToClassList(GetClassNameForType(PortModel.PortType));
+
+            if (m_InputEditor != null)
+            {
+                m_InputEditor.RemoveFromHierarchy();
+                m_InputEditor = null;
+                BuildConstantEditor();
+            }
         }
 
-        void OnCustomStyleResolved(CustomStyleResolvedEvent evt)
+        void BuildConstantEditor()
         {
-            // TODO: Not the proper way; should use style property --unity-image-tint-color instead;
-            //       however, since portColor is variable, we cannot use until there is proper support for variables
-            if (PortIcon is Image portIconImage)
-                portIconImage.tintColor = portColor;
+            if (PortModel.Direction == Direction.Input && PortModel.EmbeddedValue != null)
+            {
+                var embeddedValueEditorValueChangedOverride = PortModel.EmbeddedValueEditorValueChangedOverride;
+                var localInputPortModel = PortModel;
+                VisualElement editor = this.CreateEditorForNodeModel(PortModel.EmbeddedValue, embeddedValueEditorValueChangedOverride != null ? new Action<IChangeEvent>(x => embeddedValueEditorValueChangedOverride.Invoke(x, Store, localInputPortModel)) : (_ => Store.Dispatch(new RefreshUIAction(UpdateFlags.RequestCompilation))));
+                if (editor != null)
+                {
+                    Add(editor);
+                    m_InputEditor = editor;
+                    m_InputEditor.SetEnabled(!PortModel.IsConnected || PortModel.ConnectionPortModels.All(p => p.NodeModel.State == ModelState.Disabled));
+                }
+            }
         }
 
         public bool CanAcceptDrop(List<ISelectable> dragSelection)
         {
             return dragSelection.Count == 1 &&
-                ((userData as IPortModel)?.PortType != PortType.Execution &&
+                (PortModel.PortType != PortType.Execution &&
                     (dragSelection[0] is IVisualScriptingField
                         || dragSelection[0] is TokenDeclaration
                         || IsTokenToDrop(dragSelection[0])));
@@ -333,7 +162,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             return selectable is Token token
                 && token.GraphElementModel is IVariableModel varModel
-                && !varModel.OutputPort.ConnectionPortModels.Any(p => p == Model);
+                && !varModel.OutputPort.ConnectionPortModels.Any(p => p == PortModel)
+                && PortModel.NodeModel != token.GraphElementModel;
         }
 
         public bool DragUpdated(DragUpdatedEvent evt, IEnumerable<ISelectable> selection, IDropTarget dropTarget, ISelection dragSource)
@@ -350,21 +180,21 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             List<GraphElement> dropElements = selectionList.OfType<GraphElement>().ToList();
 
             Assert.IsTrue(dropElements.Count == 1);
-            GraphElement elementToDrop = dropElements.First();
 
-            var edgesToDelete = capacity == Capacity.Multi ? new List<IEdgeModel>() : connections.Select(c => ((Edge)c).model).ToList();
+            var edgesVMToDelete = PortModel.Capacity == PortCapacity.Multi ? new List<IEdgeModel>() : PortModel.ConnectedEdges;
+            var edgesToDelete = edgesVMToDelete;
 
             if (IsTokenToDrop(selectionList[0]))
             {
                 Token token = ((Token)selectionList[0]);
-                token.NeedStoreDispatch = true;
-                m_Store.Dispatch(new CreateEdgeAction(Model, ((IVariableModel)token.GraphElementModel).OutputPort, edgesToDelete, CreateEdgeAction.PortAlignmentType.Input));
+                token.SetMovable(true);
+                Store.Dispatch(new CreateEdgeAction(PortModel, ((IVariableModel)token.GraphElementModel).OutputPort as IGTFPortModel, edgesToDelete.Cast<IGTFEdgeModel>(), CreateEdgeAction.PortAlignmentType.Input));
                 return true;
             }
 
             List<Tuple<IVariableDeclarationModel, Vector2>> variablesToCreate = DragAndDropHelper.ExtractVariablesFromDroppedElements(dropElements, VseGraphView, evt.mousePosition);
 
-            PortType type = ((IPortModel)userData).PortType;
+            PortType type = PortModel.PortType;
             if (type != PortType.Data && type != PortType.Instance) // do not connect loop/exec ports to variables
             {
                 return VseGraphView.DragPerform(evt, selectionList, dropTarget, dragSource);
@@ -372,7 +202,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             IVariableDeclarationModel varModelToCreate = variablesToCreate.Single().Item1;
 
-            m_Store.Dispatch(new CreateVariableNodesAction(varModelToCreate, evt.mousePosition, edgesToDelete, (IPortModel)userData, autoAlign: true));
+            Store.Dispatch(new CreateVariableNodesAction(varModelToCreate, evt.mousePosition, edgesToDelete.Cast<IGTFEdgeModel>(), PortModel, autoAlign: true));
 
             VseGraphView.ClearPlaceholdersAfterDrag();
 
@@ -383,9 +213,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             AddToClassList(k_DropHighlightClass);
             var dragSelection = selection.ToList();
-            EnableInClassList(k_DropHighlightDeniedClass, !CanAcceptDrop(dragSelection));
             if (dragSelection.Count == 1 && dragSelection[0] is Token token)
-                token.NeedStoreDispatch = false;
+                token.SetMovable(false);
             return true;
         }
 
@@ -394,7 +223,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             RemoveFromClassList(k_DropHighlightClass);
             var dragSelection = selection.ToList();
             if (dragSelection.Count == 1 && dragSelection[0] is Token token)
-                token.NeedStoreDispatch = true;
+                token.SetMovable(true);
             return true;
         }
 
@@ -403,12 +232,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             RemoveFromClassList(k_DropHighlightClass);
             VseGraphView?.ClearPlaceholdersAfterDrag();
             return false;
-        }
-
-        [PublicAPI]
-        public void UpdateTooltip(IPortModel portModel)
-        {
-            tooltip = portModel.ToolTip;
         }
     }
 }

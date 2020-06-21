@@ -20,9 +20,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             BoundObject = boundObject;
         }
     }
-    public interface IEditorDataModel
+    public interface IEditorDataModel : IGTFEditorDataModel
     {
-        UpdateFlags UpdateFlags { get; }
         IGraphElementModel ElementModelToRename { get; set; }
         GUID NodeToFrameGuid { get; set; }
         int CurrentGraphIndex { get; }
@@ -32,8 +31,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         List<OpenedGraph> PreviousGraphModels { get; }
         int UpdateCounter { get; set; }
         bool TracingEnabled { get; set; }
-
-        void SetUpdateFlag(UpdateFlags flag);
+        bool CompilationPending { get; set; }
 
         void RequestCompilation(RequestCompilationOptions options);
 

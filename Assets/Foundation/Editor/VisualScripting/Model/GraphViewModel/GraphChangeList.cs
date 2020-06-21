@@ -8,7 +8,6 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         public List<IEdgeModel> DeleteEdgeModels { get; set; } = new List<IEdgeModel>();
         public List<IGraphElementModel> ChangedElements { get; } = new List<IGraphElementModel>();
         public List<IGraphElementModel> ModelsToAutoAlign { get; } = new List<IGraphElementModel>();
-
         public int DeletedElements { get; set; }
         public bool BlackBoardChanged { get; set; }
         public bool RequiresRebuild { get; set; }

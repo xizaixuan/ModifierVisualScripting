@@ -53,28 +53,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         {
             base.VisitStack(stack, visitedStacks, visitedNodes);
 
-            IFunctionModel owner = null;
-            foreach (var stackInputPortModel in stack.InputPorts)
-            {
-                if (!stackInputPortModel.Connected)
-                    continue;
-                foreach (var connectionPortModel in stackInputPortModel.ConnectionPortModels)
-                {
-                    if (connectionPortModel.NodeModel is StackBaseModel stackModel)
-                        owner = stackModel.OwningFunctionModel;
-                    else
-                        owner = connectionPortModel.NodeModel.ParentStackModel?.OwningFunctionModel;
-
-                    if (owner != null)
-                        break;
-                }
-
-                if (owner != null)
-                    break;
-            }
-
-            ((StackBaseModel)stack).OwningFunctionModel = owner;
-
             foreach (var callback in Callbacks)
                 callback(stack);
         }

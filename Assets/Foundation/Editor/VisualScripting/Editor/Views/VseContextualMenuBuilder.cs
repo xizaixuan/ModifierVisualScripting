@@ -58,10 +58,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 {
                     BuildNodeContextualMenu(selectedModelsDictionary);
                     BuildStackContextualMenu(selectedModelsKeys);
-                    BuildEdgeContextualMenu(selectedModelsKeys);
+                    BuildEdgeContextualMenu(selectedModelsDictionary);
                 }
 
                 BuildVariableNodeContextualMenu(selectedModelsKeys);
+                BuildPortalContextualMenu(selectedModelsKeys);
                 if (!originatesFromBlackboard)
                 {
                     BuildConstantNodeContextualMenu(selectedModelsKeys);
@@ -76,7 +77,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 {
                     m_Evt.menu.AppendAction("Delete", menuAction =>
                     {
-                        m_Store.Dispatch(new DeleteElementsAction(selectedModelsKeys.ToArray()));
+                        m_Store.Dispatch(new DeleteElementsAction(selectedModelsKeys.Cast<IGTFGraphElementModel>().ToArray()));
                     }, eventBase => DropdownMenuAction.Status.Normal);
                 }
             }
@@ -107,11 +108,19 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             {
                 contextualMenuBuilder.BuildContextualMenu(m_Evt);
             }
+
+            // PF: Ugliest hack. This will not be necessary when Contextual menu building is done properly.
+            if (m_Evt.target is Port port)
+            {
+                // Ports are transparent.
+                var node = port.GetFirstAncestorOfType<Node>() as IContextualMenuBuilder;
+                node?.BuildContextualMenu(m_Evt);
+            }
         }
 
         void BuildGraphViewContextualMenu()
         {
-            if (!(m_Evt.target is GraphView))
+            if (!(m_Evt.target is GraphView) && !(m_Evt.target is Placemat))
                 return;
 
             m_Evt.menu.AppendAction("Create Node", menuAction =>
@@ -128,6 +137,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             });
 
             m_Evt.menu.AppendSeparator();
+
+            if (!(m_Evt.target is GraphView))
+                return;
 
             m_Evt.menu.AppendAction("Cut", menuAction => m_GraphView.InvokeCutSelectionCallback(),
                 x => m_GraphView.CanCutSelection() ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
@@ -161,7 +173,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 return;
 
             var models = selectedModelsKeys.OfType<NodeModel>().ToArray();
-            var connectedModels = models.Where(x => x.InputsByDisplayOrder.Any(y => y.Connected) && x.OutputsByDisplayOrder.Any(y => y.Connected)).ToArray();
+            var connectedModels = models.Where(x => x.InputsByDisplayOrder.Any(y => y.IsConnected) && x.OutputsByDisplayOrder.Any(y => y.IsConnected)).ToArray();
             bool canSelectionBeBypassed = connectedModels.Any();
 
             m_Evt.menu.AppendSeparator();
@@ -169,11 +181,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_Evt.menu.AppendAction("Align Item (Q)", menuAction => m_GraphView.AlignSelection(false));
             m_Evt.menu.AppendAction("Align Hierarchy (Shift+Q)", menuAction => m_GraphView.AlignSelection(true));
 
-            var content = selectedModels.Values.OfType<GraphElement>().Where(e => (e.parent is GraphView.Layer) && (e is Unity.Modifier.GraphElements.Node || e is StickyNote)).ToList();
+            var content = selectedModels.Values.OfType<GraphElement>().Where(e => (e.parent is GraphView.Layer) && (e is Unity.GraphElements.Node || e is StickyNote)).ToList();
             m_Evt.menu.AppendAction("Create Placemat Under Selection", menuAction =>
             {
                 Rect bounds = new Rect();
-                if (Unity.Modifier.GraphElements.Placemat.ComputeElementBounds(ref bounds, content))
+                if (Unity.GraphElements.Placemat.ComputeElementBounds(ref bounds, content))
                 {
                     m_Store.Dispatch(new CreatePlacematAction(null, bounds));
                 }
@@ -194,7 +206,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             m_Evt.menu.AppendAction("Delete", menuAction =>
             {
-                m_Store.Dispatch(new DeleteElementsAction(selectedModelsKeys));
+                m_Store.Dispatch(new DeleteElementsAction(selectedModelsKeys.Cast<IGTFGraphElementModel>().ToArray()));
             }, eventBase => DropdownMenuAction.Status.Normal);
 
             m_Evt.menu.AppendSeparator();
@@ -215,25 +227,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 }, eventBase => DropdownMenuAction.Status.Normal);
             }
 
-            //TODO reenable and make it work after 0.3
-            //            evt.menu.AppendAction("Documentation...", menuAction =>
-            //                {
-            //                    m_Store.Dispatch(new OpenDocumentationAction(models));
-            //                }, x => DropdownMenuAction.Status.Normal);
-
             var placemats = selectedModelsKeys.OfType<PlacematModel>().ToArray();
             if (models.Any() || placemats.Any())
             {
                 m_Evt.menu.AppendAction("Color/Change...", menuAction =>
                 {
-                    // TODO: make ColorPicker.Show(...) public in trunk
-                    Type t = typeof(EditorWindow).Assembly.GetTypes().FirstOrDefault(ty => ty.Name == "ColorPicker");
-                    MethodInfo m = t?.GetMethod("Show", new[] { typeof(Action<Color>), typeof(Color), typeof(bool), typeof(bool) });
-
                     void ChangeNodesColor(Color pickedColor)
                     {
-                        foreach (ICustomColor node in selectedModels.Values.OfType<ICustomColor>())
-                            node.SetColor(pickedColor);
                         m_Store.Dispatch(new ChangeElementColorAction(pickedColor, models, placemats));
                     }
 
@@ -247,14 +247,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                         defaultColor = models[0].Color;
                     }
 
-                    m?.Invoke(null, new object[] { (Action<Color>)ChangeNodesColor, defaultColor, true, false });
+                    GraphViewStaticBridge.ShowColorPicker(ChangeNodesColor, defaultColor, true);
                 }, eventBase => DropdownMenuAction.Status.Normal);
 
                 m_Evt.menu.AppendAction("Color/Reset", menuAction =>
                 {
-                    foreach (ICustomColor node in selectedModels.Values.OfType<ICustomColor>())
-                        node.ResetColor();
-
                     m_Store.Dispatch(new ResetElementColorAction(models, placemats));
                 }, eventBase => DropdownMenuAction.Status.Normal);
             }
@@ -277,12 +274,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             }
         }
 
-        void BuildEdgeContextualMenu(IReadOnlyCollection<IGraphElementModel> selectedModels)
+        void BuildEdgeContextualMenu(Dictionary<IGraphElementModel, IHasGraphElementModel> selectedModels)
         {
-            IEdgeModel firstMatchingModel = selectedModels
-                .OfType<IEdgeModel>()
+            var allEdgeModels = selectedModels.Keys.OfType<IEdgeModel>().ToList();
+
+            IEdgeModel firstMatchingModel = allEdgeModels
                 .FirstOrDefault(x => x.InputPortModel?.NodeModel is IStackModel &&
-                    x.OutputPortModel?.NodeModel is IStackModel);
+                x.OutputPortModel?.NodeModel is IStackModel);
             if (firstMatchingModel != null)
             {
                 m_Evt.menu.AppendAction("Edge/Merge", menuAction => m_Store.Dispatch(new MergeStackAction(
@@ -291,31 +289,53 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     eventBase => DropdownMenuAction.Status.Normal);
             }
 
+            if (allEdgeModels.Any())
+            {
+                var edgeData = selectedModels.Where(s => s.Value is Edge).Select(
+                    s =>
+                    {
+                        var e = s.Value as Unity.GraphElements.Edge;
+                        var outputPort = e.Output.GetUI<Unity.GraphElements.Port>(e.GraphView);
+                        var inputPort = e.Input.GetUI<Unity.GraphElements.Port>(e.GraphView);
+                        var outputNode = e.Output.NodeModel.GetUI<Unity.GraphElements.Node>(e.GraphView);
+                        var inputNode = e.Input.NodeModel.GetUI<Unity.GraphElements.Node>(e.GraphView);
+                        return (s.Key as IEdgeModel,
+                            outputPort.ChangeCoordinatesTo(outputNode.parent, outputPort.layout.center),
+                            inputPort.ChangeCoordinatesTo(inputNode.parent, inputPort.layout.center));
+                    }).ToList();
+
+                m_Evt.menu.AppendAction("Create Portals", menuAction =>
+                {
+                    m_Store.Dispatch(new ConvertEdgesToPortalsAction(edgeData));
+                },
+                    eventBase => DropdownMenuAction.Status.Normal);
+            }
+
             var eventTarget = m_Evt.triggerEvent.target as VisualElement;
             var edge = eventTarget?.GetFirstAncestorOfType<Edge>();
-            if (edge?.model != null)
+            if (edge?.VSEdgeModel != null)
             {
                 if (eventTarget is EdgeControl edgeControlElement)
                 {
                     var p = edgeControlElement.WorldToLocal(m_Evt.triggerEvent.originalMousePosition);
                     edgeControlElement.FindNearestCurveSegment(p, out _, out var controlPointIndex, out _);
                     p = edge.WorldToLocal(m_Evt.triggerEvent.originalMousePosition);
-                    if (edge.editMode)
+                    if (edge.EdgeModel.EditMode)
                     {
                         m_Evt.menu.AppendAction("Stop editing edge", menuAction =>
                         {
-                            m_Store.Dispatch(new SetEdgeEditModeAction(edge.model, false));
+                            m_Store.Dispatch(new SetEdgeEditModeAction(edge.VSEdgeModel, false));
                         });
                         m_Evt.menu.AppendAction("Add control point", menuAction =>
                         {
-                            m_Store.Dispatch(new AddControlPointOnEdgeAction(edge.model, controlPointIndex, p));
+                            m_Store.Dispatch(new AddControlPointOnEdgeAction(edge.VSEdgeModel, controlPointIndex, p));
                         });
                     }
                     else
                     {
                         m_Evt.menu.AppendAction("Edit edge", menuAction =>
                         {
-                            m_Store.Dispatch(new SetEdgeEditModeAction(edge.model, true));
+                            m_Store.Dispatch(new SetEdgeEditModeAction(edge.VSEdgeModel, true));
                         });
                     }
                 }
@@ -323,7 +343,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 {
                     m_Evt.menu.AppendAction("Stop editing edge", menuAction =>
                     {
-                        m_Store.Dispatch(new SetEdgeEditModeAction(edge.model, false));
+                        m_Store.Dispatch(new SetEdgeEditModeAction(edge.VSEdgeModel, false));
                     });
                     m_Evt.menu.AppendAction("Remove control point", menuAction =>
                     {
@@ -332,7 +352,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                             return;
 
                         int controlPointIndex = edgeControlPointElement.parent.Children().IndexOf(edgeControlPointElement);
-                        graphView.store.Dispatch(new RemoveEdgeControlPointAction(edge.model, controlPointIndex));
+                        graphView.store.Dispatch(new RemoveEdgeControlPointAction(edge.VSEdgeModel, controlPointIndex));
                     });
                 }
             }
@@ -370,6 +390,21 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 {
                     m_Store.Dispatch(new ItemizeVariableNodeAction(models));
                 }, x => DropdownMenuAction.Status.Normal);
+        }
+
+        void BuildPortalContextualMenu(IReadOnlyCollection<IGraphElementModel> selectedModels)
+        {
+            var models = selectedModels.OfType<IEdgePortalModel>().ToList();
+            if (!models.Any())
+                return;
+
+            //var stencil = m_Store?.GetState()?.CurrentGraphModel?.Stencil;
+            var canCreate = models.Where(p => p.CanCreateOppositePortal()).ToList();
+            m_Evt.menu.AppendAction("Portals/Create Opposite",
+                menuAction =>
+                {
+                    m_Store.Dispatch(new CreatePortalsOppositeAction(canCreate));
+                }, x => canCreate.Any() ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
         }
 
         void BuildConstantNodeContextualMenu(IReadOnlyCollection<IGraphElementModel> selectedModels)
@@ -412,21 +447,49 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         void BuildStickyNoteContextualMenu()
         {
-            List<StickyNote> stickyNoteSelection = m_Selection?.OfType<StickyNote>().ToList();
+            var stickyNoteSelection = m_Selection?.OfType<StickyNote>();
             if (stickyNoteSelection == null || !stickyNoteSelection.Any())
                 return;
 
-            List<IStickyNoteModel> stickyNoteModels = stickyNoteSelection.Select(m => (IStickyNoteModel)m.GraphElementModel).ToList();
+            var stickyNoteModels = stickyNoteSelection.Select(m => m.StickyNoteModel).ToArray();
 
-            foreach (StickyNoteColorTheme value in Enum.GetValues(typeof(StickyNoteColorTheme)))
+            DropdownMenuAction.Status GetThemeStatus(DropdownMenuAction a)
+            {
+                if (stickyNoteModels.Length == 0)
+                    return DropdownMenuAction.Status.Normal;
+
+                if (stickyNoteModels.Any(noteModel => noteModel.Theme != stickyNoteModels.First().Theme))
+                {
+                    // Values are not all the same.
+                    return DropdownMenuAction.Status.Normal;
+                }
+
+                return stickyNoteModels.First().Theme == (a.userData as string) ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal;
+            }
+
+            DropdownMenuAction.Status GetSizeStatus(DropdownMenuAction a)
+            {
+                if (stickyNoteModels.Length == 0)
+                    return DropdownMenuAction.Status.Normal;
+
+                if (stickyNoteModels.Any(noteModel => noteModel.TextSize != stickyNoteModels.First().TextSize))
+                {
+                    // Values are not all the same.
+                    return DropdownMenuAction.Status.Normal;
+                }
+
+                return stickyNoteModels.First().TextSize == (a.userData as string) ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal;
+            }
+
+            foreach (var value in Unity.GraphElements.StickyNote.GetThemes())
                 m_Evt.menu.AppendAction("Theme/" + value,
-                    menuAction => m_Store.Dispatch(new UpdateStickyNoteThemeAction(stickyNoteModels, value)),
-                    e => DropdownMenuAction.Status.Normal);
+                    menuAction => m_Store.Dispatch(new UpdateStickyNoteThemeAction(stickyNoteModels, menuAction.userData as string)),
+                    GetThemeStatus, value);
 
-            foreach (StickyNoteTextSize value in Enum.GetValues(typeof(StickyNoteTextSize)))
-                m_Evt.menu.AppendAction(value + " Text Size",
-                    menuAction => m_Store.Dispatch(new UpdateStickyNoteTextSizeAction(stickyNoteModels, value)),
-                    e => DropdownMenuAction.Status.Normal);
+            foreach (var value in Unity.GraphElements.StickyNote.GetSizes())
+                m_Evt.menu.AppendAction("Text Size/" + value,
+                    menuAction => m_Store.Dispatch(new UpdateStickyNoteTextSizeAction(stickyNoteModels, menuAction.userData as string)),
+                    GetSizeStatus, value);
         }
 
         void BuildRefactorContextualMenu(IReadOnlyCollection<IGraphElementModel> selectedModels)
@@ -435,39 +498,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (!models.Any())
                 return;
 
-            var enableConvertToFunction = true;
-            var enableExtractMacro = true;
-            var enableExtractFunction = true;
             var canDisable = models.Any();
             var willDisable = models.Any(n => n.State == ModelState.Enabled);
-
-            if (models.Length > 1)
-                enableConvertToFunction = false;
-
-            if (models.Any(x => x.IsStacked))
-                enableExtractMacro = false;
-            else
-            {
-                enableExtractFunction = false;
-                enableConvertToFunction = false;
-            }
-
-            if (models.OfType<IStackModel>().Any() || (!m_GraphView.store.GetState().CurrentGraphModel.Stencil.Capabilities.HasFlag(StencilCapabilityFlags.SupportsMacros)))
-            {
-                enableConvertToFunction = false;
-                enableExtractMacro = false;
-                enableExtractFunction = false;
-            }
-
-            if (enableConvertToFunction || enableExtractMacro || enableExtractFunction)
-                m_Evt.menu.AppendSeparator();
-
-            if (enableConvertToFunction)
-            {
-                m_Evt.menu.AppendAction("Refactor/Convert to Function",
-                    _ => m_Store.Dispatch(new RefactorConvertToFunctionAction(models.Single())),
-                    _ => DropdownMenuAction.Status.Normal);
-            }
 
             if (canDisable)
                 m_Evt.menu.AppendAction(willDisable ? "Disable Selection" : "Enable Selection", menuAction =>
@@ -488,58 +520,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 m_Evt.menu.AppendAction("Internal/Refresh Selected Element(s)",
                     menuAction => { m_Store.Dispatch(new RefreshUIAction(selectedModels.ToList())); },
                     _ => DropdownMenuAction.Status.Normal);
-            }
-
-            if (enableExtractMacro)
-            {
-                m_Evt.menu.AppendAction("Refactor/Extract Macro",
-                    menuAction =>
-                    {
-                        var rectToFit = new Rect();
-                        bool first = true;
-                        foreach (var model in models)
-                        {
-                            GraphElement ge = null;
-                            if (m_GraphView.UIController.ModelsToNodeMapping?.TryGetValue(model, out ge) ?? false)
-                            {
-                                var r = ge.GetPosition();
-                                rectToFit = first ? r : RectUtils.Encompass(rectToFit, r);
-                                first = false;
-                            }
-                        }
-
-                        string assetPath = AssetDatabase.GetAssetPath(m_GraphView.store.GetState()?.CurrentGraphModel?.AssetModel as VSGraphAssetModel);
-                        string macroPath = null;
-                        if (!string.IsNullOrEmpty(assetPath))
-                        {
-                            var assetFolder = Path.GetDirectoryName(assetPath);
-                            macroPath = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(assetFolder ?? "", "MyMacro.asset"));
-                        }
-
-                        m_Store.Dispatch(new RefactorExtractMacroAction(m_Selection.OfType<IHasGraphElementModel>().Select(x => x.GraphElementModel).ToList(), rectToFit.center, macroPath));
-                    }, x => DropdownMenuAction.Status.Normal);
-            }
-
-            if (enableExtractFunction)
-            {
-                m_Evt.menu.AppendAction("Refactor/Extract Function",
-                    menuAction =>
-                    {
-                        var rectToFit = new Rect();
-                        bool first = true;
-                        foreach (var model in models)
-                        {
-                            GraphElement ge = null;
-                            if (m_GraphView.UIController.ModelsToNodeMapping?.TryGetValue(model, out ge) ?? false)
-                            {
-                                var r = ge.GetPosition();
-                                rectToFit = first ? r : RectUtils.Encompass(rectToFit, r);
-                                first = false;
-                            }
-                        }
-
-                        m_Store.Dispatch(new RefactorExtractFunctionAction(m_Selection));
-                    }, x => DropdownMenuAction.Status.Normal);
             }
         }
     }

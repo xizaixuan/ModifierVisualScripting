@@ -13,14 +13,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     public class TokenDeclaration : GraphElement, IDroppable, IHighlightable, IRenamable, IMovable
     {
-        readonly Store m_Store;
-        readonly GraphView m_GraphView;
         readonly Pill m_Pill;
         TextField m_TitleTextfield;
 
-        Label m_TitleLabel;
+        public new Store Store => base.Store as Store;
 
-        public Store Store => m_Store;
         public string TitleValue => Declaration.Title.Nicify();
 
         public VisualElement TitleEditor => m_TitleTextfield ?? (m_TitleTextfield = new TextField { name = "titleEditor", isDelayed = true });
@@ -28,25 +25,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public bool EditTitleCancelled { get; set; } = false;
 
         public VisualElement TitleElement => this;
-        public IVariableDeclarationModel Declaration { get; }
-
-        public override bool IsRenamable()
-        {
-            if (!base.IsRenamable())
-                return false;
-
-            if (!IsFunctionParameter)
-                return true;
-
-            var variableDeclarationModel = Declaration as VariableDeclarationModel;
-            return (variableDeclarationModel != null && variableDeclarationModel.Capabilities.HasFlag(CapabilityFlags.Renamable));
-        }
+        public IVariableDeclarationModel Declaration => Model as IVariableDeclarationModel;
 
         public bool IsFramable() => true;
 
         public RenameDelegate RenameDelegate => null;
-
-        bool IsFunctionParameter => (Declaration != null) && Declaration.VariableType == VariableType.FunctionParameter;
 
         public void SetClasses()
         {
@@ -54,9 +37,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             AddToClassList("token");
             AddToClassList("declaration");
 
-            AddToClassList(IsFunctionParameter
-                ? "functionParameter"
-                : (Declaration?.VariableType == VariableType.GraphVariable ? "graphVariable" : "functionVariable"));
+            AddToClassList(Declaration?.VariableType == VariableType.GraphVariable ? "graphVariable" : "functionVariable");
         }
 
         public TokenDeclaration(Store store, IVariableDeclarationModel model, GraphView graphView)
@@ -68,25 +49,20 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             {
                 if (modelReference is IExposeTitleProperty titleProperty)
                 {
-                    m_TitleLabel = m_Pill.Q<Label>("title-label");
-                    m_TitleLabel.bindingPath = titleProperty.TitlePropertyName;
+                    var titleLabel = m_Pill.Q<Label>("title-label");
+                    titleLabel.bindingPath = titleProperty.TitlePropertyName;
                 }
             }
 
             styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Token.uss"));
 
-            Declaration = model;
-            m_Store = store;
-            m_GraphView = graphView;
+            Setup(model as IGTFGraphElementModel, store, graphView);
 
             m_Pill.icon = Declaration.IsExposed
-                ? VisualScriptingIconUtility.LoadIconRequired("GraphView/Nodes/BlackboardFieldExposed.png")
+                ? GraphViewStaticBridge.LoadIconRequired("GraphView/Nodes/BlackboardFieldExposed.png")
                 : null;
 
             m_Pill.text = Declaration.Title;
-
-            if (model != null)
-                capabilities = VseUtility.ConvertCapabilities(model);
 
             var variableModel = model as VariableDeclarationModel;
             Stencil stencil = store.GetState().CurrentGraphModel?.Stencil;
@@ -110,7 +86,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public override void OnUnselected()
         {
             base.OnUnselected();
-            ((VseGraphView)m_GraphView).ClearGraphElementsHighlight(ShouldHighlightItemUsage);
+            (GraphView as VseGraphView).ClearGraphElementsHighlight(ShouldHighlightItemUsage);
         }
 
         public bool ShouldHighlightItemUsage(IGraphElementModel model)
@@ -133,18 +109,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             return gView != null && gView.selection.Contains(this);
         }
 
-        public override void SetPosition(Rect newPos)
-        {
-            style.position = Position.Absolute;
-            style.left = newPos.x;
-            style.top = newPos.y;
-        }
-
         public void UpdatePinning()
         {
         }
 
-        public bool NeedStoreDispatch => false;
+        public bool IsMovable => false;
 
         public int FindIndexInParent()
         {
@@ -159,12 +128,10 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public TokenDeclaration Clone()
         {
-            var clone = new TokenDeclaration(m_Store, Declaration, m_GraphView)
+            var clone = new TokenDeclaration(Store, Declaration, GraphView)
             {
                 viewDataKey = Guid.NewGuid().ToString()
             };
-            if (Declaration is LoopVariableDeclarationModel loopVariableDeclarationModel)
-                VseUtility.AddTokenIcon(clone, loopVariableDeclarationModel.TitleComponentIcon);
             return clone;
         }
 

@@ -8,6 +8,9 @@ using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
+    [Serializable]
+    // ReSharper disable once ClassWithVirtualMembersNeverInherited.Global
+    // virtual PortModel getters to allow for Moq
     public class BinaryOperatorNodeModel : NodeModel, IOperationValidator, IHasMainOutputPort
     {
         public BinaryOperatorKind Kind;
@@ -71,7 +74,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             }
             else // we might have redefined types already
             {
-                DefinePorts(m_InputAPort.DataType, m_InputBPort.DataType, m_MainOutputPort.DataType);
+                DefinePorts(m_InputAPort.DataTypeHandle, m_InputBPort.DataTypeHandle, m_MainOutputPort.DataTypeHandle);
             }
         }
 
@@ -139,7 +142,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                 return;
             PortModel portToModify = ReferenceEquals(selfConnectedPortModel, InputPortA) ? m_InputAPort : m_InputBPort;
             if (portToModify != null && otherConnectedPortModel != null)
-                portToModify.DataType = otherConnectedPortModel.DataType;
+                portToModify.DataTypeHandle = otherConnectedPortModel.DataTypeHandle;
 
             UpdateOutputPortType();
         }
@@ -150,18 +153,18 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                 return;
             PortModel portToModify = ReferenceEquals(selfConnectedPortModel, InputPortA) ? m_InputAPort : m_InputBPort;
             if (portToModify != null)
-                portToModify.DataType = TypeHandle.Float;
+                portToModify.DataTypeHandle = TypeHandle.Float;
 
             UpdateOutputPortType();
         }
 
         void UpdateOutputPortType()
         {
-            Type portAType = InputPortA?.DataType.Resolve(Stencil);
-            Type portBType = InputPortB?.DataType.Resolve(Stencil);
+            Type portAType = InputPortA?.DataTypeHandle.Resolve(Stencil);
+            Type portBType = InputPortB?.DataTypeHandle.Resolve(Stencil);
 
             //TODO A bit ugly of a hack... evaluate a better approach?
-            m_MainOutputPort.DataType = GetOutputTypeFromInputs(Kind, portAType, portBType).GenerateTypeHandle(Stencil);
+            m_MainOutputPort.DataTypeHandle = GetOutputTypeFromInputs(Kind, portAType, portBType).GenerateTypeHandle(Stencil);
         }
 
         public bool HasValidOperationForInput(IPortModel port, TypeHandle typeHandle)
@@ -170,9 +173,9 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             var otherPort = portName == PortName.PortA ? InputPortB : InputPortA;
             var dataType = typeHandle.Resolve(Stencil);
 
-            if (otherPort.Connected)
+            if (otherPort.IsConnected)
             {
-                Type otherPortType = otherPort.DataType.Resolve(Stencil);
+                Type otherPortType = otherPort.DataTypeHandle.Resolve(Stencil);
 
                 return portName == PortName.PortB
                     ? TypeSystem.IsBinaryOperationPossible(otherPortType, dataType, Kind)

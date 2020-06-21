@@ -24,33 +24,60 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         static State ResizeStickyNote(State previousState, ResizeStickyNoteAction action)
         {
-            var stickyNoteModel = (StickyNoteModel)action.StickyNoteModel;
+            if (action.ResizeWhat == ResizeFlags.None)
+                return previousState;
+
             Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Resize Sticky Note");
-            stickyNoteModel.Move(action.Position);
-            previousState.MarkForUpdate(UpdateFlags.GraphGeometry);
+            EditorUtility.SetDirty((Object)previousState.AssetModel);
+
+            foreach (var noteModel in action.Models)
+            {
+                var newRect = noteModel.PositionAndSize;
+                if ((action.ResizeWhat & ResizeFlags.Left) == ResizeFlags.Left)
+                {
+                    newRect.x = action.Value.x;
+                }
+                if ((action.ResizeWhat & ResizeFlags.Top) == ResizeFlags.Top)
+                {
+                    newRect.y = action.Value.y;
+                }
+                if ((action.ResizeWhat & ResizeFlags.Width) == ResizeFlags.Width)
+                {
+                    newRect.width = action.Value.width;
+                }
+                if ((action.ResizeWhat & ResizeFlags.Height) == ResizeFlags.Height)
+                {
+                    newRect.height = action.Value.height;
+                }
+
+                noteModel.PositionAndSize = newRect;
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, noteModel);
+            }
+
             return previousState;
         }
 
         static State UpdateStickyNote(State previousState, UpdateStickyNoteAction action)
         {
-            var stickyNoteModel = (StickyNoteModel)action.StickyNoteModel;
+            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Change Sticky Note Content");
+            EditorUtility.SetDirty((Object)previousState.AssetModel);
 
-            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Update Sticky Note");
-            stickyNoteModel.UpdateBasicSettings(action.Title, action.Contents);
-            VSGraphModel graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            graphModel.LastChanges.ChangedElements.Add(stickyNoteModel);
+            action.StickyNoteModel.Title = action.Title;
+            action.StickyNoteModel.Contents = action.Contents;
+
+            previousState.MarkForUpdate(UpdateFlags.UpdateView, action.StickyNoteModel);
             return previousState;
         }
 
         static State UpdateStickyNoteTheme(State previousState, UpdateStickyNoteThemeAction action)
         {
-            VSGraphModel graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-
             Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Change Sticky Note Theme");
-            foreach (var stickyNoteModel in action.StickyNoteModels.OfType<StickyNoteModel>())
+            EditorUtility.SetDirty((Object)previousState.AssetModel);
+
+            foreach (var noteModel in action.Models)
             {
-                stickyNoteModel.UpdateTheme(action.Theme);
-                graphModel.LastChanges.ChangedElements.Add(stickyNoteModel);
+                noteModel.Theme = action.Value;
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, noteModel);
             }
 
             return previousState;
@@ -58,15 +85,15 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         static State UpdateStickyNoteTextSize(State previousState, UpdateStickyNoteTextSizeAction action)
         {
-            VSGraphModel graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Change Sticky Note Text Size");
-            foreach (var stickyNoteModel in action.StickyNoteModels.OfType<StickyNoteModel>())
+            Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Change Sticky Note Font Size");
+            EditorUtility.SetDirty((Object)previousState.AssetModel);
+
+            foreach (var noteModel in action.Models)
             {
-                stickyNoteModel.UpdateTextSize(action.TextSize);
-                graphModel.LastChanges.ChangedElements.Add(stickyNoteModel);
+                noteModel.TextSize = action.Value;
+                previousState.MarkForUpdate(UpdateFlags.UpdateView, noteModel);
             }
 
-            previousState.MarkForUpdate(UpdateFlags.GraphTopology);
             return previousState;
         }
     }

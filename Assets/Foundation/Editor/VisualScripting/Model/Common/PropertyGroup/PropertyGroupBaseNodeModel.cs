@@ -43,10 +43,10 @@ namespace UnityEditor.Modifier.VisualScripting.Model
 
         public TypeHandle GetConnectedInstanceType()
         {
-            if (InstancePort == null || !InstancePort.Connected)
+            if (InstancePort == null || !InstancePort.IsConnected)
                 return TypeHandle.Unknown;
 
-            return InstancePort.DataType;
+            return InstancePort.DataTypeHandle;
         }
 
         public void AddMember(Type type, string memberName)
@@ -64,9 +64,9 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             if (selfConnectedPortModel.Direction != Direction.Input || otherConnectedPortModel == null)
                 return;
 
-            if (((PortModel)selfConnectedPortModel).DataType != otherConnectedPortModel.DataType)
+            if (((PortModel)selfConnectedPortModel).DataTypeHandle != otherConnectedPortModel.DataTypeHandle)
             {
-                ((PortModel)selfConnectedPortModel).DataType = otherConnectedPortModel.DataType;
+                ((PortModel)selfConnectedPortModel).DataTypeHandle = otherConnectedPortModel.DataTypeHandle;
                 // TODO member types might have changed (ie. new instance type has a member with the same name
                 // as the previous one, but a different type: struct A { int x; } / struct B { float x; }
             }
@@ -77,7 +77,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             if (selfConnectedPortModel.Direction != Direction.Input || selfConnectedPortModel.PortType != PortType.Instance)
                 return;
 
-            ((PortModel)selfConnectedPortModel).DataType = TypeHandle.Unknown;
+            ((PortModel)selfConnectedPortModel).DataTypeHandle = TypeHandle.Unknown;
         }
 
         public void AddMember(TypeMember member)

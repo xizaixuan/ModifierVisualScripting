@@ -79,6 +79,9 @@ namespace Unity.Modifier.GraphElements
 
     public abstract class GraphView : GraphViewBridge, ISelection
     {
+        IStore m_Store;
+        public IStore Store => m_Store;
+
         // Layer class. Used for queries below.
         public class Layer : VisualElement { }
 
@@ -89,10 +92,6 @@ namespace Unity.Modifier.GraphElements
 
         public delegate GraphViewChange GraphViewChanged(GraphViewChange graphViewChange);
         public GraphViewChanged graphViewChanged { get; set; }
-
-        public Action<Group, string> groupTitleChanged { get; set; }
-        public Action<Group, IEnumerable<GraphElement>> elementsAddedToGroup { get; set; }
-        public Action<Group, IEnumerable<GraphElement>> elementsRemovedFromGroup { get; set; }
 
         public Action<StackNode, int, IEnumerable<GraphElement>> elementsInsertedToStackNode { get; set; }
         public Action<StackNode, IEnumerable<GraphElement>> elementsRemovedFromStackNode { get; set; }
@@ -169,12 +168,6 @@ namespace Unity.Modifier.GraphElements
 
         VisualElement graphViewContainer { get; }
 
-        // TODO: Remove!
-        public VisualElement viewport
-        {
-            get { return this; }
-        }
-
         public void UpdateViewTransform(Vector3 newPosition, Vector3 newScale)
         {
             float validateFloat = newPosition.x + newPosition.y + newPosition.z + newScale.x + newScale.y + newScale.z;
@@ -238,8 +231,10 @@ namespace Unity.Modifier.GraphElements
             return false;
         }
 
-        protected GraphView()
+        protected GraphView(IStore store)
         {
+            m_Store = store;
+
             AddToClassList("graphView");
 
             this.SetRenderHintsForGraphView();
@@ -266,7 +261,7 @@ namespace Unity.Modifier.GraphElements
             graphViewContainer.Add(contentViewContainer);
 
             this.AddStylesheet("GraphView.uss");
-            graphElements = contentViewContainer.Query<GraphElement>().Where(e => !(e is Port)).Build();
+            graphElements = contentViewContainer.Query<GraphElement>().Build();
             allGraphElements = this.Query<GraphElement>().Build();
             nodes = contentViewContainer.Query<Node>().Build();
             edges = this.Query<Layer>().Children<Edge>().Build();
@@ -688,12 +683,12 @@ namespace Unity.Modifier.GraphElements
                 evt.menu.AppendAction("Create Node", OnContextMenuNodeCreate, DropdownMenuAction.AlwaysEnabled);
                 evt.menu.AppendSeparator();
             }
-            if (evt.target is GraphView || evt.target is Node || evt.target is Group)
+            if (evt.target is GraphView || evt.target is Node)
             {
                 evt.menu.AppendAction("Cut", (a) => { CutSelectionCallback(); },
                     (a) => { return canCutSelection ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled; });
             }
-            if (evt.target is GraphView || evt.target is Node || evt.target is Group)
+            if (evt.target is GraphView || evt.target is Node)
             {
                 evt.menu.AppendAction("Copy", (a) => { CopySelectionCallback(); },
                     (a) => { return canCopySelection ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled; });
@@ -703,13 +698,13 @@ namespace Unity.Modifier.GraphElements
                 evt.menu.AppendAction("Paste", (a) => { PasteCallback(); },
                     (a) => { return canPaste ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled; });
             }
-            if (evt.target is GraphView || evt.target is Node || evt.target is Group || evt.target is Edge)
+            if (evt.target is GraphView || evt.target is Node || evt.target is Edge)
             {
                 evt.menu.AppendSeparator();
-                evt.menu.AppendAction("Delete", (a) => { DeleteSelectionCallback(AskUser.DontAskUser); },
+                evt.menu.AppendAction("Delete", (a) => { DeleteSelection(); },
                     (a) => { return canDeleteSelection ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled; });
             }
-            if (evt.target is GraphView || evt.target is Node || evt.target is Group)
+            if (evt.target is GraphView || evt.target is Node)
             {
                 evt.menu.AppendSeparator();
                 evt.menu.AppendAction("Duplicate", (a) => { DuplicateSelectionCallback(); },
@@ -793,7 +788,7 @@ namespace Unity.Modifier.GraphElements
             base.OnLeavePanel();
         }
 
-        void OnKeyDownShortcut(KeyDownEvent evt)
+        protected void OnKeyDownShortcut(KeyDownEvent evt)
         {
             if (!isReframable)
                 return;
@@ -881,12 +876,6 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        public enum AskUser
-        {
-            AskUser,
-            DontAskUser
-        }
-
         internal void OnExecuteCommand(ExecuteCommandEvent evt)
         {
             if (panel.GetCapturingElement(PointerId.mousePointerId) != null)
@@ -914,12 +903,12 @@ namespace Unity.Modifier.GraphElements
             }
             else if (evt.commandName == EventCommandNames.Delete)
             {
-                DeleteSelectionCallback(AskUser.DontAskUser);
+                DeleteSelection();
                 evt.StopPropagation();
             }
             else if (evt.commandName == EventCommandNames.SoftDelete)
             {
-                DeleteSelectionCallback(AskUser.AskUser);
+                DeleteSelection("Delete", DeleteElementsAction.AskUser.AskUser);
                 evt.StopPropagation();
             }
             else if (evt.commandName == EventCommandNames.FrameSelected)
@@ -967,20 +956,18 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        protected internal virtual bool canCopySelection =>
-            selection.Any(s => s is Node || s is Group || s is Placemat);
+        protected virtual bool canCopySelection =>
+            selection.Cast<GraphElement>().Any(ge => ge.IsCopiable());
 
-        public static void CollectElements(IEnumerable<GraphElement> elements, HashSet<GraphElement> collectedElementSet, Func<GraphElement, bool> conditionFunc)
+        static void CollectElements(IEnumerable<GraphElement> elements, HashSet<GraphElement> collectedElementSet, Func<GraphElement, bool> conditionFunc)
         {
             foreach (var element in elements.Where(e => e != null && !collectedElementSet.Contains(e) && conditionFunc(e)))
             {
-                var collectibleElement = element as ICollectibleElement;
-                collectibleElement?.CollectElements(collectedElementSet, conditionFunc);
                 collectedElementSet.Add(element);
             }
         }
 
-        protected internal virtual void CollectCopyableGraphElements(IEnumerable<GraphElement> elements, HashSet<GraphElement> elementsToCopySet)
+        protected virtual void CollectCopyableGraphElements(IEnumerable<GraphElement> elements, HashSet<GraphElement> elementsToCopySet)
         {
             CollectElements(elements, elementsToCopySet, e => e.IsCopiable());
 
@@ -999,7 +986,7 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        protected internal void CopySelectionCallback()
+        protected void CopySelectionCallback()
         {
             var elementsToCopySet = new HashSet<GraphElement>();
 
@@ -1013,31 +1000,25 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        protected internal virtual bool canCutSelection =>
-            selection.Any(s => s is Node || s is Group || s is Placemat);
+        protected virtual bool canCutSelection =>
+            selection.Any(s => s is Node || s is Placemat);
 
-        protected internal void CutSelectionCallback()
+        protected void CutSelectionCallback()
         {
             CopySelectionCallback();
-            DeleteSelectionOperation("Cut", AskUser.DontAskUser);
+            DeleteSelection("Cut");
         }
 
-        protected internal virtual bool canPaste
-        {
-            get { return CanPasteSerializedData(clipboard); }
-        }
+        protected virtual bool canPaste => CanPasteSerializedData(clipboard);
 
-        protected internal void PasteCallback()
+        protected void PasteCallback()
         {
             UnserializeAndPasteOperation("Paste", clipboard);
         }
 
-        protected internal virtual bool canDuplicateSelection
-        {
-            get { return canCopySelection; }
-        }
+        protected virtual bool canDuplicateSelection => canCopySelection;
 
-        protected internal void DuplicateSelectionCallback()
+        void DuplicateSelectionCallback()
         {
             var elementsToCopySet = new HashSet<GraphElement>();
 
@@ -1052,24 +1033,18 @@ namespace Unity.Modifier.GraphElements
         {
             get
             {
-                return selection.Cast<GraphElement>().Any(e => e != null && (e.capabilities & Capabilities.Deletable) != 0);
+                return selection.Cast<GraphElement>().Any(e => e != null && e.IsDeletable());
             }
-        }
-
-        protected internal void DeleteSelectionCallback(AskUser askUser)
-        {
-            DeleteSelectionOperation("Delete", askUser);
         }
 
         public delegate string SerializeGraphElementsDelegate(IEnumerable<GraphElement> elements);
         public delegate bool CanPasteSerializedDataDelegate(string data);
         public delegate void UnserializeAndPasteDelegate(string operationName, string data);
-        public delegate void DeleteSelectionDelegate(string operationName, AskUser askUser);
+        public delegate void DeleteSelectionDelegate(string operationName, DeleteElementsAction.AskUser askUser);
 
         public SerializeGraphElementsDelegate serializeGraphElements { get; set; }
         public CanPasteSerializedDataDelegate canPasteSerializedData { get; set; }
         public UnserializeAndPasteDelegate unserializeAndPaste { get; set; }
-        public DeleteSelectionDelegate deleteSelection { get; set; }
 
         const string m_SerializedDataMimeType = "application/vnd.unity.graphview.elements";
 
@@ -1125,24 +1100,12 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        protected void DeleteSelectionOperation(string operationName, AskUser askUser)
-        {
-            if (deleteSelection != null)
-            {
-                deleteSelection(operationName, askUser);
-            }
-            else
-            {
-                DeleteSelection();
-            }
-        }
-
-        public virtual List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
+        public virtual List<Port> GetCompatiblePorts(IGTFPortModel startPort, NodeAdapter nodeAdapter)
         {
             return ports.ToList().Where(nap =>
-                nap.direction != startPort.direction &&
-                nap.node != startPort.node &&
-                nodeAdapter.GetAdapter(nap.source, startPort.source) != null)
+                nap.PortModel.Direction != startPort.Direction &&
+                nap.PortModel.NodeModel != startPort.NodeModel &&
+                nodeAdapter.GetAdapter(nap.PortModel, startPort) != null)
                 .ToList();
         }
 
@@ -1168,13 +1131,6 @@ namespace Unity.Modifier.GraphElements
 
         public void RemoveElement(GraphElement graphElement)
         {
-            // TODO : Find a better way to remove a graphElement from its scope when it is removed from the GraphView.
-            Scope scope = graphElement.GetContainingScope();
-            if (scope != null)
-            {
-                scope.RemoveElement(graphElement);
-            }
-
             StackNode stack = graphElement.parent as StackNode;
             if (stack != null)
             {
@@ -1188,34 +1144,12 @@ namespace Unity.Modifier.GraphElements
             graphElement.RemoveFromHierarchy();
         }
 
-        private void CollectDeletableGraphElements(IEnumerable<GraphElement> elements, HashSet<GraphElement> elementsToRemoveSet)
+        public void DeleteSelection(string operationName = "Delete", DeleteElementsAction.AskUser askUser = DeleteElementsAction.AskUser.DontAskUser)
         {
-            CollectElements(elements, elementsToRemoveSet, e => (e.capabilities & Capabilities.Deletable) == Capabilities.Deletable);
-        }
-
-        public virtual EventPropagation DeleteSelection()
-        {
-            var elementsToRemoveSet = new HashSet<GraphElement>();
-
-            CollectDeletableGraphElements(selection.OfType<GraphElement>(), elementsToRemoveSet);
-
-            var previouslyCollapsedElements = new HashSet<GraphElement>();
-            // For each collapsed placemat, expand and keep list of elements over the expanded placemat
-            foreach (var placemat in elementsToRemoveSet.OfType<Placemat>().Where(p => p.Collapsed))
-            {
-                previouslyCollapsedElements.UnionWith(placemat.CollapsedElements);
-                placemat.Collapsed = false;
-            }
-
-            DeleteElements(elementsToRemoveSet);
-
-            selection.Clear();
-
-            // Add "expanded placemats" elements to selection now.
-            foreach (var ge in previouslyCollapsedElements)
-                AddToSelection(ge);
-
-            return (elementsToRemoveSet.Count > 0) ? EventPropagation.Stop : EventPropagation.Continue;
+            IGTFGraphElementModel[] elementsToRemove = selection.Cast<GraphElement>()
+                .Select(x => x.Model)
+                .Where(m => m != null).ToArray(); // 'this' has no model
+            m_Store.Dispatch(new DeleteElementsAction(operationName, askUser, elementsToRemove));
         }
 
         public void DeleteElements(IEnumerable<GraphElement> elementsToRemove)
@@ -1228,19 +1162,6 @@ namespace Unity.Modifier.GraphElements
             if (graphViewChanged != null)
             {
                 elementsToRemoveList = graphViewChanged(m_GraphViewChange).elementsToRemove;
-            }
-
-            // Notify the ends of connections that the connection is going way.
-            foreach (var connection in elementsToRemoveList.OfType<Edge>())
-            {
-                if (connection.output != null)
-                    connection.output.Disconnect(connection);
-
-                if (connection.input != null)
-                    connection.input.Disconnect(connection);
-
-                connection.output = null;
-                connection.input = null;
             }
 
             foreach (GraphElement element in elementsToRemoveList)
@@ -1339,7 +1260,7 @@ namespace Unity.Modifier.GraphElements
                 {
                     // Edges don't have a size. Only their internal EdgeControl have a size.
                     if (graphElement is Edge)
-                        graphElement = (graphElement as Edge).edgeControl;
+                        graphElement = (graphElement as Edge).EdgeControl;
                     rectToFit = graphElement.ChangeCoordinatesTo(contentViewContainer, graphElement.GetRect());
                 }
 
@@ -1348,7 +1269,7 @@ namespace Unity.Modifier.GraphElements
                     {
                         VisualElement currentElement = currentGraphElement;
                         if (currentGraphElement is Edge)
-                            currentElement = (currentGraphElement as Edge).edgeControl;
+                            currentElement = (currentGraphElement as Edge).EdgeControl;
                         return RectUtils.Encompass(current, currentElement.ChangeCoordinatesTo(contentViewContainer, currentElement.GetRect()));
                     });
                 CalculateFrameTransform(rectToFit, layout, k_FrameBorder, out frameTranslation, out frameScaling);
@@ -1389,7 +1310,7 @@ namespace Unity.Modifier.GraphElements
 
             graphElements.ForEach(ge =>
             {
-                if (ge is Edge || ge is Port)
+                if (ge is Edge)
                 {
                     return;
                 }

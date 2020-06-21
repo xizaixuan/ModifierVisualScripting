@@ -27,11 +27,6 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
     public interface IStickyNoteModel : IGraphElementModel
     {
-        string Title { get; }
-        string Contents { get; }
-        Rect Position { get; }
-        StickyNoteColorTheme Theme { get; }
-        StickyNoteTextSize TextSize { get; }
         bool Destroyed { get; }
     }
 }

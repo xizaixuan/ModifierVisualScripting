@@ -7,9 +7,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     public class BlackboardThisField : BlackboardField, IHighlightable, IVisualScriptingField, IHasGraphElementModel
     {
-        readonly VseGraphView m_GraphView;
-
-        public IGraphElementModel GraphElementModel => userData as IGraphElementModel;
+        public IGraphElementModel GraphElementModel => Model as IGraphElementModel;
         public IGraphElementModel ExpandableGraphElementModel => null;
 
         public void Expand() { }
@@ -23,8 +21,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public BlackboardThisField(VseGraphView graphView, ThisNodeModel nodeModel, IGraphModel graphModel)
         {
-            m_GraphView = graphView;
-            userData = nodeModel;
+            Setup(nodeModel, null, graphView);
 
             text = "This";
 
@@ -49,13 +46,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public override void OnSelected()
         {
             base.OnSelected();
-            m_GraphView.HighlightGraphElements();
+            (GraphView as VseGraphView).HighlightGraphElements();
         }
 
         public override void OnUnselected()
         {
             base.OnUnselected();
-            m_GraphView.ClearGraphElementsHighlight(ShouldHighlightItemUsage);
+            (GraphView as VseGraphView).ClearGraphElementsHighlight(ShouldHighlightItemUsage);
         }
     }
 }

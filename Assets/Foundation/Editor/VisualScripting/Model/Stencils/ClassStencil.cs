@@ -35,9 +35,6 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         public override StencilCapabilityFlags Capabilities => StencilCapabilityFlags.SupportsMacros;
         public override IBuilder Builder => RoslynCompiler.DefaultBuilder;
 
-        static readonly HighLevelNodeImguiVisitor k_PropertyVisitor = new HighLevelNodeImguiVisitor();
-        public override HighLevelNodeImguiVisitor PropertyVisitor => k_PropertyVisitor;
-
         public override void PreProcessGraph(VSGraphModel graphModel)
         {
             new PortInitializationTraversal().VisitGraph(graphModel);

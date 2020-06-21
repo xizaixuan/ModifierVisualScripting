@@ -27,8 +27,9 @@ namespace UnityEditor.Modifier.EditorCommon.Redux
             {
                 Type actionType = typeof(TAction);
 
-                if (m_Reducers.ContainsKey(actionType))
-                    throw new InvalidOperationException("Redux: Cannot register two reducers for action " + actionType.Name);
+                // PF: Accept reducer overrides for now. Need a better solution.
+                //if (m_Reducers.ContainsKey(actionType))
+                //    throw new InvalidOperationException("Redux: Cannot register two reducers for action " + actionType.Name);
                 m_Reducers[actionType] = reducer;
             }
         }

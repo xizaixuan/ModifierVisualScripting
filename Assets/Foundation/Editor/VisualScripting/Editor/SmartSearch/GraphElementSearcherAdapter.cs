@@ -60,7 +60,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
             var elements = CreateGraphElements(searcherItem).ToList();
             foreach (var element in elements.Where(element => element is INodeModel || element is IStickyNoteModel))
             {
-                var node = GraphElementFactory.CreateUI(graphView, graphView.Store, element);
+                var node = GraphElementFactory.CreateUI<GraphElement>(graphView, graphView.Store, element as IGTFGraphElementModel);
                 if (node != null)
                 {
                     node.style.position = Position.Relative;

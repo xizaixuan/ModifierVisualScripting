@@ -3,8 +3,14 @@ using UnityEditor.Modifier.EditorCommon.Redux;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEngine;
 
-namespace UnityEditor.Modifier.VisualScripting.Editor
+namespace UnityEditor.Modifier.GraphElements
 {
+    public abstract class GenericStickyNoteAction<DataType> : GenericModelAction<IGTFStickyNoteModel, DataType>
+    {
+        public GenericStickyNoteAction(IGTFStickyNoteModel[] models, DataType value)
+            : base(models, value) { }
+    }
+
     public class CreateStickyNoteAction : IAction
     {
         public readonly Rect Position;
@@ -13,17 +19,46 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             Position = position;
         }
+
+        public static TState DefaultReducer<TState>(TState previousState, CreateStickyNoteAction action) where TState : State
+        {
+            return previousState;
+        }
     }
 
-    public class ResizeStickyNoteAction : IAction
+    public class ResizeStickyNoteAction : GenericStickyNoteAction<Rect>
     {
-        public readonly Rect Position;
-        public readonly IStickyNoteModel StickyNoteModel;
+        public ResizeFlags ResizeWhat;
 
-        public ResizeStickyNoteAction(IStickyNoteModel stickyNoteModel, Rect position)
+        public ResizeStickyNoteAction(IGTFStickyNoteModel stickyNoteModel, Rect position, ResizeFlags resizeWhat)
+            : base(new[] { stickyNoteModel }, position)
         {
-            StickyNoteModel = stickyNoteModel;
-            Position = position;
+            ResizeWhat = resizeWhat;
+        }
+
+        public static TState DefaultReducer<TState>(TState previousState, ResizeStickyNoteAction action) where TState : State
+        {
+            var newRect = action.Models[0].PositionAndSize;
+            if ((action.ResizeWhat & ResizeFlags.Left) == ResizeFlags.Left)
+            {
+                newRect.x = action.Value.x;
+            }
+            if ((action.ResizeWhat & ResizeFlags.Top) == ResizeFlags.Top)
+            {
+                newRect.y = action.Value.y;
+            }
+            if ((action.ResizeWhat & ResizeFlags.Width) == ResizeFlags.Width)
+            {
+                newRect.width = action.Value.width;
+            }
+            if ((action.ResizeWhat & ResizeFlags.Height) == ResizeFlags.Height)
+            {
+                newRect.height = action.Value.height;
+            }
+
+            action.Models[0].PositionAndSize = newRect;
+
+            return previousState;
         }
     }
 
@@ -31,37 +66,49 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
     {
         public readonly string Title;
         public readonly string Contents;
-        public readonly IStickyNoteModel StickyNoteModel;
+        public readonly IGTFStickyNoteModel StickyNoteModel;
 
-        public UpdateStickyNoteAction(IStickyNoteModel stickyNoteModel, string title, string contents)
+        public UpdateStickyNoteAction(IGTFStickyNoteModel stickyNoteModel, string title, string contents)
         {
             StickyNoteModel = stickyNoteModel;
             Title = title;
             Contents = contents;
         }
-    }
 
-    public class UpdateStickyNoteThemeAction : IAction
-    {
-        public readonly StickyNoteColorTheme Theme;
-        public readonly List<IStickyNoteModel> StickyNoteModels;
-
-        public UpdateStickyNoteThemeAction(List<IStickyNoteModel> stickyNoteModels, StickyNoteColorTheme theme)
+        public static TState DefaultReducer<TState>(TState previousState, UpdateStickyNoteAction action) where TState : State
         {
-            StickyNoteModels = stickyNoteModels;
-            Theme = theme;
+            action.StickyNoteModel.Title = action.Title;
+            action.StickyNoteModel.Contents = action.Contents;
+
+            return previousState;
         }
     }
 
-    public class UpdateStickyNoteTextSizeAction : IAction
+    public class UpdateStickyNoteThemeAction : GenericStickyNoteAction<string>
     {
-        public readonly StickyNoteTextSize TextSize;
-        public readonly List<IStickyNoteModel> StickyNoteModels;
+        public UpdateStickyNoteThemeAction(IGTFStickyNoteModel[] stickyNoteModels, string theme)
+            : base(stickyNoteModels, theme) { }
 
-        public UpdateStickyNoteTextSizeAction(List<IStickyNoteModel> stickyNoteModels, StickyNoteTextSize textSize)
+        public static TState DefaultReducer<TState>(TState previousState, UpdateStickyNoteThemeAction action) where TState : State
         {
-            StickyNoteModels = stickyNoteModels;
-            TextSize = textSize;
+            foreach (var model in action.Models)
+                model.Theme = action.Value;
+
+            return previousState;
+        }
+    }
+
+    public class UpdateStickyNoteTextSizeAction : GenericStickyNoteAction<string>
+    {
+        public UpdateStickyNoteTextSizeAction(IGTFStickyNoteModel[] stickyNoteModels, string textSize)
+            : base(stickyNoteModels, textSize) { }
+
+        public static TState DefaultReducer<TState>(TState previousState, UpdateStickyNoteTextSizeAction action) where TState : State
+        {
+            foreach (var model in action.Models)
+                model.TextSize = action.Value;
+
+            return previousState;
         }
     }
 }

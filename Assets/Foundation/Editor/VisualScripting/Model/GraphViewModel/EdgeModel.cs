@@ -9,7 +9,7 @@ using UnityEngine.Assertions;
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
     [Serializable]
-    public class EdgeModel : IEdgeModel, IUndoRedoAware
+    public class EdgeModel : IEdgeModel, IUndoRedoAware, IGTFEdgeModel
     {
         [Serializable]
         internal struct PortReference
@@ -61,7 +61,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
                 //                Debug.Log($"OBS {NodeModel} {direction} {UniqueId}");
 
-                var nodemodel2 = nodeModel.GraphModel.NodesByGuid[nodeModel.Guid];
+                var nodemodel2 = (nodeModel.VSGraphModel)?.NodesByGuid[nodeModel.Guid];
                 if (nodemodel2 != nodeModel)
                 {
                     NodeModel = nodemodel2;
@@ -74,7 +74,11 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
             public override string ToString()
             {
-                return $"{GraphAssetModel?.GetInstanceID()}:{NodeModelGuid}@{UniqueId}";
+                if (GraphAssetModel != null)
+                {
+                    return $"{GraphAssetModel.GetInstanceID()}:{NodeModelGuid}@{UniqueId}";
+                }
+                return String.Empty;
             }
         }
 
@@ -89,30 +93,36 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         IPortModel m_OutputPortModel;
 
         [SerializeField]
-        List<ControlPoint> m_EdgeControlPoints = new List<ControlPoint>();
+        List<EdgeControlPointModel> m_EdgeControlPoints = new List<EdgeControlPointModel>();
 
-        public ReadOnlyCollection<ControlPoint> EdgeControlPoints => m_EdgeControlPoints.AsReadOnly();
+        public ReadOnlyCollection<EdgeControlPointModel> EdgeControlPoints
+        {
+            get
+            {
+                if (m_EdgeControlPoints == null)
+                    m_EdgeControlPoints = new List<EdgeControlPointModel>();
+
+                return m_EdgeControlPoints.AsReadOnly();
+            }
+        }
 
         public void InsertEdgeControlPoint(int atIndex, Vector2 point, float tightness)
         {
-            Undo.RegisterCompleteObjectUndo(GraphModel.AssetModel as GraphAssetModel, "Insert Control Point");
-            GraphModel.LastChanges?.ChangedElements.Add(this);
-            m_EdgeControlPoints.Insert(atIndex, new ControlPoint { Position = point, Tightness = tightness });
+            m_EdgeControlPoints.Insert(atIndex, new EdgeControlPointModel { Position = point, Tightness = tightness });
         }
 
         public void ModifyEdgeControlPoint(int index, Vector2 point, float tightness)
         {
             tightness = Mathf.Clamp(tightness, 0, 500);
-            m_EdgeControlPoints[index] = new ControlPoint { Position = point, Tightness = tightness };
+            m_EdgeControlPoints[index] = new EdgeControlPointModel { Position = point, Tightness = tightness };
         }
 
         public void RemoveEdgeControlPoint(int index)
         {
-            Undo.RegisterCompleteObjectUndo(GraphModel.AssetModel as GraphAssetModel, "Remove Control Point");
-            GraphModel.LastChanges?.ChangedElements.Add(this);
             m_EdgeControlPoints.RemoveAt(index);
         }
 
+        [SerializeField]
         bool m_EditMode;
 
         public bool EditMode
@@ -123,21 +133,25 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         public EdgeModel(IGraphModel graphModel, IPortModel inputPort, IPortModel outputPort)
         {
-            GraphModel = graphModel;
+            VSGraphModel = graphModel;
             SetFromPortModels(inputPort, outputPort);
         }
 
         public ScriptableObject SerializableAsset => m_GraphAssetModel;
         public IGraphAssetModel AssetModel => m_GraphAssetModel;
 
-        public IGraphModel GraphModel
+        public IGraphModel VSGraphModel
         {
-            get => m_GraphAssetModel?.GraphModel;
+            get
+            {
+                if (m_GraphAssetModel != null)
+                    return m_GraphAssetModel.GraphModel;
+                return null;
+            }
             set => m_GraphAssetModel = value?.AssetModel as GraphAssetModel;
         }
 
-        // Capabilities
-        public CapabilityFlags Capabilities => CapabilityFlags.Selectable | CapabilityFlags.Deletable;
+        public IGTFGraphModel GraphModel => VSGraphModel as IGTFGraphModel;
 
         public void SetFromPortModels(IPortModel newInputPortModel, IPortModel newOutputPortModel)
         {
@@ -151,8 +165,11 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         public IPortModel InputPortModel => m_InputPortReference.GetPortModel(Direction.Input, ref m_InputPortModel);
         public IPortModel OutputPortModel => m_OutputPortReference.GetPortModel(Direction.Output, ref m_OutputPortModel);
 
+        public IGTFPortModel ToPort => InputPortModel as IGTFPortModel;
+        public IGTFPortModel FromPort => OutputPortModel as IGTFPortModel;
+
         [SerializeField]
-        string m_EdgeLabel = null;
+        string m_EdgeLabel;
         public string EdgeLabel
         {
             get => m_EdgeLabel ?? OutputPortModel?.Name;
@@ -181,5 +198,24 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             m_InputPortModel = default;
             m_OutputPortModel = default;
         }
+
+        public virtual bool IsDeletable => true;
+
+        public Vector2 Position
+        {
+            get => Vector2.zero;
+            set => throw new NotImplementedException();
+        }
+
+        public void Move(Vector2 delta)
+        {
+            for (var i = 0; i < EdgeControlPoints.Count; i++)
+            {
+                var point = EdgeControlPoints[i];
+                ModifyEdgeControlPoint(i, point.Position + delta, point.Tightness);
+            }
+        }
+
+        public bool IsCopiable => true;
     }
 }

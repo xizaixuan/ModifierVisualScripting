@@ -13,9 +13,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         public static void Register(Store store)
         {
             store.Register<CreateVariableNodesAction>(CreateVariableNodes);
-            store.Register<CreateFunctionVariableDeclarationAction>(CreateFunctionVariableDeclaration);
-            store.Register<CreateFunctionParameterDeclarationAction>(CreateFunctionParameterDeclaration);
-            store.Register<DuplicateFunctionVariableDeclarationsAction>(DuplicateFunctionVariableDeclarations);
             store.Register<CreateGraphVariableDeclarationAction>(CreateGraphVariableDeclaration);
             store.Register<DuplicateGraphVariableDeclarationsAction>(DuplicateGraphVariableDeclarations);
             store.Register<CreateConstantNodeAction>(CreateConstantNode);
@@ -24,6 +21,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             store.Register<ConvertVariableNodesToConstantNodesAction>(ConvertVariableNodesToConstantNodes);
             store.Register<ConvertConstantNodesToVariableNodesAction>(ConvertConstantNodesToVariableNodes);
             store.Register<MoveVariableDeclarationAction>(MoveVariableDeclaration);
+            store.Register<ReorderVariableDeclarationAction>(ReorderVariableDeclaration);
             store.Register<ItemizeVariableNodeAction>(ItemizeVariableNode);
             store.Register<ItemizeConstantNodeAction>(ItemizeConstantNode);
             store.Register<ItemizeSystemConstantNodeAction>(ItemizeSystemConstantNode);
@@ -43,7 +41,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     // Delete previous connections
                     if (action.EdgeModelsToDelete.Any())
                     {
-                        ((VSGraphModel)previousState.CurrentGraphModel).DeleteEdges(action.EdgeModelsToDelete);
+                        ((VSGraphModel)previousState.CurrentGraphModel).DeleteEdges(action.EdgeModelsToDelete.OfType<IEdgeModel>());
                     }
                 }
 
@@ -64,36 +62,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 }
             }
 
-            return previousState;
-        }
-
-        static State CreateFunctionVariableDeclaration(State previousState, CreateFunctionVariableDeclarationAction action)
-        {
-            var functionModel = ((FunctionModel)action.FunctionModel);
-            Undo.RegisterCompleteObjectUndo(functionModel.SerializableAsset, "Create Function Variable");
-            VariableDeclarationModel variableDeclarationModel = functionModel.CreateFunctionVariableDeclaration(action.Name, action.Type);
-            previousState.EditorDataModel.ElementModelToRename = variableDeclarationModel;
-            return previousState;
-        }
-
-        static State CreateFunctionParameterDeclaration(State previousState, CreateFunctionParameterDeclarationAction action)
-        {
-            var functionModel = ((FunctionModel)action.FunctionModel);
-            VariableDeclarationModel variableDeclarationModel = functionModel.FindOrCreateParameterDeclaration(action.Name, action.Type);
-            Undo.RegisterCompleteObjectUndo(functionModel.SerializableAsset, "Create Function Parameter");
-            functionModel.RegisterFunctionParameterDeclaration(variableDeclarationModel);
-            previousState.EditorDataModel.ElementModelToRename = variableDeclarationModel;
-            previousState.MarkForUpdate(UpdateFlags.RequestRebuild);
-            return previousState;
-        }
-
-        static State DuplicateFunctionVariableDeclarations(State previousState, DuplicateFunctionVariableDeclarationsAction action)
-        {
-            var functionModel = ((FunctionModel)action.FunctionModel);
-            Undo.RegisterCompleteObjectUndo(functionModel.SerializableAsset, "Create Function Declarations");
-            List<VariableDeclarationModel> duplicatedModels = functionModel.DuplicateFunctionVariableDeclarations(action.VariableDeclarationModels);
-            previousState.EditorDataModel?.SelectElementsUponCreation(duplicatedModels, true);
-            previousState.MarkForUpdate(UpdateFlags.GraphTopology);
             return previousState;
         }
 
@@ -193,6 +161,22 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         {
             var vsGraphModel = (VSGraphModel)previousState.CurrentGraphModel;
             vsGraphModel.MoveVariableDeclaration(action.VariableDeclarationModel, action.Destination);
+            return previousState;
+        }
+
+        static State ReorderVariableDeclaration(State previousState, ReorderVariableDeclarationAction action)
+        {
+            if (action.VariableDeclarationModel is VariableDeclarationModel variableDeclarationModel)
+            {
+                var currentGraphModel = (VSGraphModel)previousState.CurrentGraphModel;
+                var currentIndex = currentGraphModel.VariableDeclarations.IndexOf(variableDeclarationModel);
+                var insertionIndex = action.Index;
+                if (currentIndex < insertionIndex)
+                    insertionIndex--;
+
+                currentGraphModel.VariableDeclarations.Remove(variableDeclarationModel);
+                currentGraphModel.VariableDeclarations.Insert(insertionIndex, variableDeclarationModel);
+            }
             return previousState;
         }
 
@@ -301,7 +285,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
                 action.VariableDeclarationModel.DataType = action.Handle;
 
-                foreach (var usage in graphModel.FindUsages(action.VariableDeclarationModel))
+                foreach (var usage in graphModel.FindUsages<VariableNodeModel>(action.VariableDeclarationModel))
                     usage.UpdateTypeFromDeclaration();
 
                 previousState.MarkForUpdate(UpdateFlags.RequestRebuild);

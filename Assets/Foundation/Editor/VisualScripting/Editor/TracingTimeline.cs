@@ -22,23 +22,27 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         AnimEditorOverlay m_Overlay;
         TimelineState m_State;
 
-        public bool Dirty { get; internal set; }
-
         public TracingTimeline(VseGraphView vseGraphView, State vsWindowState, IMGUIContainer imguiContainer)
         {
             m_VseGraphView = vseGraphView;
             m_VSWindowState = vsWindowState;
             m_ImguiContainer = imguiContainer;
             m_TimeArea = new TimeArea();
-            m_Overlay = new AnimEditorOverlay();
+            m_Overlay = new AnimEditorOverlay() { PlayHeadColor = new Color(0.2117647F, 0.6039216F, 0.8F) };
             m_State = new TimelineState(m_TimeArea);
             m_Overlay.state = m_State;
-        }
 
-        public void SyncVisible()
-        {
-            if (m_ImguiContainer.style.display.value == DisplayStyle.Flex != m_VSWindowState.EditorDataModel.TracingEnabled)
-                m_ImguiContainer.style.display = m_VSWindowState.EditorDataModel.TracingEnabled ? DisplayStyle.Flex : DisplayStyle.None;
+            var debugger = m_VSWindowState?.CurrentGraphModel?.Stencil?.Debugger;
+            IGraphTrace trace = debugger?.GetGraphTrace(m_VSWindowState?.CurrentGraphModel,
+                m_VSWindowState.CurrentTracingTarget);
+            if (trace?.AllFrames != null && trace.AllFrames.Count > 0)
+            {
+                int firstFrame = trace.AllFrames[0].Frame;
+                int lastFrame = trace.AllFrames[trace.AllFrames.Count - 1].Frame;
+                m_TimeArea.SetShownRange(
+                    firstFrame - k_MinTimeVisibleOnTheRight,
+                    lastFrame + k_MinTimeVisibleOnTheRight);
+            }
         }
 
         public void OnGUI(Rect timeRect)
@@ -55,8 +59,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             GUI.BeginGroup(timeRect);
 
-            var debugger = m_VSWindowState?.AssetModel?.GraphModel?.Stencil?.Debugger;
-            IGraphTrace trace = debugger?.GetGraphTrace(m_VSWindowState?.AssetModel?.GraphModel, m_VSWindowState.CurrentTracingTarget);
+            var debugger = m_VSWindowState?.CurrentGraphModel?.Stencil?.Debugger;
+            IGraphTrace trace = debugger?.GetGraphTrace(m_VSWindowState?.CurrentGraphModel, m_VSWindowState.CurrentTracingTarget);
             if (trace?.AllFrames != null && trace.AllFrames.Count > 0)
             {
                 float frameDeltaToPixel = m_TimeArea.FrameDeltaToPixel();
@@ -70,7 +74,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     timeRect.yMax - k_FrameRectangleHeight, width, k_FrameRectangleHeight), k_FrameHasDataColor);
 
                 // draw per-node active ranges
-                var framesPerNode = IndexFramesPerNode(m_VSWindowState?.AssetModel?.GraphModel, trace, firstFrame, lastFrame, m_VSWindowState.CurrentTracingTarget, out bool invalidated);
+                var framesPerNode = IndexFramesPerNode(ref s_FramesPerNodeCache, m_VSWindowState?.CurrentGraphModel.Stencil, trace, firstFrame, lastFrame, m_VSWindowState.CurrentTracingTarget, out bool invalidated);
 
                 // while recording in unpaused playmode, adjust the timeline to show all data
                 // same if the cached data changed (eg. Load a trace dump)
@@ -89,12 +93,12 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                         .OfType<INodeModel>()
                         .FirstOrDefault();
 
-                    if (nodeModelSelected != null && framesPerNode.TryGetValue(nodeModelSelected.Guid, out HashSet<(int, int)> frames))
+                    if (nodeModelSelected != null && framesPerNode.TryGetValue(nodeModelSelected.Guid, out List<(int InclusiveFirstFrame, int ExclusiveLastFrame)> frames))
                     {
-                        foreach ((int, int) frameInterval in frames)
+                        foreach (var frameInterval in frames)
                         {
-                            float xStart = m_TimeArea.FrameToPixel(frameInterval.Item1);
-                            float xEnd = m_TimeArea.FrameToPixel(frameInterval.Item2) - frameDeltaToPixel * 0.1f;
+                            float xStart = m_TimeArea.FrameToPixel(frameInterval.InclusiveFirstFrame);
+                            float xEnd = m_TimeArea.FrameToPixel(frameInterval.ExclusiveLastFrame) - Mathf.Min(1, frameDeltaToPixel * 0.1f);
                             Rect rect = new Rect(
                                 xStart,
                                 timeRect.yMin,
@@ -117,12 +121,12 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_Overlay.OnGUI(timeRect, timeRect);
         }
 
-        struct FramesPerNodeCache
+        internal struct FramesPerNodeCache
         {
-            public Dictionary<SerializableGUID, HashSet<(int, int)>> NodeToFrames;
+            public Dictionary<SerializableGUID, List<(int, int)>> NodeToFrames;
             public int FirstFrame;
             public int LastFrame;
-            public IGraphModel GraphModel;
+            public Stencil GraphModel;
             public int EntityId;
         }
 
@@ -131,84 +135,147 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         static readonly Color32 k_FrameHasDataColor = new Color32(38, 80, 154, 200);
         static readonly Color32 k_FrameHasNodeColor = new Color32(255, 255, 255, 62);
 
+        static readonly Dictionary<SerializableGUID, SortedSet<int>> s_FramesPerNodeRaw = new Dictionary<SerializableGUID, SortedSet<int>>();
+
         /// <summary>
-        ///
+        /// Transforms a graph trace (frame to active nodes mapping) to a "node to active frames" mapping, where the active frames are non overlapping intervals of the form (inclusive first frame, exclusive last frame)
         /// </summary>
-        /// <param name="graphModel"></param>
+        /// <param name="cachedIndex">The previous computation</param>
+        /// <param name="stencil"></param>
         /// <param name="trace"></param>
-        /// <param name="firstFrame"></param>
-        /// <param name="lastFrame"></param>
+        /// <param name="firstFrame">Inclusive first frame to compute the mapping for</param>
+        /// <param name="lastFrame">Inclusive last frame to compute the mapping for</param>
         /// <param name="entityId"></param>
         /// <param name="invalidated"></param>
         /// <returns></returns>
-        Dictionary<SerializableGUID, HashSet<(int StartFrame, int EndFrame)>> IndexFramesPerNode(IGraphModel graphModel, IGraphTrace trace, int firstFrame, int lastFrame, int entityId, out bool invalidated)
+        internal static Dictionary<SerializableGUID, List<(int StartFrame, int EndFrame)>> IndexFramesPerNode(ref FramesPerNodeCache cachedIndex, Stencil stencil, IGraphTrace trace, int firstFrame, int lastFrame, int entityId, out bool invalidated)
         {
             invalidated = false;
-            if (s_FramesPerNodeCache.GraphModel == graphModel && s_FramesPerNodeCache.FirstFrame == firstFrame &&
-                s_FramesPerNodeCache.LastFrame == lastFrame && s_FramesPerNodeCache.EntityId == entityId)
-                return s_FramesPerNodeCache.NodeToFrames;
+            bool cachedSameEntityGraph = cachedIndex.GraphModel != null && cachedIndex.GraphModel == stencil &&
+                cachedIndex.EntityId == entityId &&
+                cachedIndex.NodeToFrames != null;
+
+            //simple case: we already computed everything
+            if (cachedSameEntityGraph &&
+                cachedIndex.FirstFrame == firstFrame &&
+                cachedIndex.LastFrame == lastFrame)
+                return cachedIndex.NodeToFrames;
 
             invalidated = true;
             s_IndexFramesPerNodeMarker.Begin();
-            s_FramesPerNodeCache.GraphModel = graphModel;
-            s_FramesPerNodeCache.FirstFrame = firstFrame;
-            s_FramesPerNodeCache.LastFrame = lastFrame;
-            s_FramesPerNodeCache.EntityId = entityId;
 
-            Dictionary<SerializableGUID, HashSet<(int, int)>> framesPerNode;
-            Dictionary<SerializableGUID, SortedSet<int>> framesPerNodeRaw = new Dictionary<SerializableGUID, SortedSet<int>>();
-            if (s_FramesPerNodeCache.NodeToFrames == null)
-                s_FramesPerNodeCache.NodeToFrames = framesPerNode = new Dictionary<SerializableGUID, HashSet<(int, int)>>();
+            s_FramesPerNodeRaw.Clear();
+
+            Dictionary<SerializableGUID, List<(int InclusiveFirstFrame, int ExclusiveLastFrame)>> framesPerNode;
+            if (cachedIndex.NodeToFrames == null)
+            {
+                cachedIndex.NodeToFrames = framesPerNode = new Dictionary<SerializableGUID, List<(int, int)>>();
+                cachedIndex.FirstFrame = firstFrame;
+            }
             else
             {
-                framesPerNode = s_FramesPerNodeCache.NodeToFrames;
-                framesPerNode.Clear();
+                framesPerNode = cachedIndex.NodeToFrames;
+
+                Assert.IsTrue(firstFrame >= cachedIndex.FirstFrame, "Cannot go backward in the past");
+
+                // remove too old intervals
+                foreach (var keyValuePair in framesPerNode)
+                {
+                    var intervals = keyValuePair.Value;
+                    for (int i = 0; i < intervals.Count; i++)
+                    {
+                        // only remove non first-frame-overlapping intervals, keep overlapping ones (eg. if first frame is 12
+                        // and the interval is [10, 14[, keep it. if the interval is [10,11[, remove it)
+                        if (intervals[i].ExclusiveLastFrame <= firstFrame)
+                        {
+                            intervals.RemoveAt(i);
+                            i--;
+                        }
+                    }
+                }
+
+                cachedIndex.FirstFrame = firstFrame;
+                // only compute new frames
+                firstFrame = cachedIndex.LastFrame + 1;
             }
 
             // index individual frames where a node is active
-            foreach (IFrameData frame in trace.AllFrames)
+            for (var index = 0; index < trace.AllFrames.Count; index++)
             {
-                IEnumerable<SerializableGUID> nodes = frame.GetDebuggingSteps(graphModel)
-                    .Where(n => n.NodeModel != null)
-                    .Select(n => (SerializableGUID)n.NodeModel.Guid);
-                foreach (var node in nodes)
+                IFrameData frame = trace.AllFrames[index];
+                if (frame.Frame < firstFrame) // skip
+                    continue;
+                if (frame.Frame > lastFrame) // abort
+                    break;
+                var tracingStepEnumerator = frame.GetDebuggingSteps(stencil).GetEnumerator();
+                while (tracingStepEnumerator.MoveNext())
                 {
-                    if (!framesPerNodeRaw.TryGetValue(node, out var frames))
-                        framesPerNodeRaw.Add(node, frames = new SortedSet<int>());
+                    var node = tracingStepEnumerator.Current.NodeModel;
+                    if (node == null)
+                        continue;
+                    if (!s_FramesPerNodeRaw.TryGetValue(node.Guid, out var frames))
+                        s_FramesPerNodeRaw.Add(node.Guid, frames = new SortedSet<int>());
                     frames.Add(frame.Frame);
                 }
             }
 
-            // compute frame intervals where a node is active
-            foreach (var pair in framesPerNodeRaw)
+            // compute frame intervals where a node is active from the raw individual frames
+            foreach (var pair in s_FramesPerNodeRaw)
             {
                 if (pair.Value.Count == 0)
                     continue;
 
                 if (!framesPerNode.TryGetValue(pair.Key, out var intervals))
-                    framesPerNode.Add(pair.Key, intervals = new HashSet<(int, int)>());
+                    framesPerNode.Add(pair.Key, intervals = new List<(int, int)>());
 
-                int firstNodeFrame = pair.Value.First();
-                // first frame is 3, initial interval is (3,4)
-                (int start, int end) curInterval = (firstNodeFrame, firstNodeFrame + 1);
-                foreach (var i in pair.Value.Skip(1))
+                using (var nodeFramesEnumerator = pair.Value.GetEnumerator())
                 {
-                    // interval was (3,5),  node is not active during frame 5, cur frame is 6
-                    if (i != curInterval.end)
+                    nodeFramesEnumerator.MoveNext();
+                    int firstNodeFrame = nodeFramesEnumerator.Current;
+                    // first frame is 3, initial interval is (3,4)
+                    (int start, int end) curInterval = (firstNodeFrame, firstNodeFrame + 1);
+                    // maybe the first computed frame needs to extend the last cached interval
+                    bool patchLastInterval = intervals.Count > 0 &&
+                        intervals[intervals.Count - 1].ExclusiveLastFrame == firstNodeFrame;
+                    while (nodeFramesEnumerator.MoveNext())
                     {
-                        intervals.Add(curInterval);
-                        curInterval = (i, i + 1);
-                    }
-                    else // current frame is 4, extend cur interval to (3,5)
-                        curInterval.end = i + 1;
-                }
+                        var i = nodeFramesEnumerator.Current;
+                        // interval was (3,5),  node is not active during frame 5, cur frame is 6
+                        if (i != curInterval.end)
+                        {
+                            AddInterval(ref patchLastInterval, intervals, curInterval);
 
-                intervals.Add(curInterval);
+                            curInterval = (i, i + 1);
+                        }
+                        else // current frame is 4, extend cur interval to (3,5)
+                            curInterval.end = i + 1;
+                    }
+
+                    AddInterval(ref patchLastInterval, intervals, curInterval);
+                }
             }
 
             s_IndexFramesPerNodeMarker.End();
 
+            cachedIndex.GraphModel = stencil;
+            cachedIndex.LastFrame = lastFrame;
+            cachedIndex.EntityId = entityId;
+
             return framesPerNode;
+        }
+
+        static void AddInterval(ref bool patchLastInterval,
+            List<(int InclusiveFirstFrame, int ExclusiveLastFrame)> intervals, (int start, int end) curInterval)
+        {
+            if (patchLastInterval)
+            {
+                patchLastInterval = false;
+                var lastInterval = intervals[intervals.Count - 1];
+                lastInterval.ExclusiveLastFrame = curInterval.end;
+                intervals[intervals.Count - 1] = lastInterval;
+            }
+            else
+                intervals.Add(curInterval);
         }
     }
 }

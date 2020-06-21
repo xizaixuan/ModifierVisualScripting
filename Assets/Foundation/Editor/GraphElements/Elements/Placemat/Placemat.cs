@@ -7,43 +7,42 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public class Placemat : GraphElement, IDropTarget
+    public class Placemat : GraphElement, IResizable, IMovable, IDropTarget
     {
         internal static readonly Vector2 k_DefaultCollapsedSize = new Vector2(200, 42);
-        static readonly Color k_DefaultColor = new Color(0.15f, 0.19f, 0.19f);
         static readonly int k_SelectRectOffset = 3;
 
-        protected GraphView m_GraphView;
+        public IGTFPlacematModel PlacematModel => Model as IGTFPlacematModel;
 
         TextField m_TitleField;
         ResizableElement m_Resizer;
         Button m_CollapseButton;
 
-        internal void Init(GraphView graphView)
+        protected ContextualMenuManipulator m_ContextualMenuManipulator;
+
+        public Placemat()
         {
-            m_GraphView = graphView;
-
-            var template = GraphElementsHelper.LoadUXML("PlacematElement.uxml");
-            if (template != null)
-                template.CloneTree(this);
-
-            this.AddStylesheet("Placemat.uss");
-            AddToClassList("placemat");
-            AddToClassList("selectable");
-
-            pickingMode = PickingMode.Position;
-
-            capabilities |= Capabilities.Deletable | Capabilities.Movable | Capabilities.Selectable | Capabilities.Copiable;
-            capabilities &= ~Capabilities.Ascendable;
-
             focusable = true;
+            usageHints = UsageHints.DynamicTransform;
 
             RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
             RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
 
+            m_ContextualMenuManipulator = new ContextualMenuManipulator(BuildContextualMenu);
+            this.AddManipulator(m_ContextualMenuManipulator);
+        }
+
+        protected override void BuildUI()
+        {
+            base.BuildUI();
+
+            GraphElementsHelper.LoadTemplateAndStylesheet(this, "PlacematElement", "ge-placemat");
+
+            AddToClassList("placemat");
+            AddToClassList("selectable");
+
             m_TitleField = this.Q<TextField>();
             m_TitleField.isDelayed = true;
-            this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
 
             m_CollapseButton = this.Q<Button>();
             m_CollapseButton.clicked += () => Collapsed = !Collapsed;
@@ -51,46 +50,54 @@ namespace Unity.Modifier.GraphElements
 
             m_Resizer = this.Q<ResizableElement>();
 
-            if (Collapsed)
+            // PF: Fix this: Placemats are automatically added whereas other elements need to be added manually
+            // with GraphView.AddElement. Furthermore, calling GraphView.AddElement(placemat) will remove it
+            // from the placemat container and add it to the layer 0.
+            GraphView.placematContainer.AddPlacemat(this);
+        }
+
+        public override void UpdateFromModel()
+        {
+            base.UpdateFromModel();
+
+            if (m_TitleField != null)
+                m_TitleField.value = PlacematModel.Title;
+
+            style.backgroundColor = PlacematModel.Color;
+
+            var newPos = PlacematModel.PositionAndSize.position;
+            style.left = newPos.x;
+            style.top = newPos.y;
+
+            CollapseSelf();
+
+            if (PlacematModel.Collapsed)
             {
-                m_Resizer.style.visibility = Visibility.Hidden;
-                m_CollapseButton.RemoveFromClassList("icon-expanded");
+                var collapsedElements = new List<GraphElement>();
+                if (PlacematModel.HiddenElements != null)
+                {
+                    foreach (var elementModel in PlacematModel.HiddenElements)
+                    {
+                        var graphElement = elementModel.GetUI<GraphElement>(GraphView);
+                        if (graphElement != null)
+                            collapsedElements.Add(graphElement);
+                    }
+                }
+
+                GatherCollapsedEdges(collapsedElements);
+                CollapsedElements = collapsedElements;
             }
             else
             {
-                m_Resizer.style.visibility = StyleKeyword.Null;
-                m_CollapseButton.AddToClassList("icon-expanded");
+                CollapsedElements = null;
             }
         }
 
-        string m_Title;
-        public override string title
-        {
-            get { return m_Title; }
-            set
-            {
-                m_Title = value;
-                if (m_TitleField != null)
-                    m_TitleField.value = m_Title;
-            }
-        }
+        public int ZOrder => PlacematModel.ZOrder;
 
-        public virtual int ZOrder { get; set; }
+        internal Vector2 UncollapsedSize => PlacematModel.PositionAndSize.size;
 
-        Color m_Color = k_DefaultColor;
-        public virtual Color Color
-        {
-            get { return m_Color; }
-            set
-            {
-                m_Color = value;
-                style.backgroundColor = value;
-            }
-        }
-
-        public Vector2 UncollapsedSize { get; private set; }
-
-        public Vector2 CollapsedSize
+        Vector2 CollapsedSize
         {
             get
             {
@@ -102,16 +109,16 @@ namespace Unity.Modifier.GraphElements
             }
         }
 
-        public Rect ExpandedPosition => Collapsed ? new Rect(layout.position, UncollapsedSize) : GetPosition();
+        Rect ExpandedPosition => Collapsed ? new Rect(layout.position, UncollapsedSize) : layout;
 
         public override void SetPosition(Rect newPos)
         {
-            if (!Collapsed)
-                UncollapsedSize = newPos.size;
-            else
+            if (Collapsed)
                 newPos.size = CollapsedSize;
 
             base.SetPosition(newPos);
+            style.height = newPos.height;
+            style.width = newPos.width;
         }
 
         PlacematContainer m_PlacematContainer;
@@ -120,70 +127,76 @@ namespace Unity.Modifier.GraphElements
             m_PlacematContainer ?? (m_PlacematContainer = GetFirstAncestorOfType<PlacematContainer>());
 
         HashSet<GraphElement> m_CollapsedElements = new HashSet<GraphElement>();
-        public IEnumerable<GraphElement> CollapsedElements => m_CollapsedElements;
 
-        protected internal void SetCollapsedElements(IEnumerable<GraphElement> collapsedElements)
+        IEnumerable<GraphElement> CollapsedElements
         {
-            if (!Collapsed)
-                return;
-
-            foreach (var collapsedElement in m_CollapsedElements)
-                collapsedElement.style.visibility = StyleKeyword.Null;
-
-            m_CollapsedElements.Clear();
-
-            if (collapsedElements == null)
-                return;
-
-            foreach (var collapsedElement in collapsedElements)
-            {
-                collapsedElement.style.visibility = Visibility.Hidden;
-                m_CollapsedElements.Add(collapsedElement);
-            }
-        }
-
-        internal void HideCollapsedEdges()
-        {
-            var nodes = new HashSet<Node>(AllCollapsedElements.OfType<Node>());
-            foreach (var edge in m_GraphView.edges.ToList())
-                if (AnyNodeIsConnectedToPort(nodes, edge.input) && AnyNodeIsConnectedToPort(nodes, edge.output))
-                {
-                    if (edge.style.visibility != Visibility.Hidden)
-                    {
-                        edge.style.visibility = Visibility.Hidden;
-                        m_CollapsedElements.Add(edge);
-                    }
-                }
-        }
-
-        IEnumerable<GraphElement> AllCollapsedElements
-        {
-            get
-            {
-                foreach (var graphElement in CollapsedElements)
-                {
-                    var placemat = graphElement as Placemat;
-                    if (placemat != null && placemat.Collapsed)
-                        foreach (var subElement in placemat.AllCollapsedElements)
-                            yield return subElement;
-
-                    yield return graphElement;
-                }
-            }
-        }
-
-        bool m_Collapsed;
-
-        public virtual bool Collapsed
-        {
-            get { return m_Collapsed; }
+            get => m_CollapsedElements;
             set
             {
-                if (m_Collapsed != value)
+                foreach (var collapsedElement in m_CollapsedElements)
                 {
-                    m_Collapsed = value;
-                    CollapseSelf();
-                    ShowHideCollapsedElements();
+                    collapsedElement.style.visibility = StyleKeyword.Null;
+                }
+
+                foreach (var node in AllCollapsedElements(m_CollapsedElements).OfType<Node>())
+                {
+                    node.MarkEdgesDirty();
+                }
+
+                m_CollapsedElements.Clear();
+
+                if (value == null)
+                    return;
+
+                foreach (var collapsedElement in value)
+                {
+                    collapsedElement.style.visibility = Visibility.Hidden;
+                    m_CollapsedElements.Add(collapsedElement);
+                }
+
+                foreach (var node in AllCollapsedElements(m_CollapsedElements).OfType<Node>())
+                {
+                    node.MarkEdgesDirty();
+                }
+            }
+        }
+
+        static IEnumerable<GraphElement> AllCollapsedElements(IEnumerable<GraphElement> collapsedElements)
+        {
+            if (collapsedElements != null)
+            {
+                foreach (var element in collapsedElements)
+                {
+                    switch (element)
+                    {
+                        case Placemat placemat when placemat.Collapsed:
+                            {
+                                // TODO: evaluate performance of this recursive call.
+                                foreach (var subElement in AllCollapsedElements(placemat.CollapsedElements))
+                                    yield return subElement;
+                                yield return element;
+                                break;
+                            }
+                        case Placemat placemat when !placemat.Collapsed:
+                            yield return element;
+                            break;
+                        case Node nodeModel:
+                            yield return nodeModel;
+                            break;
+                    }
+                }
+            }
+        }
+
+        public bool Collapsed
+        {
+            get => PlacematModel.Collapsed;
+            set
+            {
+                if (PlacematModel.Collapsed != value)
+                {
+                    var collapsedModels = value ? GatherCollapsedElements() : null;
+                    Store.Dispatch(new ExpandOrCollapsePlacematAction(value, collapsedModels, PlacematModel));
                 }
             }
         }
@@ -192,14 +205,16 @@ namespace Unity.Modifier.GraphElements
         {
             if (Collapsed)
             {
-                this.SetLayout(new Rect(layout.position, CollapsedSize));
+                style.width = CollapsedSize.x;
+                style.height = CollapsedSize.y;
 
                 if (m_Resizer != null)
                     m_Resizer.style.visibility = Visibility.Hidden;
             }
             else
             {
-                this.SetLayout(new Rect(layout.position, UncollapsedSize));
+                style.width = UncollapsedSize.x;
+                style.height = UncollapsedSize.y;
 
                 if (m_Resizer != null)
                     m_Resizer.style.visibility = StyleKeyword.Null;
@@ -208,118 +223,90 @@ namespace Unity.Modifier.GraphElements
             EnableInClassList("collapsed", Collapsed);
         }
 
-        void RebuildCollapsedElements()
+        void GatherCollapsedEdges(List<GraphElement> collapsedElements)
         {
-            m_CollapsedElements.Clear();
+            var allCollapsedNodes = AllCollapsedElements(collapsedElements).OfType<Node>().Select(e => e.NodeModel).ToList();
+            foreach (var edge in GraphView.edges.ToList())
+                if (AnyNodeIsConnectedToPort(allCollapsedNodes, edge.Input) && AnyNodeIsConnectedToPort(allCollapsedNodes, edge.Output))
+                    if (!collapsedElements.Contains(edge))
+                        collapsedElements.Add(edge);
+        }
 
-            var graphElements = m_GraphView.graphElements.ToList()
-                .Where(e => !(e is Edge) && (e.parent is GraphView.Layer) && (e.capabilities & Capabilities.Selectable) != 0)
+        List<IGTFGraphElementModel> GatherCollapsedElements()
+        {
+            List<GraphElement> collapsedElements = new List<GraphElement>();
+
+            var graphElements = GraphView.graphElements.ToList()
+                .Where(e => !(e is Edge) && (e.parent is GraphView.Layer) && IsSelectable())
                 .ToList();
 
             var collapsedElementsElsewhere = new List<GraphElement>();
-            RecurseRebuildCollapsedElements_LocalFunc(this, graphElements, collapsedElementsElsewhere);
+            RecurseGatherCollapsedElements(this, graphElements, collapsedElementsElsewhere);
 
-            var nodes = new HashSet<Node>(AllCollapsedElements.OfType<Node>());
+            var nodes = new HashSet<IGTFNodeModel>(AllCollapsedElements(collapsedElements).Select(e => e.Model).OfType<IGTFNodeModel>());
 
-            foreach (var edge in m_GraphView.edges.ToList())
-                if (AnyNodeIsConnectedToPort(nodes, edge.input) && AnyNodeIsConnectedToPort(nodes, edge.output))
-                    m_CollapsedElements.Add(edge);
+            foreach (var edge in GraphView.edges.ToList())
+                if (AnyNodeIsConnectedToPort(nodes, edge.Input) && AnyNodeIsConnectedToPort(nodes, edge.Output))
+                    collapsedElements.Add(edge);
 
             foreach (var ge in collapsedElementsElsewhere)
-                m_CollapsedElements.Remove(ge);
-        }
+                collapsedElements.Remove(ge);
 
-        // TODO: Move to local function of Collapse once we move to C# 7.0 or higher.
-        void RecurseRebuildCollapsedElements_LocalFunc(Placemat currentPlacemat, IList<GraphElement> graphElements,
-            List<GraphElement> collapsedElementsElsewhere)
-        {
-            var currRect = currentPlacemat.ExpandedPosition;
-            var currentActivePlacematRect = new Rect(
-                currRect.x + k_SelectRectOffset,
-                currRect.y + k_SelectRectOffset,
-                currRect.width - 2 * k_SelectRectOffset,
-                currRect.height - 2 * k_SelectRectOffset);
-            foreach (var elem in graphElements)
+            return collapsedElements.Select(e => e.Model).ToList();
+
+            void RecurseGatherCollapsedElements(Placemat currentPlacemat, IList<GraphElement> graphElementsParam,
+                List<GraphElement> collapsedElementsElsewhereParam)
             {
-                if (elem.layout.Overlaps(currentActivePlacematRect))
+                var currRect = currentPlacemat.ExpandedPosition;
+                var currentActivePlacematRect = new Rect(
+                    currRect.x + k_SelectRectOffset,
+                    currRect.y + k_SelectRectOffset,
+                    currRect.width - 2 * k_SelectRectOffset,
+                    currRect.height - 2 * k_SelectRectOffset);
+                foreach (var elem in graphElementsParam)
                 {
-                    var placemat = elem as Placemat;
-                    if (placemat != null && placemat.ZOrder > currentPlacemat.ZOrder)
+                    if (elem.layout.Overlaps(currentActivePlacematRect))
                     {
-                        if (placemat.Collapsed)
-                            foreach (var cge in placemat.CollapsedElements)
-                                collapsedElementsElsewhere.Add(cge);
-                        else
-                            RecurseRebuildCollapsedElements_LocalFunc(placemat, graphElements, collapsedElementsElsewhere);
-                    }
+                        var placemat = elem as Placemat;
+                        if (placemat != null && placemat.ZOrder > currentPlacemat.ZOrder)
+                        {
+                            if (placemat.Collapsed)
+                                foreach (var cge in placemat.CollapsedElements)
+                                    collapsedElementsElsewhereParam.Add(cge);
+                            else
+                                RecurseGatherCollapsedElements(placemat, graphElementsParam, collapsedElementsElsewhereParam);
+                        }
 
-                    if (placemat == null || placemat.ZOrder > currentPlacemat.ZOrder)
-                        if (elem.resolvedStyle.visibility == Visibility.Visible)
-                            m_CollapsedElements.Add(elem);
+                        if (placemat == null || placemat.ZOrder > currentPlacemat.ZOrder)
+                            if (elem.resolvedStyle.visibility == Visibility.Visible)
+                                collapsedElements.Add(elem);
+                    }
                 }
             }
         }
 
-        void ShowHideCollapsedElements()
+        static bool AnyNodeIsConnectedToPort(IEnumerable<IGTFNodeModel> nodes, IGTFPortModel port)
         {
-            if (m_GraphView == null)
-                return;
-
-            if (Collapsed)
+            if (port.NodeModel == null)
             {
-                RebuildCollapsedElements();
-
-                foreach (var ge in m_CollapsedElements)
-                    ge.style.visibility = Visibility.Hidden;
-
-                UpdateCollapsedNodeEdges();
+                return false;
             }
-            else
-            {
-                foreach (var ge in m_CollapsedElements)
-                    ge.style.visibility = StyleKeyword.Null;
 
-                UpdateCollapsedNodeEdges(); //Update edges just before clearing list
-                m_CollapsedElements.Clear();
-            }
-        }
-
-        static bool AnyNodeIsConnectedToPort(IEnumerable<Node> nodes, Port port)
-        {
             foreach (var node in nodes)
             {
-                var stackNode = node as StackNode;
-                if (stackNode != null && stackNode.contentContainer.Children().Any(n => n == port.node))
-                    return true;
-
-                if (node == port.node)
+                if (node == port.NodeModel)
                     return true;
             }
 
             return false;
         }
 
-        void UpdateCollapsedNodeEdges()
-        {
-            if (m_GraphView == null)
-                return;
-
-            //We need to update all the edges whose either port is in the placemat
-            var touchedEdges = new HashSet<Edge>();
-
-            var nodes = new HashSet<Node>(AllCollapsedElements.OfType<Node>());
-            foreach (var edge in m_GraphView.edges.ToList())
-                if (AnyNodeIsConnectedToPort(nodes, edge.input) || AnyNodeIsConnectedToPort(nodes, edge.output))
-                    touchedEdges.Add(edge);
-
-            foreach (var edge in touchedEdges)
-                edge.ForceUpdateEdgeControl();
-        }
-
         void OnTitleFieldChange(ChangeEvent<string> evt)
         {
-            // Call setter in derived class, if any.
-            title = evt.newValue;
+            if (PlacematModel.Title != evt.newValue)
+            {
+                Store.Dispatch(new ChangePlacematTitleAction(evt.newValue, PlacematModel));
+            }
         }
 
         protected override void ExecuteDefaultActionAtTarget(EventBase evt)
@@ -333,8 +320,8 @@ namespace Unity.Modifier.GraphElements
 
         void ActOnGraphElementsOver(Action<GraphElement> act)
         {
-            var graphElements = m_GraphView.graphElements.ToList()
-                .Where(e => !(e is Edge) && (e.parent is GraphView.Layer) && (e.capabilities & Capabilities.Selectable) != 0);
+            var graphElements = GraphView.graphElements.ToList()
+                .Where(e => !(e is Edge) && (e.parent is GraphView.Layer) && IsSelectable());
 
             foreach (var elem in graphElements)
             {
@@ -345,8 +332,8 @@ namespace Unity.Modifier.GraphElements
 
         internal bool ActOnGraphElementsOver(Func<GraphElement, bool> act, bool includePlacemats)
         {
-            var graphElements = m_GraphView.graphElements.ToList()
-                .Where(e => !(e is Edge) && e.parent is GraphView.Layer && (e.capabilities & Capabilities.Selectable) != 0).ToList();
+            var graphElements = GraphView.graphElements.ToList()
+                .Where(e => !(e is Edge) && e.parent is GraphView.Layer && IsSelectable()).ToList();
 
             return RecurseActOnGraphElementsOver_LocalFunc(this, graphElements, act, includePlacemats);
         }
@@ -399,13 +386,13 @@ namespace Unity.Modifier.GraphElements
 
         void SelectGraphElementsOver()
         {
-            ActOnGraphElementsOver(e => m_GraphView.AddToSelection(e));
+            ActOnGraphElementsOver(e => GraphView.AddToSelection(e));
         }
 
         internal bool WillDragNode(Node node)
         {
             if (Collapsed)
-                return AllCollapsedElements.Contains(node);
+                return AllCollapsedElements(CollapsedElements).Contains(node);
 
             return ActOnGraphElementsOver(t => node == t, true);
         }
@@ -433,7 +420,7 @@ namespace Unity.Modifier.GraphElements
                     pos.yMax = currentRect.yMax;
 
                 MakeRectAtLeastMinimalSize(ref pos);
-                SetPosition(pos);
+                Store.Dispatch(new ChangePlacematPositionAction(pos, ResizeFlags.All, PlacematModel));
             }
         }
 
@@ -444,12 +431,12 @@ namespace Unity.Modifier.GraphElements
 
             var pos = new Rect();
             if (elements.Count > 0 && ComputeElementBounds(ref pos, elements))
-                SetPosition(pos);
+                Store.Dispatch(new ChangePlacematPositionAction(pos, ResizeFlags.All, PlacematModel));
         }
 
         void ResizeToIncludeSelectedNodes()
         {
-            List<GraphElement> nodes = m_GraphView.selection.OfType<GraphElement>().Where(e => e is Node).ToList();
+            List<GraphElement> nodes = GraphView.selection.OfType<GraphElement>().Where(e => e is Node).ToList();
 
             // Now include the selected nodes
             var pos = new Rect();
@@ -471,7 +458,7 @@ namespace Unity.Modifier.GraphElements
 
                 MakeRectAtLeastMinimalSize(ref pos);
 
-                SetPosition(pos);
+                Store.Dispatch(new ChangePlacematPositionAction(pos, ResizeFlags.All, PlacematModel));
             }
         }
 
@@ -479,9 +466,11 @@ namespace Unity.Modifier.GraphElements
         {
             if (Collapsed)
             {
-                foreach (var ge in AllCollapsedElements)
-                    if (!(ge is Edge))
-                        collectedElementsToMove.Add(ge);
+                var collapsedElements = AllCollapsedElements(CollapsedElements);
+                foreach (var element in collapsedElements)
+                {
+                    collectedElementsToMove.Add(element);
+                }
             }
             else if (!moveOnlyPlacemat)
             {
@@ -491,6 +480,11 @@ namespace Unity.Modifier.GraphElements
                     return false;
                 }, true);
             }
+        }
+
+        public void OnResized(Rect newRect, ResizeFlags resizeWhat)
+        {
+            Store.Dispatch(new ChangePlacematPositionAction(newRect, resizeWhat, PlacematModel));
         }
 
         protected virtual void BuildContextualMenu(ContextualMenuPopulateEvent evt)
@@ -505,7 +499,13 @@ namespace Unity.Modifier.GraphElements
 
                 evt.menu.AppendAction("Change Color...", a =>
                 {
-                    GraphViewStaticBridge.ShowColorPicker(c => placemat.Color = c, placemat.Color, false);
+                    GraphViewStaticBridge.ShowColorPicker(c =>
+                    {
+                        if (PlacematModel.Color != c)
+                        {
+                            Store.Dispatch(new ChangePlacematColorAction(c, PlacematModel));
+                        }
+                    }, placemat.PlacematModel.Color, false);
                 });
 
                 // Resizing section
@@ -528,7 +528,7 @@ namespace Unity.Modifier.GraphElements
                     a => placemat.ResizeToIncludeSelectedNodes(),
                     s =>
                     {
-                        foreach (ISelectable sel in placemat.m_GraphView.selection)
+                        foreach (ISelectable sel in placemat.GraphView.selection)
                         {
                             var node = sel as Node;
                             if (node != null && !hoveringNodes.Contains(node))
@@ -568,10 +568,11 @@ namespace Unity.Modifier.GraphElements
 
         void OnDetachFromPanel(DetachFromPanelEvent evt)
         {
+            CollapsedElements = null;
             m_TitleField.UnregisterCallback<ChangeEvent<string>>(OnTitleFieldChange);
         }
 
-        internal bool GetPortCenterOverride(Port port, out Vector2 overriddenPosition)
+        internal bool GetPortCenterOverride(IGTFPortModel port, out Vector2 overriddenPosition)
         {
             if (!Collapsed || parent == null)
             {
@@ -582,9 +583,9 @@ namespace Unity.Modifier.GraphElements
             const int xOffset = 6;
             const int yOffset = 3;
             var halfSize = CollapsedSize * 0.5f;
-            var offset = port.orientation == Orientation.Horizontal
-                ? new Vector2(port.direction == Direction.Input ? -halfSize.x + xOffset : halfSize.x - xOffset, 0)
-                : new Vector2(0, port.direction == Direction.Input ? -halfSize.y + yOffset : halfSize.y - yOffset);
+            var offset = port.Orientation == Orientation.Horizontal
+                ? new Vector2(port.Direction == Direction.Input ? -halfSize.x + xOffset : halfSize.x - xOffset, 0)
+                : new Vector2(0, port.Direction == Direction.Input ? -halfSize.y + yOffset : halfSize.y - yOffset);
 
             overriddenPosition = parent.LocalToWorld(layout.center + offset);
             return true;
@@ -657,32 +658,38 @@ namespace Unity.Modifier.GraphElements
 
         public bool CanAcceptDrop(List<ISelectable> dragSelection)
         {
-            return (m_GraphView as IDropTarget)?.CanAcceptDrop(dragSelection) ?? false;
+            return (GraphView as IDropTarget)?.CanAcceptDrop(dragSelection) ?? false;
         }
 
         public bool DragUpdated(DragUpdatedEvent evt, IEnumerable<ISelectable> dragSelection, IDropTarget dropTarget, ISelection dragSource)
         {
-            return (m_GraphView as IDropTarget)?.DragUpdated(evt, dragSelection, dropTarget, dragSource) ?? false;
+            return (GraphView as IDropTarget)?.DragUpdated(evt, dragSelection, dropTarget, dragSource) ?? false;
         }
 
         public bool DragPerform(DragPerformEvent evt, IEnumerable<ISelectable> selection, IDropTarget dropTarget, ISelection dragSource)
         {
-            return (m_GraphView as IDropTarget)?.DragPerform(evt, selection, dropTarget, dragSource) ?? false;
+            return (GraphView as IDropTarget)?.DragPerform(evt, selection, dropTarget, dragSource) ?? false;
         }
 
         public bool DragEnter(DragEnterEvent evt, IEnumerable<ISelectable> dragSelection, IDropTarget enteredTarget, ISelection dragSource)
         {
-            return (m_GraphView as IDropTarget)?.DragEnter(evt, dragSelection, enteredTarget, dragSource) ?? false;
+            return (GraphView as IDropTarget)?.DragEnter(evt, dragSelection, enteredTarget, dragSource) ?? false;
         }
 
         public bool DragLeave(DragLeaveEvent evt, IEnumerable<ISelectable> dragSelection, IDropTarget leftTarget, ISelection dragSource)
         {
-            return (m_GraphView as IDropTarget)?.DragLeave(evt, dragSelection, leftTarget, dragSource) ?? false;
+            return (GraphView as IDropTarget)?.DragLeave(evt, dragSelection, leftTarget, dragSource) ?? false;
         }
 
         public bool DragExited()
         {
-            return (m_GraphView as IDropTarget)?.DragExited() ?? false;
+            return (GraphView as IDropTarget)?.DragExited() ?? false;
         }
+
+        public virtual void UpdatePinning()
+        {
+        }
+
+        public virtual bool IsMovable => true;
     }
 }

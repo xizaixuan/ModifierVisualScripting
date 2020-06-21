@@ -7,7 +7,7 @@ using ICloneable = UnityEditor.Modifier.VisualScripting.GraphViewModel.ICloneabl
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
     [Serializable]
-    public class VariableNodeModel : NodeModel, IVariableModel, IRenamableModel, IExposeTitleProperty, ICloneable
+    public class VariableNodeModel : NodeModel, IVariableModel, IRenamable, IExposeTitleProperty, ICloneable, IHasVariableDeclarationModel
     {
         [SerializeReference]
         VariableDeclarationModel m_DeclarationModel;
@@ -34,7 +34,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
         public virtual void UpdateTypeFromDeclaration()
         {
             if (DeclarationModel != null && m_MainPortModel != null)
-                m_MainPortModel.DataType = DeclarationModel.DataType;
+                m_MainPortModel.DataTypeHandle = DeclarationModel.DataType;
 
             // update connected nodes' ports colors/types
             if (m_MainPortModel != null)
@@ -61,12 +61,12 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             }
         }
 
+        public virtual bool IsRenamable => true;
+
         public void Rename(string newName)
         {
             ((VariableDeclarationModel)DeclarationModel)?.SetNameFromUserName(newName);
         }
-
-        public override CapabilityFlags Capabilities => base.Capabilities | CapabilityFlags.Renamable;
 
         public IGraphElementModel Clone()
         {
@@ -83,5 +83,8 @@ namespace UnityEditor.Modifier.VisualScripting.Model
                 m_DeclarationModel = decl;
             }
         }
+
+        public IGTFPortModel GTFInputPort => m_MainPortModel?.Direction == Direction.Input ? m_MainPortModel as IGTFPortModel : null;
+        public IGTFPortModel GTFOutputPort => m_MainPortModel?.Direction == Direction.Output ? m_MainPortModel as IGTFPortModel : null;
     }
 }

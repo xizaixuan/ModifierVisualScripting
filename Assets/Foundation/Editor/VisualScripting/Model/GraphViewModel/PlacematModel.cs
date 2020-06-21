@@ -5,7 +5,7 @@ using UnityEngine;
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
     [Serializable]
-    public class PlacematModel : IPlacematModel
+    public class PlacematModel : IPlacematModel, IGTFPlacematModel
     {
         public static readonly Color k_DefaultColor = new Color(0.15f, 0.19f, 0.19f);
 
@@ -23,15 +23,32 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             set => m_Title = value;
         }
 
+        public bool IsRenamable => true;
+        public void Rename(string newName)
+        {
+            Title = newName;
+        }
+
         [SerializeField]
         string m_Id = Guid.NewGuid().ToString();
 
+        public void AssignNewGuid()
+        {
+            m_Id = Guid.NewGuid().ToString();
+        }
+
         [SerializeField]
         Rect m_Position;
-        public Rect Position
+        public Rect PositionAndSize
         {
             get => m_Position;
             set => m_Position = value;
+        }
+
+        public Vector2 Position
+        {
+            get => PositionAndSize.position;
+            set => PositionAndSize = new Rect(value, PositionAndSize.size);
         }
 
         [SerializeField]
@@ -58,24 +75,79 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             set => m_ZOrder = value;
         }
 
+        List<IGTFGraphElementModel> m_CachedHiddenElementModels = null;
+        public IEnumerable<IGTFGraphElementModel> HiddenElements
+        {
+            get
+            {
+                if (m_CachedHiddenElementModels == null)
+                {
+                    if (HiddenElementsGuid != null)
+                    {
+                        m_CachedHiddenElementModels = new List<IGTFGraphElementModel>();
+                        foreach (var elementModelGuid in HiddenElementsGuid)
+                        {
+                            var nodes = VSGraphModel.NodeModels;
+                            foreach (var node in nodes)
+                            {
+                                if (node.GetId() == elementModelGuid)
+                                {
+                                    m_CachedHiddenElementModels.Add(node as IGTFGraphElementModel);
+                                }
+                            }
+
+                            var placemats = VSGraphModel.PlacematModels;
+                            foreach (var placemat in placemats)
+                            {
+                                if (placemat.GetId() == elementModelGuid)
+                                {
+                                    m_CachedHiddenElementModels.Add(placemat as IGTFGraphElementModel);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return m_CachedHiddenElementModels;
+            }
+            set
+            {
+                if (value == null)
+                {
+                    m_HiddenElements = null;
+                }
+                else
+                {
+                    m_HiddenElements = new List<string>(value.OfType<IGraphElementModelWithGuid>().Select(e => e.GetId()));
+                }
+
+                m_CachedHiddenElementModels = null;
+            }
+        }
+
         [SerializeField]
         List<string> m_HiddenElements;
         public List<string> HiddenElementsGuid
         {
             get => m_HiddenElements;
-            set => m_HiddenElements = value;
+            set
+            {
+                m_HiddenElements = value;
+                m_CachedHiddenElementModels = null;
+            }
         }
 
         [SerializeField]
         GraphAssetModel m_AssetModel;
-        public CapabilityFlags Capabilities => CapabilityFlags.Selectable | CapabilityFlags.Deletable | CapabilityFlags.Movable | CapabilityFlags.Copiable;
         public ScriptableObject SerializableAsset => (ScriptableObject)AssetModel;
         public IGraphAssetModel AssetModel => m_AssetModel;
-        public IGraphModel GraphModel
+        public IGraphModel VSGraphModel
         {
             get => m_AssetModel.GraphModel;
             set => m_AssetModel = value?.AssetModel as GraphAssetModel;
         }
+
+        public IGTFGraphModel GraphModel => VSGraphModel as IGTFGraphModel;
 
         public string GetId()
         {
@@ -89,16 +161,19 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         public void Move(Vector2 delta)
         {
-            Position = new Rect(Position.position + delta, Position.size);
+            PositionAndSize = new Rect(PositionAndSize.position + delta, PositionAndSize.size);
         }
 
         public void Move(Rect newRect)
         {
-            Position = newRect;
+            PositionAndSize = newRect;
         }
 
         public bool Destroyed { get; private set; }
 
         public void Destroy() => Destroyed = true;
+
+        public bool IsDeletable => true;
+        public bool IsCopiable => true;
     }
 }

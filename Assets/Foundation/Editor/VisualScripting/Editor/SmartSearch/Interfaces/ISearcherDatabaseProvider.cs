@@ -9,13 +9,10 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
     public interface ISearcherDatabaseProvider
     {
         List<SearcherDatabase> GetGraphElementsSearcherDatabases();
-        List<SearcherDatabase> GetReferenceItemsSearcherDatabases();
         List<SearcherDatabase> GetTypesSearcherDatabases();
-        List<SearcherDatabase> GetTypeMembersSearcherDatabases(TypeHandle typeHandle);
-        List<SearcherDatabase> GetGraphVariablesSearcherDatabases(IGraphModel graphModel, IFunctionModel functionModel = null);
+        List<SearcherDatabase> GetGraphVariablesSearcherDatabases(IGraphModel graphModel);
         List<SearcherDatabase> GetDynamicSearcherDatabases(IPortModel portModel);
         void ClearGraphElementsSearcherDatabases();
-        void ClearReferenceItemsSearcherDatabases();
         void ClearTypesItemsSearcherDatabases();
         void ClearTypeMembersSearcherDatabases();
         void ClearGraphVariablesSearcherDatabases();

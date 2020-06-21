@@ -13,12 +13,16 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         ToolbarButton m_NewGraphButton;
         ToolbarButton m_SaveAllButton;
         ToolbarButton m_BuildAllButton;
+        ToolbarButton m_ViewInCodeViewerButton;
+        ToolbarButton m_ShowMiniMapButton;
         ToolbarButton m_ShowBlackboardButton;
 
         public static readonly string NewGraphButton = "newGraphButton";
         public static readonly string SaveAllButton = "saveAllButton";
         public static readonly string BuildAllButton = "buildAllButton";
+        public static readonly string ShowMiniMapButton = "showMiniMapButton";
         public static readonly string ShowBlackboardButton = "showBlackboardButton";
+        public static readonly string ViewInCodeViewerButton = "viewInCodeViewerButton";
 
         void CreateCommonMenu()
         {
@@ -34,9 +38,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_BuildAllButton.tooltip = "Build All";
             m_BuildAllButton.ChangeClickEvent(OnBuildAllButton);
 
+            m_ShowMiniMapButton = this.MandatoryQ<ToolbarButton>(ShowMiniMapButton);
+            m_ShowMiniMapButton.tooltip = "Show MiniMap";
+            m_ShowMiniMapButton.ChangeClickEvent(ShowGraphViewToolWindow<GraphViewMinimapWindow>);
+
             m_ShowBlackboardButton = this.MandatoryQ<ToolbarButton>(ShowBlackboardButton);
             m_ShowBlackboardButton.tooltip = "Show Blackboard";
             m_ShowBlackboardButton.ChangeClickEvent(ShowGraphViewToolWindow<GraphViewBlackboardWindow>);
+
+            m_ViewInCodeViewerButton = this.MandatoryQ<ToolbarButton>(ViewInCodeViewerButton);
+            m_ViewInCodeViewerButton.tooltip = "Code Viewer";
+            m_ViewInCodeViewerButton.ChangeClickEvent(OnViewInCodeViewerButton);
         }
 
         void ShowGraphViewToolWindow<T>() where T : GraphViewToolWindow
@@ -54,7 +66,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_SaveAllButton.SetEnabled(enabled);
             m_BuildAllButton.SetEnabled(enabled);
 
-            var stencil = m_Store.GetState()?.AssetModel?.GraphModel?.Stencil;
+            var stencil = m_Store.GetState()?.CurrentGraphModel?.Stencil;
             var toolbarProvider = stencil?.GetToolbarProvider();
 
             if (!(toolbarProvider?.ShowButton(NewGraphButton) ?? true))
@@ -84,6 +96,15 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 m_BuildAllButton.style.display = StyleKeyword.Null;
             }
 
+            if (!(toolbarProvider?.ShowButton(ShowMiniMapButton) ?? true))
+            {
+                m_ShowMiniMapButton.style.display = DisplayStyle.None;
+            }
+            else
+            {
+                m_ShowMiniMapButton.style.display = StyleKeyword.Null;
+            }
+
             if (!(toolbarProvider?.ShowButton(ShowBlackboardButton) ?? true))
             {
                 m_ShowBlackboardButton.style.display = DisplayStyle.None;
@@ -92,10 +113,23 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             {
                 m_ShowBlackboardButton.style.display = StyleKeyword.Null;
             }
+
+            if (!(stencil?.GeneratesCode ?? false) || !(toolbarProvider?.ShowButton(ViewInCodeViewerButton) ?? true))
+            {
+                m_ViewInCodeViewerButton.style.display = DisplayStyle.None;
+            }
+            else
+            {
+                m_ViewInCodeViewerButton.style.display = StyleKeyword.Null;
+            }
         }
 
         void OnNewGraphButton()
         {
+            var minimap = ConsoleWindowBridge.FindBoundGraphViewToolWindow<GraphViewMinimapWindow>(m_GraphView);
+            if (minimap != null)
+                minimap.Close();
+
             var bb = ConsoleWindowBridge.FindBoundGraphViewToolWindow<GraphViewBlackboardWindow>(m_GraphView);
             if (bb != null)
                 bb.Close();
@@ -118,6 +152,27 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             {
                 Debug.LogException(e);
             }
+        }
+
+        void OnViewInCodeViewerButton()
+        {
+            var compilationResult = m_Store.GetState()?.CompilationResultModel?.GetLastResult();
+            if (compilationResult == null)
+            {
+                Debug.LogWarning("Compilation returned empty results");
+                return;
+            }
+
+            VseUtility.UpdateCodeViewer(show: true, sourceIndex: m_GraphView.window.ToggleCodeViewPhase,
+                compilationResult: compilationResult,
+                selectionDelegate: lineMetadata =>
+                {
+                    if (lineMetadata == null)
+                        return;
+
+                    GUID nodeGuid = (GUID)lineMetadata;
+                    m_Store.Dispatch(new PanToNodeAction(nodeGuid));
+                });
         }
     }
 }

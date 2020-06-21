@@ -69,7 +69,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 //TODO: Index needs to be offset until we somehow find a way to add a "this"
                 //      variableDeclarationModel inside the m_GraphVariableModels List.
                 //      It offsets the index if the blackboard contains a this "pill"
-                if (blackboardField.GraphElementModel.GraphModel.Stencil.GetThisType().IsValid)
+                if (blackboardField.GraphElementModel.VSGraphModel.Stencil.GetThisType().IsValid)
                     index--;
 
                 store.Dispatch(new ReorderGraphVariableDeclarationAction(blackboardField.VariableDeclarationModel, index));
@@ -87,10 +87,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 {
                     if (visualElement is BlackboardRow row)
                     {
-                        if (row.userData is IVariableDeclarationModel model)
+                        if (row.Model is IVariableDeclarationModel model)
                             expandedRows[model] = row.expanded;
-                        else if (row.userData is Tuple<IVariableDeclarationModel, bool> modelTuple)
-                            expandedRows[modelTuple.Item1] = row.expanded;
                     }
                 }
             }
@@ -114,7 +112,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     blackboardField,
                     CreateExtendedFieldView(blackboard.Store, variableDeclarationModel, blackboard.Rebuild))
                 {
-                    userData = variableDeclarationModel,
+                    Model = variableDeclarationModel,
                     expanded = expandedRows.TryGetValue(variableDeclarationModel, out var expandedValue) && expandedValue
                 };
                 blackboard.Sections[k_MainSection].Add(blackboardRow);
@@ -129,9 +127,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                          .GetAllVariableDeclarationsFromSelection(blackboard.selection))
                 {
                     var blackboardField = new BlackboardVariableField(blackboard.Store, variableDeclarationModelTuple.Item1, blackboard.GraphView);
-
-                    if (variableDeclarationModelTuple.Item1.VariableType == VariableType.FunctionParameter)
-                        blackboardField.AddToClassList("parameter");
 
                     if (variableDeclarationModelTuple.Item2)
                     {

@@ -3,34 +3,34 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public interface IEdgeConnectorListener
+    public class EdgeConnector : MouseManipulator
     {
-        void OnDropOutsidePort(Edge edge, Vector2 position);
-        void OnDrop(GraphView graphView, Edge edge);
-    }
-
-    public abstract class EdgeConnector : MouseManipulator
-    {
-        public abstract EdgeDragHelper edgeDragHelper { get; }
-    }
-
-    public class EdgeConnector<TEdge> : EdgeConnector where TEdge : Edge, new()
-    {
+        readonly EdgeConnectorListener m_EdgeConnectorListener;
         readonly EdgeDragHelper m_EdgeDragHelper;
-        Edge m_EdgeCandidate;
-        private bool m_Active;
+        bool m_Active;
         Vector2 m_MouseDownPosition;
 
-        internal const float k_ConnectionDistanceTreshold = 10f;
+        internal const float k_ConnectionDistanceThreshold = 10f;
 
-        public EdgeConnector(IEdgeConnectorListener listener)
+        public EdgeConnector(IStore store, GraphView graphView, EdgeConnectorListener listener, Func<IGTFGraphModel, GhostEdgeModel> ghostEdgeViewModelCreator = null)
         {
-            m_EdgeDragHelper = new EdgeDragHelper<TEdge>(listener);
+            m_EdgeConnectorListener = listener;
+            m_EdgeDragHelper = new EdgeDragHelper(store, graphView, listener, ghostEdgeViewModelCreator);
             m_Active = false;
             activators.Add(new ManipulatorActivationFilter { button = MouseButton.LeftMouse });
         }
 
-        public override EdgeDragHelper edgeDragHelper => m_EdgeDragHelper;
+        public virtual EdgeDragHelper edgeDragHelper => m_EdgeDragHelper;
+
+        public void SetDropOutsideDelegate(Action<IStore, Edge, Vector2> action)
+        {
+            m_EdgeConnectorListener.SetDropOutsideDelegate(action);
+        }
+
+        public void SetDropDelegate(Action<IStore, Edge> action)
+        {
+            m_EdgeConnectorListener.SetDropDelegate(action);
+        }
 
         protected override void RegisterCallbacksOnTarget()
         {
@@ -62,46 +62,40 @@ namespace Unity.Modifier.GraphElements
                 return;
             }
 
-            var graphElement = target as Port;
-            if (graphElement == null)
+            var port = target.GetFirstAncestorOfType<Port>();
+            if (port == null)
             {
                 return;
             }
 
             m_MouseDownPosition = e.localMousePosition;
 
-            m_EdgeCandidate = new TEdge();
-            m_EdgeDragHelper.draggedPort = graphElement;
-            m_EdgeDragHelper.edgeCandidate = m_EdgeCandidate;
+            m_EdgeDragHelper.CreateEdgeCandidate(port.PortModel.GraphModel);
+            m_EdgeDragHelper.draggedPort = port.PortModel;
 
             if (m_EdgeDragHelper.HandleMouseDown(e))
             {
                 m_Active = true;
                 target.CaptureMouse();
-
                 e.StopPropagation();
             }
             else
             {
                 m_EdgeDragHelper.Reset();
-                m_EdgeCandidate = null;
             }
         }
 
         void OnCaptureOut(MouseCaptureOutEvent e)
         {
             m_Active = false;
-            if (m_EdgeCandidate != null)
+            if (m_EdgeDragHelper.edgeCandidateModel != null)
                 Abort();
         }
 
         protected virtual void OnMouseMove(MouseMoveEvent e)
         {
             if (!m_Active) return;
-
             m_EdgeDragHelper.HandleMouseMove(e);
-            m_EdgeCandidate.candidatePosition = e.mousePosition;
-            m_EdgeCandidate.UpdateEdgeControl();
             e.StopPropagation();
         }
 
@@ -120,13 +114,12 @@ namespace Unity.Modifier.GraphElements
             finally
             {
                 m_Active = false;
-                m_EdgeCandidate = null;
                 target.ReleaseMouse();
                 e.StopPropagation();
             }
         }
 
-        private void OnKeyDown(KeyDownEvent e)
+        void OnKeyDown(KeyDownEvent e)
         {
             if (e.keyCode != KeyCode.Escape || !m_Active)
                 return;
@@ -140,19 +133,12 @@ namespace Unity.Modifier.GraphElements
 
         void Abort()
         {
-            var graphView = target?.GetFirstAncestorOfType<GraphView>();
-            graphView?.RemoveElement(m_EdgeCandidate);
-
-            m_EdgeCandidate.input = null;
-            m_EdgeCandidate.output = null;
-            m_EdgeCandidate = null;
-
             m_EdgeDragHelper.Reset();
         }
 
         bool CanPerformConnection(Vector2 mousePosition)
         {
-            return Vector2.Distance(m_MouseDownPosition, mousePosition) > k_ConnectionDistanceTreshold;
+            return Vector2.Distance(m_MouseDownPosition, mousePosition) > k_ConnectionDistanceThreshold;
         }
     }
 }

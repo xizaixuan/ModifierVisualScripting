@@ -99,7 +99,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
 
         static TypeHandle GenerateTypeHandle(Type type)
         {
-            return CSharpSerializer.GenerateTypeHandle(type);
+            return CSharpTypeSerializer.GenerateTypeHandle(type);
         }
 
         public int CompareTo(TypeHandle other)
@@ -114,14 +114,12 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         public static TypeHandle GenerateTypeHandle(this Type t, Stencil stencil)
         {
             Assert.IsNotNull(t);
-            Assert.IsNotNull(stencil);
-            Assert.IsNotNull(stencil.GraphContext);
-            return t.GenerateTypeHandle(stencil.GraphContext.CSharpTypeSerializer);
+            return t.GenerateTypeHandle();
         }
 
-        public static TypeHandle GenerateTypeHandle(this Type t, CSharpTypeSerializer serializer)
+        public static TypeHandle GenerateTypeHandle(this Type t)
         {
-            return serializer.GenerateTypeHandle(t);
+            return CSharpTypeSerializer.GenerateTypeHandle(t);
         }
 
         public static Type Resolve(this TypeHandle th, Stencil stencil)
@@ -152,7 +150,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
         public static ITypeMetadata GetMetadata(this Type t, CSharpTypeSerializer serializer,
             ITypeMetadataResolver resolver)
         {
-            return t.GenerateTypeHandle(serializer).GetMetadata(resolver);
+            return t.GenerateTypeHandle().GetMetadata(resolver);
         }
 
         public static TypeSyntax ToTypeSyntax(this TypeHandle handle, Stencil stencil)

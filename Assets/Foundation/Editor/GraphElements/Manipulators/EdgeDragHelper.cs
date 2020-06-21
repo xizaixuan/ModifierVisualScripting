@@ -5,185 +5,212 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public abstract class EdgeDragHelper
+    public class EdgeDragHelper
     {
-        public abstract Edge edgeCandidate { get; set; }
-        public abstract Port draggedPort { get; set; }
-        public abstract bool HandleMouseDown(MouseDownEvent evt);
-        public abstract void HandleMouseMove(MouseMoveEvent evt);
-        public abstract void HandleMouseUp(MouseUpEvent evt);
-        public abstract void Reset(bool didConnect = false);
-
         internal const int k_PanAreaWidth = 100;
         internal const int k_PanSpeed = 4;
         internal const int k_PanInterval = 10;
-        internal const float k_MinSpeedFactor = 0.5f;
         internal const float k_MaxSpeedFactor = 2.5f;
         internal const float k_MaxPanSpeed = k_MaxSpeedFactor * k_PanSpeed;
-    }
 
-    public class EdgeDragHelper<TEdge> : EdgeDragHelper where TEdge : Edge, new()
-    {
-        protected List<Port> m_CompatiblePorts;
-        private Edge m_GhostEdge;
-        protected GraphView m_GraphView;
-        protected static NodeAdapter s_nodeAdapter = new NodeAdapter();
-        protected readonly IEdgeConnectorListener m_Listener;
+        List<Port> m_CompatiblePorts;
+        GhostEdgeModel m_GhostEdgeModel;
+        Edge m_GhostEdge;
+        public GraphView GraphView { get; }
+        static NodeAdapter s_nodeAdapter = new NodeAdapter();
+        readonly IStore m_Store;
+        readonly EdgeConnectorListener m_Listener;
+        readonly Func<IGTFGraphModel, GhostEdgeModel> m_GhostEdgeViewModelCreator;
 
-        private IVisualElementScheduledItem m_PanSchedule;
-        private Vector3 m_PanDiff = Vector3.zero;
-        private bool m_WasPanned;
+        IVisualElementScheduledItem m_PanSchedule;
+        Vector3 m_PanDiff = Vector3.zero;
+        bool m_WasPanned;
 
-        public bool resetPositionOnPan { get; set; }
+        bool resetPositionOnPan { get; set; }
 
-        public EdgeDragHelper(IEdgeConnectorListener listener)
+        public EdgeDragHelper(IStore store, GraphView graphView, EdgeConnectorListener listener, Func<IGTFGraphModel, GhostEdgeModel> ghostEdgeViewModelCreator)
         {
+            m_Store = store;
+            GraphView = graphView;
             m_Listener = listener;
+            m_GhostEdgeViewModelCreator = ghostEdgeViewModelCreator;
             resetPositionOnPan = true;
             Reset();
         }
 
-        public override Edge edgeCandidate { get; set; }
+        public Edge CreateGhostEdge(IGTFGraphModel graphModel)
+        {
+            GhostEdgeModel ghostEdge;
 
-        public override Port draggedPort { get; set; }
+            if (m_GhostEdgeViewModelCreator != null)
+            {
+                ghostEdge = m_GhostEdgeViewModelCreator.Invoke(graphModel);
+            }
+            else
+            {
+                ghostEdge = new GhostEdgeModel(graphModel);
+            }
+            var ui = ghostEdge.CreateUI<Edge>(GraphView, m_Store);
+            return ui;
+        }
 
-        public override void Reset(bool didConnect = false)
+        GhostEdgeModel m_EdgeCandidateModel;
+        Edge m_EdgeCandidate;
+        public GhostEdgeModel edgeCandidateModel => m_EdgeCandidateModel;
+
+        public void CreateEdgeCandidate(IGTFGraphModel graphModel)
+        {
+            m_EdgeCandidate = CreateGhostEdge(graphModel);
+            m_EdgeCandidateModel = m_EdgeCandidate.EdgeModel as GhostEdgeModel;
+        }
+
+        void ClearEdgeCandidate()
+        {
+            m_EdgeCandidateModel = null;
+            m_EdgeCandidate = null;
+        }
+
+        public IGTFPortModel draggedPort { get; set; }
+        public Edge originalEdge { get; set; }
+
+        public void Reset(bool didConnect = false)
         {
             if (m_CompatiblePorts != null)
             {
                 // Reset the highlights.
-                m_GraphView.ports.ForEach((p) =>
+                GraphView.ports.ForEach((p) =>
                 {
-                    p.OnStopEdgeDragging();
+                    p.SetEnabled(true);
+                    p.Highlighted = false;
                 });
                 m_CompatiblePorts = null;
             }
 
-            // Clean up ghost edge.
-            if ((m_GhostEdge != null) && (m_GraphView != null))
+            if (m_GhostEdge != null)
             {
-                m_GraphView.RemoveElement(m_GhostEdge);
+                GraphView.RemoveElement(m_GhostEdge);
+            }
+
+            if (m_EdgeCandidate != null)
+            {
+                GraphView.RemoveElement(m_EdgeCandidate);
             }
 
             if (m_WasPanned)
             {
                 if (!resetPositionOnPan || didConnect)
                 {
-                    Vector3 p = m_GraphView.contentViewContainer.transform.position;
-                    Vector3 s = m_GraphView.contentViewContainer.transform.scale;
-                    m_GraphView.UpdateViewTransform(p, s);
+                    Vector3 p = GraphView.contentViewContainer.transform.position;
+                    Vector3 s = GraphView.contentViewContainer.transform.scale;
+                    GraphView.UpdateViewTransform(p, s);
                 }
             }
 
-            if (m_PanSchedule != null)
-                m_PanSchedule.Pause();
-
-            if (m_GhostEdge != null)
-            {
-                m_GhostEdge.input = null;
-                m_GhostEdge.output = null;
-            }
+            m_PanSchedule?.Pause();
 
             if (draggedPort != null && !didConnect)
             {
-                draggedPort.portCapLit = false;
+                var portUI = draggedPort.GetUI<Port>(GraphView);
+                if (portUI != null)
+                    portUI.WillConnect = false;
+
                 draggedPort = null;
             }
 
             m_GhostEdge = null;
-            edgeCandidate = null;
-
-            m_GraphView = null;
+            ClearEdgeCandidate();
         }
 
-        public override bool HandleMouseDown(MouseDownEvent evt)
+        public bool HandleMouseDown(MouseDownEvent evt)
         {
             Vector2 mousePosition = evt.mousePosition;
 
-            if ((draggedPort == null) || (edgeCandidate == null))
+            if (draggedPort == null || edgeCandidateModel == null)
             {
                 return false;
             }
 
-            m_GraphView = draggedPort.GetFirstAncestorOfType<GraphView>();
-
-            if (m_GraphView == null)
-            {
+            if (m_EdgeCandidate == null)
                 return false;
-            }
 
-            if (edgeCandidate.parent == null)
+            if (m_EdgeCandidate.parent == null)
             {
-                m_GraphView.AddElement(edgeCandidate);
+                GraphView.AddElement(m_EdgeCandidate);
             }
 
-            bool startFromOutput = (draggedPort.direction == Direction.Output);
+            bool startFromOutput = draggedPort.Direction == Direction.Output;
 
-            edgeCandidate.candidatePosition = mousePosition;
-            edgeCandidate.SetEnabled(false);
+            edgeCandidateModel.EndPoint = mousePosition;
+            m_EdgeCandidate.SetEnabled(false);
 
             if (startFromOutput)
             {
-                edgeCandidate.output = draggedPort;
-                edgeCandidate.input = null;
+                edgeCandidateModel.FromPort = draggedPort;
+                edgeCandidateModel.ToPort = null;
             }
             else
             {
-                edgeCandidate.output = null;
-                edgeCandidate.input = draggedPort;
+                edgeCandidateModel.FromPort = null;
+                edgeCandidateModel.ToPort = draggedPort;
             }
 
-            draggedPort.portCapLit = true;
+            var portUI = draggedPort.GetUI<Port>(GraphView);
+            if (portUI != null)
+                portUI.WillConnect = true;
 
-            m_CompatiblePorts = m_GraphView.GetCompatiblePorts(draggedPort, s_nodeAdapter);
+            m_CompatiblePorts = GraphView.GetCompatiblePorts(draggedPort, s_nodeAdapter);
 
-            m_GraphView.ports.ForEach((p) =>
+            // Only light compatible anchors when dragging an edge.
+            GraphView.ports.ForEach((p) =>
             {
-                p.OnStartEdgeDragging();
+                p.SetEnabled(false);
+                p.Highlighted = false;
             });
 
             foreach (Port compatiblePort in m_CompatiblePorts)
             {
-                compatiblePort.highlight = true;
+                compatiblePort.SetEnabled(true);
+                compatiblePort.Highlighted = true;
             }
 
-            edgeCandidate.UpdateEdgeControl();
+            m_EdgeCandidate.UpdateFromModel();
 
             if (m_PanSchedule == null)
             {
-                m_PanSchedule = m_GraphView.schedule.Execute(Pan).Every(k_PanInterval).StartingIn(k_PanInterval);
+                m_PanSchedule = GraphView.schedule.Execute(Pan).Every(k_PanInterval).StartingIn(k_PanInterval);
                 m_PanSchedule.Pause();
             }
+
             m_WasPanned = false;
 
-            edgeCandidate.layer = Int32.MaxValue;
+            m_EdgeCandidate.layer = Int32.MaxValue;
 
             return true;
         }
 
-        internal Vector2 GetEffectivePanSpeed(Vector2 mousePos)
+        Vector2 GetEffectivePanSpeed(Vector2 mousePos)
         {
             Vector2 effectiveSpeed = Vector2.zero;
 
             if (mousePos.x <= k_PanAreaWidth)
                 effectiveSpeed.x = -(((k_PanAreaWidth - mousePos.x) / k_PanAreaWidth) + 0.5f) * k_PanSpeed;
-            else if (mousePos.x >= m_GraphView.contentContainer.layout.width - k_PanAreaWidth)
-                effectiveSpeed.x = (((mousePos.x - (m_GraphView.contentContainer.layout.width - k_PanAreaWidth)) / k_PanAreaWidth) + 0.5f) * k_PanSpeed;
+            else if (mousePos.x >= GraphView.contentContainer.layout.width - k_PanAreaWidth)
+                effectiveSpeed.x = (((mousePos.x - (GraphView.contentContainer.layout.width - k_PanAreaWidth)) / k_PanAreaWidth) + 0.5f) * k_PanSpeed;
 
             if (mousePos.y <= k_PanAreaWidth)
                 effectiveSpeed.y = -(((k_PanAreaWidth - mousePos.y) / k_PanAreaWidth) + 0.5f) * k_PanSpeed;
-            else if (mousePos.y >= m_GraphView.contentContainer.layout.height - k_PanAreaWidth)
-                effectiveSpeed.y = (((mousePos.y - (m_GraphView.contentContainer.layout.height - k_PanAreaWidth)) / k_PanAreaWidth) + 0.5f) * k_PanSpeed;
+            else if (mousePos.y >= GraphView.contentContainer.layout.height - k_PanAreaWidth)
+                effectiveSpeed.y = (((mousePos.y - (GraphView.contentContainer.layout.height - k_PanAreaWidth)) / k_PanAreaWidth) + 0.5f) * k_PanSpeed;
 
             effectiveSpeed = Vector2.ClampMagnitude(effectiveSpeed, k_MaxPanSpeed);
 
             return effectiveSpeed;
         }
 
-        public override void HandleMouseMove(MouseMoveEvent evt)
+        public void HandleMouseMove(MouseMoveEvent evt)
         {
             var ve = (VisualElement)evt.target;
-            Vector2 gvMousePos = ve.ChangeCoordinatesTo(m_GraphView.contentContainer, evt.localMousePosition);
+            Vector2 gvMousePos = ve.ChangeCoordinatesTo(GraphView.contentContainer, evt.localMousePosition);
             m_PanDiff = GetEffectivePanSpeed(gvMousePos);
 
             if (m_PanDiff != Vector3.zero)
@@ -197,7 +224,8 @@ namespace Unity.Modifier.GraphElements
 
             Vector2 mousePosition = evt.mousePosition;
 
-            edgeCandidate.candidatePosition = mousePosition;
+            edgeCandidateModel.EndPoint = mousePosition;
+            m_EdgeCandidate.UpdateFromModel();
 
             // Draw ghost edge if possible port exists.
             Port endPort = GetEndPort(mousePosition);
@@ -206,78 +234,94 @@ namespace Unity.Modifier.GraphElements
             {
                 if (m_GhostEdge == null)
                 {
-                    m_GhostEdge = new TEdge();
-                    m_GhostEdge.isGhostEdge = true;
+                    m_GhostEdge = CreateGhostEdge(endPort.PortModel.GraphModel);
+                    m_GhostEdgeModel = m_GhostEdge.EdgeModel as GhostEdgeModel;
+
                     m_GhostEdge.pickingMode = PickingMode.Ignore;
-                    m_GraphView.AddElement(m_GhostEdge);
+                    GraphView.AddElement(m_GhostEdge);
                 }
 
-                if (edgeCandidate.output == null)
+                Debug.Assert(m_GhostEdgeModel != null);
+
+                if (edgeCandidateModel.FromPort == null)
                 {
-                    m_GhostEdge.input = edgeCandidate.input;
-                    if (m_GhostEdge.output != null)
-                        m_GhostEdge.output.portCapLit = false;
-                    m_GhostEdge.output = endPort;
-                    m_GhostEdge.output.portCapLit = true;
+                    m_GhostEdgeModel.ToPort = edgeCandidateModel.ToPort;
+                    var portUI = m_GhostEdgeModel?.FromPort?.GetUI<Port>(GraphView);
+                    if (portUI != null)
+                        portUI.WillConnect = false;
+                    m_GhostEdgeModel.FromPort = endPort.PortModel;
+                    endPort.WillConnect = true;
                 }
                 else
                 {
-                    if (m_GhostEdge.input != null)
-                        m_GhostEdge.input.portCapLit = false;
-                    m_GhostEdge.input = endPort;
-                    m_GhostEdge.input.portCapLit = true;
-                    m_GhostEdge.output = edgeCandidate.output;
+                    var portUI = m_GhostEdgeModel?.ToPort?.GetUI<Port>(GraphView);
+                    if (portUI != null)
+                        portUI.WillConnect = false;
+                    m_GhostEdgeModel.ToPort = endPort.PortModel;
+                    endPort.WillConnect = true;
+                    m_GhostEdgeModel.FromPort = edgeCandidateModel.FromPort;
                 }
+
+                m_GhostEdge.UpdateFromModel();
             }
-            else if (m_GhostEdge != null)
+            else if (m_GhostEdge != null && m_GhostEdgeModel != null)
             {
-                if (edgeCandidate.input == null)
+                if (edgeCandidateModel.ToPort == null)
                 {
-                    if (m_GhostEdge.input != null)
-                        m_GhostEdge.input.portCapLit = false;
+                    var portUI = m_GhostEdgeModel?.ToPort?.GetUI<Port>(GraphView);
+                    if (portUI != null)
+                        portUI.WillConnect = false;
                 }
                 else
                 {
-                    if (m_GhostEdge.output != null)
-                        m_GhostEdge.output.portCapLit = false;
+                    var portUI = m_GhostEdgeModel?.FromPort?.GetUI<Port>(GraphView);
+                    if (portUI != null)
+                        portUI.WillConnect = false;
                 }
-                m_GraphView.RemoveElement(m_GhostEdge);
-                m_GhostEdge.input = null;
-                m_GhostEdge.output = null;
+                GraphView.RemoveElement(m_GhostEdge);
+                m_GhostEdgeModel.ToPort = null;
+                m_GhostEdgeModel.FromPort = null;
+                m_GhostEdgeModel = null;
                 m_GhostEdge = null;
             }
         }
 
-        private void Pan(TimerState ts)
+        void Pan(TimerState ts)
         {
-            m_GraphView.viewTransform.position -= m_PanDiff;
-            edgeCandidate.ForceUpdateEdgeControl();
+            GraphView.viewTransform.position -= m_PanDiff;
+            edgeCandidateModel.GetUI<Edge>(GraphView)?.UpdateFromModel();
             m_WasPanned = true;
         }
 
-        public override void HandleMouseUp(MouseUpEvent evt)
+        public void HandleMouseUp(MouseUpEvent evt)
         {
             bool didConnect = false;
 
             Vector2 mousePosition = evt.mousePosition;
 
             // Reset the highlights.
-            m_GraphView.ports.ForEach((p) =>
+            GraphView.ports.ForEach((p) =>
             {
-                p.OnStopEdgeDragging();
+                p.SetEnabled(true);
+                p.Highlighted = false;
             });
 
+            Port portUI;
             // Clean up ghost edges.
-            if (m_GhostEdge != null)
+            if (m_GhostEdgeModel != null)
             {
-                if (m_GhostEdge.input != null)
-                    m_GhostEdge.input.portCapLit = false;
-                if (m_GhostEdge.output != null)
-                    m_GhostEdge.output.portCapLit = false;
+                portUI = m_GhostEdgeModel.ToPort?.GetUI<Port>(GraphView);
+                if (portUI != null)
+                    portUI.WillConnect = false;
 
-                m_GraphView.RemoveElement(m_GhostEdge);
-                m_GhostEdge.input = null;
-                m_GhostEdge.output = null;
+                portUI = m_GhostEdgeModel.FromPort?.GetUI<Port>(GraphView);
+                if (portUI != null)
+                    portUI.WillConnect = false;
+
+                GraphView.RemoveElement(m_GhostEdge);
+                m_GhostEdgeModel.ToPort = null;
+                m_GhostEdgeModel.FromPort = null;
+                m_GhostEdgeModel = null;
                 m_GhostEdge = null;
             }
 
@@ -285,64 +329,68 @@ namespace Unity.Modifier.GraphElements
 
             if (endPort == null && m_Listener != null)
             {
-                m_Listener.OnDropOutsidePort(edgeCandidate, mousePosition);
+                m_Listener.OnDropOutsidePort(m_Store, m_EdgeCandidate, mousePosition, originalEdge);
             }
 
-            edgeCandidate.SetEnabled(true);
+            m_EdgeCandidate.SetEnabled(true);
 
-            if (edgeCandidate.input != null)
-                edgeCandidate.input.portCapLit = false;
+            portUI = edgeCandidateModel?.ToPort?.GetUI<Port>(GraphView);
+            if (portUI != null)
+                portUI.WillConnect = false;
 
-            if (edgeCandidate.output != null)
-                edgeCandidate.output.portCapLit = false;
+            portUI = edgeCandidateModel?.FromPort?.GetUI<Port>(GraphView);
+            if (portUI != null)
+                portUI.WillConnect = false;
 
             // If it is an existing valid edge then delete and notify the model (using DeleteElements()).
-            if (edgeCandidate.input != null && edgeCandidate.output != null)
+            if (edgeCandidateModel?.ToPort != null && edgeCandidateModel?.FromPort != null)
             {
                 // Save the current input and output before deleting the edge as they will be reset
-                Port oldInput = edgeCandidate.input;
-                Port oldOutput = edgeCandidate.output;
+                var oldInput = edgeCandidateModel.ToPort;
+                var oldOutput = edgeCandidateModel.FromPort;
 
-                m_GraphView.DeleteElements(new[] { edgeCandidate });
+                GraphView.DeleteElements(new[] { m_EdgeCandidate as GraphElement });
 
                 // Restore the previous input and output
-                edgeCandidate.input = oldInput;
-                edgeCandidate.output = oldOutput;
+                edgeCandidateModel.ToPort = oldInput;
+                edgeCandidateModel.FromPort = oldOutput;
             }
             // otherwise, if it is an temporary edge then just remove it as it is not already known my the model
             else
             {
-                m_GraphView.RemoveElement(edgeCandidate);
+                GraphView.RemoveElement(m_EdgeCandidate);
             }
 
             if (endPort != null)
             {
-                if (endPort.direction == Direction.Output)
-                    edgeCandidate.output = endPort;
-                else
-                    edgeCandidate.input = endPort;
+                if (edgeCandidateModel != null)
+                {
+                    if (endPort.PortModel.Direction == Direction.Output)
+                        edgeCandidateModel.FromPort = endPort.PortModel;
+                    else
+                        edgeCandidateModel.ToPort = endPort.PortModel;
+                }
 
-                m_Listener.OnDrop(m_GraphView, edgeCandidate);
+                m_Listener.OnDrop(m_Store, m_EdgeCandidate, originalEdge);
                 didConnect = true;
             }
-            else
+            else if (edgeCandidateModel != null)
             {
-                edgeCandidate.output = null;
-                edgeCandidate.input = null;
+                edgeCandidateModel.FromPort = null;
+                edgeCandidateModel.ToPort = null;
             }
 
-            edgeCandidate.ResetLayer();
+            m_EdgeCandidate?.ResetLayer();
 
-            edgeCandidate = null;
+            ClearEdgeCandidate();
             m_CompatiblePorts = null;
             Reset(didConnect);
+
+            originalEdge = null;
         }
 
-        private Port GetEndPort(Vector2 mousePosition)
+        Port GetEndPort(Vector2 mousePosition)
         {
-            if (m_GraphView == null)
-                return null;
-
             Port endPort = null;
 
             foreach (Port compatiblePort in m_CompatiblePorts)
@@ -350,17 +398,17 @@ namespace Unity.Modifier.GraphElements
                 Rect bounds = compatiblePort.worldBound;
                 float hitboxExtraPadding = bounds.height;
 
-                if (compatiblePort.orientation == Orientation.Horizontal)
+                if (compatiblePort.PortModel.Orientation == Orientation.Horizontal)
                 {
                     // Add extra padding for mouse check to the left of input port or right of output port.
-                    if (compatiblePort.direction == Direction.Input)
+                    if (compatiblePort.PortModel.Direction == Direction.Input)
                     {
                         // Move bounds to the left by hitboxExtraPadding and increase width
                         // by hitboxExtraPadding.
                         bounds.x -= hitboxExtraPadding;
                         bounds.width += hitboxExtraPadding;
                     }
-                    else if (compatiblePort.direction == Direction.Output)
+                    else if (compatiblePort.PortModel.Direction == Direction.Output)
                     {
                         // Just add hitboxExtraPadding to the width.
                         bounds.width += hitboxExtraPadding;

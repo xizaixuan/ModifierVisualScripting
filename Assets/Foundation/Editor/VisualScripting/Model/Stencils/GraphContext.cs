@@ -29,8 +29,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
             VariableType variableType = decl.VariableType;
             Type dataType = CSharpTypeSerializer.ResolveType(decl.DataType);
 
-            return (variableType == VariableType.FunctionParameter || variableType == VariableType.GraphVariable) &&
-                (dataType.IsValueType || dataType == typeof(string));
+            return (variableType == VariableType.GraphVariable) && (dataType.IsValueType || dataType == typeof(string));
         }
 
         public bool RequiresInspectorInitialization(IVariableDeclarationModel decl)

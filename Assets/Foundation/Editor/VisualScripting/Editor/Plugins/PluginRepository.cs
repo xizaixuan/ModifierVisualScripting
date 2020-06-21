@@ -9,17 +9,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
     public interface IPluginRepository
     {
         void RegisterPlugins(CompilationOptions getCompilationOptions);
-        void UnregisterPlugins();
+        void UnregisterPlugins(IEnumerable<IPluginHandler> except = null);
         IEnumerable<IPluginHandler> RegisteredPlugins { get; }
     }
 
     class PluginRepository : IPluginRepository, IDisposable
     {
         Store m_Store;
-        GraphView m_GraphView;
+        VseWindow m_GraphView;
         List<IPluginHandler> m_PluginHandlers;
 
-        internal PluginRepository(Store store, GraphView graphView)
+        internal PluginRepository(Store store, VseWindow graphView)
         {
             m_Store = store;
             m_GraphView = graphView;
@@ -35,19 +35,21 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
         {
             var currentGraphModel = (VSGraphModel)m_Store.GetState().CurrentGraphModel;
             if (currentGraphModel == null) return;
-            UnregisterPlugins();
-            foreach (IPluginHandler handler in currentGraphModel.Stencil.GetCompilationPluginHandlers(getCompilationOptions))
+            var compilationPluginHandlers = currentGraphModel.Stencil.GetCompilationPluginHandlers(getCompilationOptions);
+            UnregisterPlugins(compilationPluginHandlers);
+            foreach (IPluginHandler handler in compilationPluginHandlers)
             {
                 handler.Register(m_Store, m_GraphView);
                 m_PluginHandlers.Add(handler);
             }
         }
 
-        public void UnregisterPlugins()
+        public void UnregisterPlugins(IEnumerable<IPluginHandler> except)
         {
             foreach (var plugin in m_PluginHandlers)
             {
-                plugin.Unregister();
+                if (except == null || !except.Contains(plugin))
+                    plugin.Unregister();
             }
             m_PluginHandlers.Clear();
         }
@@ -56,7 +58,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor.Plugins
 
         public void Dispose()
         {
-            UnregisterPlugins();
+            UnregisterPlugins(null);
         }
     }
 }

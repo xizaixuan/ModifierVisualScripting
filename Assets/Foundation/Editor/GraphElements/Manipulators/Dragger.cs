@@ -69,7 +69,7 @@ namespace Unity.Modifier.GraphElements
             }
 
             GraphElement ce = e.target as GraphElement;
-            if (ce != null && !ce.IsMovable())
+            if (ce != null && !ce.IsPositioned())
             {
                 return;
             }
@@ -87,7 +87,7 @@ namespace Unity.Modifier.GraphElements
         protected void OnMouseMove(MouseMoveEvent e)
         {
             GraphElement ce = e.target as GraphElement;
-            if (ce != null && !ce.IsMovable())
+            if (ce != null && !ce.IsPositioned())
             {
                 return;
             }
@@ -122,7 +122,7 @@ namespace Unity.Modifier.GraphElements
         protected void OnMouseUp(MouseUpEvent e)
         {
             GraphElement ce = e.target as GraphElement;
-            if (ce != null && !ce.IsMovable())
+            if (ce != null && !ce.IsPositioned())
             {
                 return;
             }
@@ -131,10 +131,6 @@ namespace Unity.Modifier.GraphElements
             {
                 if (CanStopManipulation(e))
                 {
-                    var graphElement = target as GraphElement;
-                    if (graphElement != null)
-                        graphElement.UpdatePresenterPosition();
-
                     m_Active = false;
                     target.ReleaseMouse();
                     e.StopPropagation();

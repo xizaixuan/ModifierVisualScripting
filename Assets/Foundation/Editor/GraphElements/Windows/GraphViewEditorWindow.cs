@@ -20,11 +20,12 @@ namespace Unity.Modifier.GraphElements
 
         public static void ShowGraphViewWindowWithTools<T>() where T : GraphViewEditorWindow
         {
-            var windows = GraphViewStaticBridge.ShowGraphViewWindowWithTools(typeof(GraphViewBlackboardWindow), typeof(T));
+            var windows = GraphViewStaticBridge.ShowGraphViewWindowWithTools(typeof(GraphViewBlackboardWindow), typeof(GraphViewMinimapWindow), typeof(T));
             var graphView = (windows[0] as T)?.graphViews.FirstOrDefault();
             if (graphView != null)
             {
                 (windows[1] as GraphViewBlackboardWindow)?.SelectGraphViewFromWindow((windows[0] as T), graphView);
+                (windows[2] as GraphViewMinimapWindow)?.SelectGraphViewFromWindow((windows[0] as T), graphView);
             }
         }
     }

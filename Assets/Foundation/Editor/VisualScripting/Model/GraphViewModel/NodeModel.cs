@@ -17,7 +17,7 @@ using Port = Unity.Modifier.GraphElements.Port;
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
     [Serializable]
-    public abstract class NodeModel : INodeModel, ISerializationCallbackReceiver
+    public abstract class NodeModel : INodeModel, ISerializationCallbackReceiver, IHasProgress, IHasTitle, ICollapsible, IHasPorts, IGTFNodeModel
     {
         [SerializeField]
         string m_GuidAsString; // serialize m_Guid
@@ -46,7 +46,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         List<string> m_InputConstantKeys;
 
         // Serialize m_InputConstantsById dictionary Values
-        [SerializeReference, HideInInspector]
+        [SerializeReference]
         protected List<ConstantNodeModel> m_InputConstantsValues;
 
         [SerializeField]
@@ -80,9 +80,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             }
         }
 
-        public virtual CapabilityFlags Capabilities => CapabilityFlags.Selectable | CapabilityFlags.Deletable | CapabilityFlags.Movable | CapabilityFlags.Droppable | CapabilityFlags.Copiable;
-
-        public ScriptableObject SerializableAsset => (ScriptableObject)GraphModel.AssetModel;
+        public ScriptableObject SerializableAsset => (ScriptableObject)VSGraphModel.AssetModel;
 
         public IGraphAssetModel AssetModel
         {
@@ -94,7 +92,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             }
         }
 
-        public IGraphModel GraphModel => AssetModel?.GraphModel;
+        public IGTFGraphModel GraphModel => AssetModel?.GraphModel;
+        public IGraphModel VSGraphModel => GraphModel as IGraphModel;
 
         public ModelState State
         {
@@ -136,7 +135,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         // IReadOnlyList<IPortModel> gives access to ports by display order
         // IReadOnlyDictionary<string, IPortModel> gives access to ports by Ids
         [PublicAPI]
-        class OrderedPorts : IReadOnlyDictionary<string, IPortModel>, IReadOnlyList<IPortModel>
+        protected class OrderedPorts : IReadOnlyDictionary<string, IPortModel>, IReadOnlyList<IPortModel>
         {
             Dictionary<string, IPortModel> m_Dictionary;
             List<int> m_Order;
@@ -219,8 +218,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         OrderedPorts m_InputsById;
         OrderedPorts m_OutputsById;
-        OrderedPorts m_PreviousInputs;
-        OrderedPorts m_PreviousOutputs;
+        protected OrderedPorts m_PreviousInputs;
+        protected OrderedPorts m_PreviousOutputs;
 
         Dictionary<string, ConstantNodeModel> m_InputConstantsById;
         public NodeModel()
@@ -244,6 +243,10 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         public virtual IReadOnlyList<IPortModel> InputPortModels => new List<IPortModel>();
         [Obsolete("Direct indexing dropped, use OutputsById or OutputsByDisplayOrder instead")]
         public virtual IReadOnlyList<IPortModel> OutputPortModels => new List<IPortModel>();
+
+        public virtual bool Collapsed { get; set; }
+        public IEnumerable<IGTFPortModel> InputPorts => m_InputsById.Values.Cast<IGTFPortModel>();
+        public IEnumerable<IGTFPortModel> OutputPorts => m_OutputsById.Values.Cast<IGTFPortModel>();
 
         public bool HasUserColor
         {
@@ -325,7 +328,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             {
                 modelToAdd = (PortModel)existingModel;
                 modelToAdd.Name = model.Name;
-                modelToAdd.DataType = model.DataType;
+                modelToAdd.DataTypeHandle = model.DataTypeHandle;
                 modelToAdd.PortType = model.PortType;
             }
             newPorts.Add(modelToAdd);
@@ -343,9 +346,9 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             Profiler.EndSample();
         }
 
-        public virtual Port.Capacity GetPortCapacity(PortModel portModel)
+        public virtual PortCapacity GetPortCapacity(PortModel portModel)
         {
-            return Stencil.GetPortCapacity(portModel, out var cap) ? cap : portModel?.GetDefaultCapacity() ?? Port.Capacity.Multi;
+            return Stencil.GetPortCapacity(portModel, out var cap) ? cap : portModel?.GetDefaultCapacity() ?? PortCapacity.Multi;
         }
 
         public string GetId()
@@ -375,7 +378,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             {
                 Direction = direction,
                 PortType = portType,
-                DataType = dataType,
+                DataTypeHandle = dataType,
                 NodeModel = this
             };
         }
@@ -461,7 +464,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             if (m_InputConstantsById.TryGetValue(id, out var constant))
             {
                 // Destroy existing constant if not compatible
-                Type type = inputPort.DataType.Resolve(Stencil);
+                Type type = inputPort.DataTypeHandle.Resolve(Stencil);
                 constant.AssetModel = m_GraphAssetModel;
                 if (!constant.Type.IsAssignableFrom(type))
                 {
@@ -472,12 +475,12 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
             // Create new constant if needed
             if (!m_InputConstantsById.ContainsKey(id)
                 && inputPort.CreateEmbeddedValueIfNeeded
-                && inputPort.DataType != TypeHandle.Unknown
-                && Stencil.GetConstantNodeModelType(inputPort.DataType) != null)
+                && inputPort.DataTypeHandle != TypeHandle.Unknown
+                && Stencil.GetConstantNodeModelType(inputPort.DataTypeHandle) != null)
             {
                 var embeddedConstant = (ConstantNodeModel)((VSGraphModel)GraphModel).CreateConstantNode(
                     inputPort.Name,
-                    inputPort.DataType,
+                    inputPort.DataTypeHandle,
                     Vector2.zero,
                     SpawnFlags.Default | SpawnFlags.Orphan,
                     preDefine: preDefine);
@@ -509,7 +512,7 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 
         protected void DeletePort(IPortModel portModel, bool removeFromOrderedPorts = false)
         {
-            var edgeModels = GraphModel.GetEdgesConnections(portModel);
+            var edgeModels = VSGraphModel.GetEdgesConnections(portModel);
             ((GraphModel)GraphModel).DeleteEdges(edgeModels);
             if (removeFromOrderedPorts)
             {
@@ -549,6 +552,10 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         {
             return n != null;
         }
+
+        public virtual bool IsDeletable => true;
+        public virtual bool IsDroppable => true;
+        public virtual bool IsCopiable => true;
     }
 
     [Serializable]

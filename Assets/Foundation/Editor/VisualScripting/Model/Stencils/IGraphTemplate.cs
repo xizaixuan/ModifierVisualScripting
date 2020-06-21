@@ -6,15 +6,14 @@ namespace UnityEditor.Modifier.VisualScripting.Model
     public interface IGraphTemplate
     {
         Type StencilType { get; }
-
         void InitBasicGraph(VSGraphModel graphModel);
     }
 
+    // Graph templated by a GameObject
     // Define a template that can be created from anywhere
     public interface ICreatableGraphTemplate : IGraphTemplate
     {
         string GraphTypeName { get; }
-
         string DefaultAssetName { get; }
     }
 }

@@ -72,8 +72,6 @@ namespace Unity.Modifier.GraphElements
 
             RegisterCallback<MouseDownEvent>(OnMouseDownEvent);
 
-            capabilities |= Capabilities.Selectable | Capabilities.Droppable | Capabilities.Deletable | Capabilities.Renamable;
-
             ClearClassList();
             AddToClassList("blackboardField");
 
@@ -83,6 +81,26 @@ namespace Unity.Modifier.GraphElements
 
             this.AddManipulator(new SelectionDropper());
             this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
+        }
+
+        public override bool IsSelectable()
+        {
+            return true;
+        }
+
+        public override bool IsDeletable()
+        {
+            return true;
+        }
+
+        public override bool IsRenamable()
+        {
+            return true;
+        }
+
+        public override bool IsDroppable()
+        {
+            return true;
         }
 
         protected override void ExecuteDefaultAction(EventBase evt)

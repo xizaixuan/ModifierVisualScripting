@@ -95,7 +95,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                         .WithTypeSelector()
                         .WithTooltipField())
                 {
-                    userData = declaration,
+                    Model = declaration,
                     expanded = true, // TODO not pretty
                 };
                 if (blackboard.Sections != null)

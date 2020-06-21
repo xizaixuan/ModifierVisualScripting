@@ -14,7 +14,8 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         GraphModel m_GraphModel;
 
         public string Name => name;
-        public virtual IGraphModel GraphModel => m_GraphModel;
+        IGTFGraphModel IGTFGraphAssetModel.GraphModel => m_GraphModel;
+        public IGraphModel GraphModel => m_GraphModel;
 
         public static GraphAssetModel Create(string assetName, string assetPath, Type assetTypeToCreate, bool writeOnDisk = true)
         {

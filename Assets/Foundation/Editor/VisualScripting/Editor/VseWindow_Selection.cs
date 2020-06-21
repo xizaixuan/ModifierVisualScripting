@@ -6,6 +6,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 {
     public partial class VseWindow
     {
+        // DO NOT name this one "OnSelectionChange", which is a magical unity function name
+        // and would automatically call this method when the selection changes.
+        // we want more granular control and register it manually
         void OnGlobalSelectionChange()
         {
             // if we're in Locked mode, keep current selection

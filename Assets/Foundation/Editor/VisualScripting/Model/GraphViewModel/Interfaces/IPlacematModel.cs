@@ -3,13 +3,10 @@ using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
-    public interface IPlacematModel : IGraphElementModel, IUndoRedoAware
+    public interface IPlacematModel : IGraphElementModelWithGuid, IUndoRedoAware
     {
-        string Title { get; }
-        Rect Position { get; }
         Color Color { get; }
-        bool Collapsed { get; }
-        int ZOrder { get; }
+        int ZOrder { get; set; }
         List<string> HiddenElementsGuid { get; }
         bool Destroyed { get; }
     }

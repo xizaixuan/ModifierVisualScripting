@@ -10,7 +10,7 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class Blackboard : Unity.Modifier.GraphElements.Blackboard, IMovable
+    public class Blackboard : Unity.GraphElements.Blackboard
     {
         public delegate void RebuildCallback(RebuildMode rebuildMode);
 
@@ -31,11 +31,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             BlackboardAndGraphView
         }
 
-        public Store Store { get; }
+        public new Store Store => base.Store as Store;
 
         public List<BlackboardSection> Sections { get; private set; }
 
-        public VseGraphView GraphView => (VseGraphView)graphView;
+        public new VseGraphView GraphView => graphView as VseGraphView;
 
         IBlackboardProvider m_LastProvider;
 
@@ -47,14 +47,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         public Blackboard(Store store, VseGraphView graphView, bool windowed)
         {
-            Store = store;
+            base.Store = store;
 
             styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Blackboard.uss"));
 
             AddToClassList("blackboard");
 
             scrollable = true;
-            base.title = k_ClassLibraryTitle;
+            title = k_ClassLibraryTitle;
             subTitle = "";
 
             viewDataKey = string.Empty;
@@ -104,11 +104,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 m_LastProvider.DisplayAppropriateSearcher(e.originalMousePosition, this);
         }
 
-        static void OnEditTextRequested(Unity.Modifier.GraphElements.Blackboard blackboard, VisualElement blackboardField, string newName)
+        static void OnEditTextRequested(Unity.GraphElements.Blackboard blackboard, VisualElement blackboardField, string newName)
         {
             if (blackboardField is BlackboardVariableField field)
             {
-                field.Store.Dispatch(new RenameElementAction((IRenamableModel)field.GraphElementModel, newName));
+                field.Store.Dispatch(new RenameElementAction((Unity.GraphToolsFoundation.Model.IRenamable)field.GraphElementModel, newName));
                 field.UpdateTitleFromModel();
             }
         }
@@ -248,12 +248,10 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         //            UpdateProperties(m_PersistedProperties);
         //        }
 
-        public void UpdatePinning()
+        public override void UpdatePinning()
         {
             UpdatePersistedProperties();
         }
-
-        public bool NeedStoreDispatch => false;
 
         // TODO: Enable when GraphView supports it
         //        void UpdateProperties(PersistedProperties properties)
@@ -275,13 +273,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         //            UpdatePersistedProperties(newPosition, newSize, newAutoDimOpacityEnabled);
         //        }
 
-        void OnAddItemRequested(Unity.Modifier.GraphElements.Blackboard blackboard)
+        void OnAddItemRequested(Unity.GraphElements.Blackboard blackboard)
         {
             var currentGraphModel = Store.GetState().CurrentGraphModel;
             currentGraphModel.Stencil.GetBlackboardProvider().AddItemRequested(Store, (IAction)null);
         }
 
-        void OnMoveItemRequested(Unity.Modifier.GraphElements.Blackboard blackboard, int index, VisualElement field)
+        void OnMoveItemRequested(Unity.GraphElements.Blackboard blackboard, int index, VisualElement field)
         {
             // TODO: Workaround to prevent moving item above a BlackboardThisField, as all check code is executed
             // within Unity.GraphElements.BlackboardSection in private or internal functions

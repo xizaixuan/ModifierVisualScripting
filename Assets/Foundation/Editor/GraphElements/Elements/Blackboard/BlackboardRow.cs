@@ -3,13 +3,15 @@ using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements
 {
-    public class BlackboardRow : GraphElement
+    public class BlackboardRow : VisualElement
     {
         private VisualElement m_Root;
         private Button m_ExpandButton;
         private VisualElement m_ItemContainer;
         private VisualElement m_PropertyViewContainer;
         private bool m_Expanded = true;
+
+        public IVariableDeclarationModel Model { get; set; }
 
         public bool expanded
         {

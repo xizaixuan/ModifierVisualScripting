@@ -12,7 +12,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
     {
         public static void Register(Store store)
         {
-            store.Register<CreateFunctionAction>(CreateFunction);
             store.Register<RenameElementAction>(RenameElement);
             store.Register<DeleteElementsAction>(DeleteElements);
             store.Register<RemoveNodesAction>(BypassAndDeleteElements);
@@ -41,9 +40,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             return previousState;
         }
 
-        static void DeleteElementsFromGraph(State previousState, IReadOnlyCollection<IGraphElementModel> elementsToRemove, GraphModel graphModel)
+        static void DeleteElementsFromGraph(State previousState, IReadOnlyCollection<IGTFGraphElementModel> elementsToRemove, GraphModel graphModel)
         {
-            IGraphElementModel[] deletables = elementsToRemove.Where(x => (x.Capabilities & CapabilityFlags.Deletable) != 0).Distinct().ToArray();
+            IGTFGraphElementModel[] deletables = elementsToRemove.Where(x => x is IDeletable).Distinct().ToArray();
 
             var vsGraphModel = (VSGraphModel)graphModel;
             IStickyNoteModel[] stickyNotesToDelete = GetStickyNotesToDelete(deletables);
@@ -54,8 +53,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             if (declarationModelsToDelete.Any())
                 previousState.MarkForUpdate(UpdateFlags.RequestRebuild);
-            if (IsReferenceDatabaseDirty(nodesToDelete))
-                graphModel.Stencil.GetSearcherDatabaseProvider().ClearReferenceItemsSearcherDatabases();
+
             graphModel.DeleteStickyNotes(stickyNotesToDelete);
             graphModel.DeletePlacemats(placematsToDelete);
             graphModel.DeleteEdges(edgesToDelete);
@@ -63,27 +61,22 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             vsGraphModel.DeleteVariableDeclarations(declarationModelsToDelete, false);
         }
 
-        static VariableDeclarationModel[] GetDeclarationModelsToDelete(IGraphElementModel[] deletables, IReadOnlyCollection<INodeModel> nodesToDelete)
+        static VariableDeclarationModel[] GetDeclarationModelsToDelete(IGTFGraphElementModel[] deletables, IReadOnlyCollection<INodeModel> nodesToDelete)
         {
-            return deletables.OfType<VariableDeclarationModel>().Where(x => !nodesToDelete.Contains(x.FunctionModel)).ToArray();
+            return deletables.OfType<VariableDeclarationModel>().ToArray();
         }
 
-        static IStickyNoteModel[] GetStickyNotesToDelete(IGraphElementModel[] deletables)
+        static IStickyNoteModel[] GetStickyNotesToDelete(IGTFGraphElementModel[] deletables)
         {
             return deletables.OfType<IStickyNoteModel>().ToArray();
         }
 
-        static IPlacematModel[] GetPlacematsToDelete(IGraphElementModel[] deletables)
+        static IPlacematModel[] GetPlacematsToDelete(IGTFGraphElementModel[] deletables)
         {
             return deletables.OfType<IPlacematModel>().ToArray();
         }
 
-        static bool IsReferenceDatabaseDirty(IReadOnlyCollection<INodeModel> nodesToDelete)
-        {
-            return nodesToDelete.OfType<IFunctionModel>().Any();
-        }
-
-        static List<IEdgeModel> GetEdgesToDelete(GraphModel graphModel, IGraphElementModel[] deletables, IReadOnlyCollection<INodeModel> nodesToDelete)
+        static List<IEdgeModel> GetEdgesToDelete(GraphModel graphModel, IGTFGraphElementModel[] deletables, IReadOnlyCollection<INodeModel> nodesToDelete)
         {
             var edgesToDelete = new HashSet<IEdgeModel>(deletables.OfType<IEdgeModel>());
             foreach (var node in nodesToDelete.Where(n => n.ParentStackModel == null || !n.ParentStackModel.DelegatesOutputsToNode(out var lastNode) || !ReferenceEquals(lastNode, n)))
@@ -92,11 +85,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             return edgesToDelete.ToList();
         }
 
-        static List<INodeModel> GetNodesToDelete(VSGraphModel vsGraphModel, IGraphElementModel[] deletables)
+        static List<INodeModel> GetNodesToDelete(VSGraphModel vsGraphModel, IGTFGraphElementModel[] deletables)
         {
             var nodesToDelete = new HashSet<INodeModel>(deletables.OfType<NodeModel>());
             nodesToDelete.AddRange(deletables.OfType<IStackModel>().SelectMany(s => s.NodeModels));
-            nodesToDelete.AddRange(deletables.OfType<VariableDeclarationModel>().SelectMany(vsGraphModel.FindUsages));
+            nodesToDelete.AddRange(deletables.OfType<VariableDeclarationModel>().SelectMany(vsGraphModel.FindUsages<VariableNodeModel>));
             return nodesToDelete.ToList();
         }
 
@@ -107,50 +100,32 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             Undo.RegisterCompleteObjectUndo((Object)graphModel.AssetModel, "Delete elements");
 
             graphModel.BypassNodes(action.NodesToBypass);
-            List<IGraphElementModel> graphElementsToRemove = action.ElementsToRemove.Cast<IGraphElementModel>().ToList();
+            List<IGTFGraphElementModel> graphElementsToRemove = action.ElementsToRemove.Cast<IGTFGraphElementModel>().ToList();
             DeleteElementsFromGraph(previousState, graphElementsToRemove, graphModel);
-            return previousState;
-        }
-
-        static State CreateFunction(State previousState, CreateFunctionAction action)
-        {
-            VSGraphModel graphModel = (VSGraphModel)previousState.CurrentGraphModel;
-
-            FunctionModel functionModel = graphModel.CreateFunction(action.Name, action.Position);
-            previousState.EditorDataModel.ElementModelToRename = functionModel;
-            previousState.MarkForUpdate(UpdateFlags.RequestRebuild);
-
             return previousState;
         }
 
         static State RenameElement(State previousState, RenameElementAction action)
         {
+            var graphModel = (VSGraphModel)previousState.CurrentGraphModel;
+
             if (string.IsNullOrWhiteSpace(action.Name))
                 return previousState;
 
-            Undo.RegisterCompleteObjectUndo((Object)action.RenamableModel.AssetModel, "Renaming graph element");
+            Undo.RegisterCompleteObjectUndo((Object)graphModel.AssetModel, "Rename");
             action.RenamableModel.Rename(action.Name);
-            EditorUtility.SetDirty((Object)action.RenamableModel.AssetModel);
+            EditorUtility.SetDirty((Object)graphModel.AssetModel);
 
             IGraphChangeList graphChangeList = previousState.CurrentGraphModel.LastChanges;
 
             VSGraphModel vsGraphModel = (VSGraphModel)previousState.CurrentGraphModel;
 
-            if (action.RenamableModel is IFunctionModel functionDefinitionModel)
-            {
-                RenameFunctionUsages((FunctionModel)functionDefinitionModel);
-            }
-            else if (action.RenamableModel is VariableDeclarationModel variableDeclarationModel)
+            if (action.RenamableModel is VariableDeclarationModel variableDeclarationModel)
             {
                 graphChangeList.BlackBoardChanged = true;
 
-                if (variableDeclarationModel.Owner is IFunctionModel functionModel)
-                {
-                    RenameFunctionUsages((FunctionModel)functionModel);
-                }
-
                 // update usage names
-                graphChangeList.ChangedElements.AddRange(vsGraphModel.FindUsages(variableDeclarationModel));
+                graphChangeList.ChangedElements.AddRange(vsGraphModel.FindUsages<VariableNodeModel>(variableDeclarationModel));
             }
             else if (action.RenamableModel is IVariableModel variableModel)
             {
@@ -159,53 +134,54 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 variableDeclarationModel = variableModel.DeclarationModel as VariableDeclarationModel;
                 graphChangeList.ChangedElements.Add(variableDeclarationModel);
 
-                graphChangeList.ChangedElements.AddRange(vsGraphModel.FindUsages(variableDeclarationModel));
-                if (variableDeclarationModel.FunctionModel != null)
-                    graphChangeList.ChangedElements.Add(variableDeclarationModel.FunctionModel);
+                graphChangeList.ChangedElements.AddRange(vsGraphModel.FindUsages<VariableNodeModel>(variableDeclarationModel));
+            }
+            else if (action.RenamableModel is IEdgePortalModel edgePortalModel)
+            {
+                variableDeclarationModel = edgePortalModel.DeclarationModel as VariableDeclarationModel;
+                graphChangeList.ChangedElements.Add(variableDeclarationModel);
+                graphChangeList.ChangedElements.AddRange(vsGraphModel.FindUsages<EdgePortalModel>(variableDeclarationModel));
             }
             else
-                graphChangeList.ChangedElements.Add(action.RenamableModel);
+                graphChangeList.ChangedElements.Add(action.RenamableModel as IGraphElementModel);
 
 
             previousState.MarkForUpdate(UpdateFlags.RequestCompilation | UpdateFlags.RequestRebuild);
 
             return previousState;
-
-            void RenameFunctionUsages(FunctionModel functionModel)
-            {
-                var toUpdate = functionModel.FindFunctionUsages(previousState.CurrentGraphModel);
-                graphChangeList.ChangedElements.AddRange(toUpdate);
-                graphChangeList.ChangedElements.Add(functionModel);
-            }
         }
 
         static State MoveElements(State previousState, MoveElementsAction action)
         {
+            if (action.Models == null || action.Delta == Vector2.zero)
+                return previousState;
+
             Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Move");
 
-            if (action.PlacematModels != null)
-                foreach (var placematModel in action.PlacematModels)
-                    placematModel.Move(action.Delta);
+            foreach (var placematModel in action.Models.OfType<IGTFPlacematModel>())
+                placematModel.Move(action.Delta);
 
             // TODO It would be nice to have a single way of moving things around and thus not having to deal with 3
             // separate collections.
-            if (action.NodeModels != null)
-                foreach (var nodeModel in action.NodeModels)
-                    ((GraphModel)previousState.CurrentGraphModel).MoveNode(nodeModel, nodeModel.Position + action.Delta);
+            foreach (var nodeModel in action.Models.OfType<INodeModel>())
+                ((GraphModel)previousState.CurrentGraphModel).MoveNode(nodeModel, nodeModel.Position + action.Delta);
 
-            if (action.StickyModels != null)
-                foreach (var stickyNoteModel in action.StickyModels)
-                    stickyNoteModel.Move(new Rect(stickyNoteModel.Position.position + action.Delta, stickyNoteModel.Position.size));
+            foreach (var stickyNoteModel in action.Models.OfType<IGTFStickyNoteModel>())
+                stickyNoteModel.PositionAndSize = new Rect(stickyNoteModel.PositionAndSize.position + action.Delta, stickyNoteModel.PositionAndSize.size);
 
-            if (action.EdgeModels != null)
-                foreach (var edgeModel in action.EdgeModels)
+            // Only move an edge if it is connected on both ends to a moving node.
+            var edgeModels = action.Models.OfType<IGTFEdgeModel>();
+            if (edgeModels.Any())
+            {
+                var nodeModels = action.Models.OfType<IGTFNodeModel>().ToImmutableHashSet();
+                foreach (var edgeModel in edgeModels)
                 {
-                    for (var i = 0; i < edgeModel.EdgeControlPoints.Count; i++)
+                    if (nodeModels.Contains(edgeModel.FromPort.NodeModel) && nodeModels.Contains(edgeModel.ToPort.NodeModel))
                     {
-                        var point = edgeModel.EdgeControlPoints[i];
-                        edgeModel.ModifyEdgeControlPoint(i, point.Position + action.Delta, point.Tightness);
+                        edgeModel.Move(action.Delta);
                     }
                 }
+            }
 
             previousState.MarkForUpdate(UpdateFlags.GraphGeometry);
             return previousState;
@@ -226,13 +202,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 foreach (var model in action.NodeModels)
                 {
                     model.ChangeColor(action.Color);
+                    previousState.MarkForUpdate(UpdateFlags.UpdateView, model);
                 }
             if (action.PlacematModels != null)
                 foreach (var model in action.PlacematModels)
                 {
                     model.Color = action.Color;
+                    previousState.MarkForUpdate(UpdateFlags.UpdateView, model);
                 }
-            previousState.MarkForUpdate(UpdateFlags.None);
             return previousState;
         }
 
@@ -241,16 +218,17 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             Undo.RegisterCompleteObjectUndo((Object)previousState.AssetModel, "Reset Color");
             EditorUtility.SetDirty((Object)previousState.AssetModel);
             if (action.NodeModels != null)
-                foreach (var nodeModel in action.NodeModels)
+                foreach (var model in action.NodeModels)
                 {
-                    nodeModel.HasUserColor = false;
+                    model.HasUserColor = false;
+                    previousState.MarkForUpdate(UpdateFlags.UpdateView, model);
                 }
             if (action.PlacematModels != null)
                 foreach (var model in action.PlacematModels)
                 {
                     model.Color = PlacematModel.k_DefaultColor;
+                    previousState.MarkForUpdate(UpdateFlags.UpdateView, model);
                 }
-            previousState.MarkForUpdate(UpdateFlags.None);
             return previousState;
         }
     }

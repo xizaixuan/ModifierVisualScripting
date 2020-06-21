@@ -6,63 +6,49 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    class Edge : Unity.Modifier.GraphElements.Edge, IHasGraphElementModel
+    class Edge : Unity.GraphElements.Edge, IHasGraphElementModel
     {
-        readonly IEdgeModel m_EdgeModel;
-        readonly EdgeBubble m_EdgeBubble;
+        EdgeBubble m_EdgeBubble;
 
-        public Edge(IEdgeModel edgeModel) : this()
-        {
-            m_EdgeModel = edgeModel;
-
-            capabilities = VseUtility.ConvertCapabilities(m_EdgeModel);
-
-            PortType portType = m_EdgeModel?.OutputPortModel?.PortType ?? PortType.Data;
-            EnableInClassList("execution", portType == PortType.Execution || portType == PortType.Loop);
-            EnableInClassList("event", portType == PortType.Event);
-            viewDataKey = m_EdgeModel?.GetId();
-        }
+        public EdgeModel VSEdgeModel => EdgeModel as EdgeModel;
+        public IGraphElementModel GraphElementModel => VSEdgeModel;
 
         // Necessary for EdgeConnector, which creates temporary edges
         public Edge()
         {
             layer = -1;
 
-            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Edge.uss"));
-
             RegisterCallback<AttachToPanelEvent>(OnTargetAttachedToPanel);
             RegisterCallback<DetachFromPanelEvent>(OnTargetDetachedFromPanel);
-
-            m_EdgeBubble = new EdgeBubble();
-            EnableInClassList(k_EditModeClassName, editMode);
         }
 
-        static readonly string k_EditModeClassName = "edge--edit-mode";
-
-        public bool editMode => model?.EditMode ?? false;
-
-        const float k_InterceptWidth = 6.0f;
-        protected override Unity.Modifier.GraphElements.EdgeControl CreateEdgeControl()
+        protected override void BuildUI()
         {
-            return new EdgeControl
-            {
-                interceptWidth = k_InterceptWidth
-            };
+            base.BuildUI();
+
+            styleSheets.Add(AssetDatabase.LoadAssetAtPath<StyleSheet>(UICreationHelper.templatePath + "Edge.uss"));
+            m_EdgeBubble = new EdgeBubble();
+
+            PortType portType = VSEdgeModel?.OutputPortModel?.PortType ?? PortType.Data;
+            EnableInClassList("execution", portType == PortType.Execution || portType == PortType.Loop);
+            EnableInClassList("event", portType == PortType.Event);
+
+            viewDataKey = VSEdgeModel?.GetId();
         }
 
         void OnTargetAttachedToPanel(AttachToPanelEvent evt)
         {
             Add(m_EdgeBubble);
 
-            if (m_EdgeModel?.OutputPortModel != null)
-                m_EdgeModel.OutputPortModel.OnValueChanged += OnPortValueChanged;
+            if (VSEdgeModel?.OutputPortModel != null)
+                VSEdgeModel.OutputPortModel.OnValueChanged += OnPortValueChanged;
         }
 
         void OnTargetDetachedFromPanel(DetachFromPanelEvent evt)
         {
-            if (m_EdgeModel?.OutputPortModel != null)
+            if (VSEdgeModel?.OutputPortModel != null)
                 // ReSharper disable once DelegateSubtraction
-                m_EdgeModel.OutputPortModel.OnValueChanged -= OnPortValueChanged;
+                VSEdgeModel.OutputPortModel.OnValueChanged -= OnPortValueChanged;
 
             m_EdgeBubble.Detach();
             m_EdgeBubble.RemoveFromHierarchy();
@@ -70,36 +56,18 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         void OnPortValueChanged()
         {
-            OnPortChanged(isInput: false);
-        }
-
-        public override void OnSelected()
-        {
-            (edgeControl as EdgeControl)?.RebuildControlPointsUI();
-            EnableInClassList(k_EditModeClassName, editMode);
-            UpdateEdgeControlColorsAndWidth();
-        }
-
-        public override void OnUnselected()
-        {
-            EnableInClassList(k_EditModeClassName, editMode);
-            UpdateEdgeControlColorsAndWidth();
+            OnPortChanged();
         }
 
         public override bool UpdateEdgeControl()
         {
             schedule.Execute(_ => UpdateEdgeBubble());
-            var result = base.UpdateEdgeControl();
-
-            EnableInClassList(k_EditModeClassName, editMode);
-            UpdateEdgeControlColorsAndWidth();
-
-            return result;
+            return base.UpdateEdgeControl();
         }
 
-        public override void OnPortChanged(bool isInput)
+        public override void OnPortChanged()
         {
-            base.OnPortChanged(isInput);
+            base.OnPortChanged();
 
             // Function can be called on initialization from GraphView before the element is attached to a panel
             if (panel == null)
@@ -110,19 +78,19 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         void UpdateEdgeBubble()
         {
-            NodeModel inputPortNodeModel = m_EdgeModel?.InputPortModel?.NodeModel as NodeModel;
-            NodeModel outputPortNodeModel = m_EdgeModel?.OutputPortModel?.NodeModel as NodeModel;
+            NodeModel inputPortNodeModel = VSEdgeModel?.InputPortModel?.NodeModel as NodeModel;
+            NodeModel outputPortNodeModel = VSEdgeModel?.OutputPortModel?.NodeModel as NodeModel;
 
-            PortType portType = m_EdgeModel?.OutputPortModel?.PortType ?? PortType.Data;
+            PortType portType = VSEdgeModel?.OutputPortModel?.PortType ?? PortType.Data;
             if ((portType == PortType.Execution || portType == PortType.Loop) && (outputPortNodeModel != null || inputPortNodeModel != null) &&
-                !string.IsNullOrEmpty(m_EdgeModel?.EdgeLabel) &&
+                !string.IsNullOrEmpty(VSEdgeModel?.EdgeLabel) &&
                 visible)
             {
-                var offset = (edgeControl as EdgeControl).BubblePosition - new Vector2(edgeControl.layout.xMin + edgeControl.layout.width / 2, edgeControl.layout.yMin + edgeControl.layout.height / 2);
+                var offset = EdgeControl.BubblePosition - new Vector2(EdgeControl.layout.xMin + EdgeControl.layout.width / 2, EdgeControl.layout.yMin + EdgeControl.layout.height / 2);
                 m_EdgeBubble.SetAttacherOffset(offset);
-                m_EdgeBubble.text = m_EdgeModel?.EdgeLabel;
-                m_EdgeBubble.EnableInClassList("candidate", (output == null || input == null));
-                m_EdgeBubble.AttachTo(edgeControl, SpriteAlignment.Center);
+                m_EdgeBubble.text = VSEdgeModel?.EdgeLabel;
+                m_EdgeBubble.EnableInClassList("candidate", Output == null || Input == null);
+                m_EdgeBubble.AttachTo(EdgeControl, SpriteAlignment.Center);
                 m_EdgeBubble.style.visibility = StyleKeyword.Null;
             }
             else
@@ -131,15 +99,5 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 m_EdgeBubble.style.visibility = Visibility.Hidden;
             }
         }
-
-        public void Rename(string value)
-        {
-            // TODO: useful only if user can provide a direct condition via a string
-            // (and this is only valid for conditional branch edges)
-            // m_Store.Dispatch(new RenameEdgeAction(model, value));
-        }
-
-        public IGraphElementModel GraphElementModel => m_EdgeModel;
-        public IEdgeModel model => m_EdgeModel;
     }
 }

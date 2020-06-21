@@ -30,8 +30,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
             RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
 
-            if (variableDeclarationModel.VariableType != VariableType.FunctionVariable &&
-                variableDeclarationModel.VariableType != VariableType.GraphVariable)
+            if (variableDeclarationModel.VariableType != VariableType.GraphVariable)
                 return;
 
             if (variableDeclarationModel.InitializationModel == null)
@@ -55,13 +54,14 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             }
         }
 
-        public BlackboardVariablePropertyView WithTypeSelector()
+        public BlackboardVariablePropertyView WithTypeSelector(SearcherFilter filter = null)
         {
             var typeButton = new Button(() =>
                 SearcherService.ShowTypes(
                     m_Stencil,
                     Event.current.mousePosition,
-                    (t, i) => OnTypeChanged(t)
+                    (t, i) => OnTypeChanged(t),
+                    filter
                 )
                 )
             { text = TypeText };

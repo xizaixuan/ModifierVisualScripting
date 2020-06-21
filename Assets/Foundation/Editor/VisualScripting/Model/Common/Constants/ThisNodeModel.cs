@@ -5,7 +5,7 @@ using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 namespace UnityEditor.Modifier.VisualScripting.Model
 {
     [Serializable]
-    public class ThisNodeModel : NodeModel, IVariableModel, IRenamableModel
+    public class ThisNodeModel : NodeModel, IVariableModel
     {
         public IPortModel OutputPort { get; private set; }
         public IVariableDeclarationModel DeclarationModel => null;
@@ -14,7 +14,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
 
         public override string Title => k_Title;
 
-        public override string DataTypeString => GraphModel?.FriendlyScriptName ?? string.Empty;
+        public override string DataTypeString => VSGraphModel?.FriendlyScriptName ?? string.Empty;
         public override string VariableString => "Variable";
 
         protected override void OnDefineNode()
@@ -22,9 +22,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model
             OutputPort = AddDataOutputPort(null, TypeHandle.ThisType);
         }
 
-        public void Rename(string newName)
-        {
-            throw new NotImplementedException();
-        }
+        public IGTFPortModel GTFInputPort => OutputPort.Direction == Direction.Input ? OutputPort as IGTFPortModel : null;
+        public IGTFPortModel GTFOutputPort => OutputPort.Direction == Direction.Output ? OutputPort as IGTFPortModel : null;
     }
 }

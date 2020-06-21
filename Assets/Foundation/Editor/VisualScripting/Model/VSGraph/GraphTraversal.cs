@@ -60,7 +60,7 @@ namespace UnityEditor.Modifier.VisualScripting.Mode
             foreach (var inputPortModel in stack.InputPorts)
             {
                 if (inputPortModel.PortType != PortType.Execution &&
-                    inputPortModel.Connected)
+                    inputPortModel.IsConnected)
                 {
                     bool any = false;
                     foreach (var connectionPortModel in inputPortModel.ConnectionPortModels)
@@ -116,7 +116,7 @@ namespace UnityEditor.Modifier.VisualScripting.Mode
 
             foreach (var inputPortModel in nodeModel.InputsByDisplayOrder)
             {
-                if (inputPortModel.Connected)
+                if (inputPortModel.IsConnected)
                     foreach (var connectionPortModel in inputPortModel.ConnectionPortModels)
                     {
                         if (!visitedNodes.Contains(connectionPortModel.NodeModel))

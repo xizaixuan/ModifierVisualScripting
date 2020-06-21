@@ -17,11 +17,13 @@ namespace Unity.Modifier.GraphElements
 
         bool m_Active;
 
-        public Resizer() : this(k_ResizerSize)
+        public Resizer() :
+            this(k_ResizerSize)
         {
         }
 
-        public Resizer(Action onReizedCallback) : this(k_ResizerSize, onReizedCallback)
+        public Resizer(Action onResizedCallback) :
+            this(k_ResizerSize, onResizedCallback)
         {
         }
 
@@ -50,7 +52,10 @@ namespace Unity.Modifier.GraphElements
             ClearClassList();
             AddToClassList("resizer");
 
-            var icon = new VisualElement() { style = { unityBackgroundScaleMode = ScaleMode.ScaleAndCrop } };
+            var icon = new VisualElement()
+            {
+                style = { unityBackgroundScaleMode = ScaleMode.ScaleAndCrop }
+            };
             icon.AddToClassList("resizer-icon");
             Add(icon);
         }
@@ -197,8 +202,6 @@ namespace Unity.Modifier.GraphElements
 
                 if (resized)
                 {
-                    ce.UpdatePresenterPosition();
-
                     GraphView graphView = ce.GetFirstAncestorOfType<GraphView>();
                     if (graphView != null && graphView.elementResized != null)
                     {

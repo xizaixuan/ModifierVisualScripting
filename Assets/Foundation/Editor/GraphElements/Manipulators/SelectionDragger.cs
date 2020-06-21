@@ -38,11 +38,16 @@ namespace Unity.Modifier.GraphElements
 
                 if (dropTarget != null)
                 {
-                    if (exclusionList.Contains(picked))
+                    foreach (var element in exclusionList)
                     {
-                        dropTarget = null;
+                        if (element == picked || element.FindCommonAncestor(picked) == element)
+                        {
+                            dropTarget = null;
+                            break;
+                        }
                     }
-                    else
+
+                    if (dropTarget != null)
                         break;
                 }
             }
@@ -50,7 +55,7 @@ namespace Unity.Modifier.GraphElements
             return dropTarget;
         }
 
-        public SelectionDragger()
+        public SelectionDragger(GraphView graphView)
         {
             activators.Add(new ManipulatorActivationFilter { button = MouseButton.LeftMouse });
             activators.Add(new ManipulatorActivationFilter { button = MouseButton.LeftMouse, modifiers = EventModifiers.Shift });
@@ -67,6 +72,7 @@ namespace Unity.Modifier.GraphElements
 
             m_MovedElements = new List<GraphElement>();
             m_GraphViewChange.movedElements = m_MovedElements;
+            m_GraphView = graphView;
         }
 
         protected override void RegisterCallbacksOnTarget()
@@ -101,7 +107,6 @@ namespace Unity.Modifier.GraphElements
         class OriginalPos
         {
             public Rect pos;
-            public Scope scope;
             public StackNode stack;
             public int stackIndex;
             public bool dragStarted;
@@ -176,8 +181,6 @@ namespace Unity.Modifier.GraphElements
 
             if (CanStartManipulation(e))
             {
-                m_GraphView = target as GraphView;
-
                 if (m_GraphView == null)
                     return;
 
@@ -194,7 +197,7 @@ namespace Unity.Modifier.GraphElements
                 }
 
                 // Only start manipulating if the clicked element is movable, selected and that the mouse is in its clickable region (it must be deselected otherwise).
-                if (!clickedElement.IsMovable() || !clickedElement.HitTest(clickedElement.WorldToLocal(e.mousePosition)))
+                if (!clickedElement.IsPositioned() || !clickedElement.HitTest(clickedElement.WorldToLocal(e.mousePosition)))
                     return;
 
                 // If we hit this, this likely because the element has just been unselected
@@ -217,9 +220,10 @@ namespace Unity.Modifier.GraphElements
                     placemat.GetElementsToMove(e.shiftKey, elementsToMove);
 
                 m_EdgesToUpdate.Clear();
+                HashSet<IGTFNodeModel> nodeModelsToMove = new HashSet<IGTFNodeModel>(elementsToMove.Select(element => element.Model).OfType<IGTFNodeModel>());
                 foreach (var edge in m_GraphView.edges.ToList())
                 {
-                    if (elementsToMove.Contains(edge.input.node) && elementsToMove.Contains(edge.output.node))
+                    if (nodeModelsToMove.Contains(edge.Input.NodeModel) && nodeModelsToMove.Contains(edge.Output.NodeModel))
                     {
                         m_EdgesToUpdate.Add(edge);
                     }
@@ -227,7 +231,7 @@ namespace Unity.Modifier.GraphElements
 
                 foreach (GraphElement ce in elementsToMove)
                 {
-                    if (ce == null || !ce.IsMovable())
+                    if (ce == null || !ce.IsPositioned())
                         continue;
 
                     StackNode stackNode = null;
@@ -244,7 +248,6 @@ namespace Unity.Modifier.GraphElements
                     m_OriginalPos[ce] = new OriginalPos
                     {
                         pos = geometryInContentViewSpace,
-                        scope = ce.GetContainingScope(),
                         stack = stackNode,
                         stackIndex = stackNode != null ? stackNode.IndexOf(ce) : -1
                     };
@@ -268,12 +271,12 @@ namespace Unity.Modifier.GraphElements
 #if USE_DRAG_RESET_WHEN_OUT_OF_GRAPH_VIEW
         private bool m_GoneOut;
 #endif
-        internal const int k_PanAreaWidth = 100;
-        internal const int k_PanSpeed = 4;
+        public const int k_PanAreaWidth = 100;
+        public const int k_PanSpeed = 4;
         public const int k_PanInterval = 10;
-        internal const float k_MinSpeedFactor = 0.5f;
-        internal const float k_MaxSpeedFactor = 2.5f;
-        internal const float k_MaxPanSpeed = k_MaxSpeedFactor * k_PanSpeed;
+        public const float k_MinSpeedFactor = 0.5f;
+        public const float k_MaxSpeedFactor = 2.5f;
+        public const float k_MaxPanSpeed = k_MaxSpeedFactor * k_PanSpeed;
 
         private IVisualElementScheduledItem m_PanSchedule;
         private Vector3 m_PanDiff = Vector3.zero;
@@ -352,7 +355,6 @@ namespace Unity.Modifier.GraphElements
             // mouse has gone out.
             m_MouseDiff = m_originalMouse - e.mousePosition;
 
-            var groupElementsDraggedOut = e.shiftKey ? new Dictionary<Group, List<GraphElement>>() : null;
             foreach (KeyValuePair<GraphElement, OriginalPos> v in m_OriginalPos)
             {
                 GraphElement ce = v.Key;
@@ -368,18 +370,6 @@ namespace Unity.Modifier.GraphElements
                     if (stackParent != null)
                         stackParent.OnStartDragging(ce);
 
-                    if (groupElementsDraggedOut != null)
-                    {
-                        var groupParent = ce.GetContainingScope() as Group;
-                        if (groupParent != null)
-                        {
-                            if (!groupElementsDraggedOut.ContainsKey(groupParent))
-                            {
-                                groupElementsDraggedOut[groupParent] = new List<GraphElement>();
-                            }
-                            groupElementsDraggedOut[groupParent].Add(ce);
-                        }
-                    }
                     v.Value.dragStarted = true;
                 }
 
@@ -389,15 +379,6 @@ namespace Unity.Modifier.GraphElements
             foreach (var edge in m_EdgesToUpdate)
             {
                 UpdateEdge(edge);
-            }
-
-            // Needed to ensure nodes can be dragged out of multiple groups all at once.
-            if (groupElementsDraggedOut != null)
-            {
-                foreach (KeyValuePair<Group, List<GraphElement>> kvp in groupElementsDraggedOut)
-                {
-                    kvp.Key.OnStartDragging(e, kvp.Value);
-                }
             }
 
             List<ISelectable> selection = m_GraphView.selection;
@@ -450,17 +431,15 @@ namespace Unity.Modifier.GraphElements
             Matrix4x4 g = element.worldTransform;
             var scale = new Vector3(g.m00, g.m11, g.m22);
 
+            Rect newPos = new Rect(0, 0, originalPos.width, originalPos.height);
+
             // Compute the new position of the selected element using the mouse delta position and panning info
-            var offset = new Vector2(
-                -(m_MouseDiff.x - m_ItemPanDiff.x) * panSpeed.x / scale.x * element.transform.scale.x,
-                -(m_MouseDiff.y - m_ItemPanDiff.y) * panSpeed.y / scale.y * element.transform.scale.y
-            );
+            newPos.x = originalPos.x - (m_MouseDiff.x - m_ItemPanDiff.x) * panSpeed.x / scale.x * element.transform.scale.x;
+            newPos.y = originalPos.y - (m_MouseDiff.y - m_ItemPanDiff.y) * panSpeed.y / scale.y * element.transform.scale.y;
 
-            Rect newPos = originalPos;
-            newPos.x = originalPos.x + offset.x;
-            newPos.y = originalPos.y + offset.y;
-
-            element.SetPosition(m_GraphView.contentViewContainer.ChangeCoordinatesTo(element.hierarchy.parent, newPos));
+            newPos = m_GraphView.contentViewContainer.ChangeCoordinatesTo(element.hierarchy.parent, newPos);
+            element.style.left = newPos.x;
+            element.style.top = newPos.y;
         }
 
         void UpdateEdge(Edge edge)
@@ -474,7 +453,7 @@ namespace Unity.Modifier.GraphElements
                 -(m_MouseDiff.y - m_ItemPanDiff.y) * panSpeed.y / scale.y * edge.transform.scale.y
             );
 
-            edge.edgeControl.ControlPointOffset = offset;
+            edge.EdgeControl.ControlPointOffset = offset;
         }
 
         protected new void OnMouseUp(MouseUpEvent evt)
@@ -500,7 +479,7 @@ namespace Unity.Modifier.GraphElements
                 {
                     foreach (var edge in m_EdgesToUpdate)
                     {
-                        edge.edgeControl.ControlPointOffset = Vector2.zero;
+                        edge.EdgeControl.ControlPointOffset = Vector2.zero;
                     }
                     m_EdgesToUpdate.Clear();
 
@@ -513,18 +492,28 @@ namespace Unity.Modifier.GraphElements
                             if (grouping.Key != null && m_GraphView.elementsRemovedFromStackNode != null)
                                 m_GraphView.elementsRemovedFromStackNode(grouping.Key, grouping);
 
-                            foreach (GraphElement ge in grouping)
-                                ge.UpdatePresenterPosition();
-
                             m_MovedElements.AddRange(grouping);
                         }
 
+                        // PF: remove graphViewChanged and all.
                         var graphView = target as GraphView;
-                        if (graphView != null && graphView.graphViewChanged != null)
+                        if (graphView?.graphViewChanged != null)
                         {
                             KeyValuePair<GraphElement, OriginalPos> firstPos = m_OriginalPos.First();
                             m_GraphViewChange.moveDelta = firstPos.Key.GetPosition().position - firstPos.Value.pos.position;
                             graphView.graphViewChanged(m_GraphViewChange);
+                        }
+
+                        if (m_GraphView != null)
+                        {
+                            KeyValuePair<GraphElement, OriginalPos> firstPos = m_OriginalPos.First();
+                            var delta = firstPos.Key.GetPosition().position - firstPos.Value.pos.position;
+                            var models = m_OriginalPos.Keys
+                                // PF remove this Where clause. It comes from VseGraphView.OnGraphViewChanged.
+                                .Where(e => e is IMovable movable && (!(e.Model is IGTFNodeModel) || movable.IsMovable))
+                                .Select(e => e.Model)
+                                .OfType<IPositioned>();
+                            m_GraphView.Store.Dispatch(new MoveElementsAction(delta, models.ToArray()));
                         }
                     }
 
@@ -570,7 +559,6 @@ namespace Unity.Modifier.GraphElements
                 return;
 
             // Reset the items to their original pos.
-            var groupsElementsToReset = new Dictionary<Scope, List<GraphElement>>();
             foreach (KeyValuePair<GraphElement, OriginalPos> v in m_OriginalPos)
             {
                 OriginalPos originalPos = v.Value;
@@ -580,21 +568,9 @@ namespace Unity.Modifier.GraphElements
                 }
                 else
                 {
-                    if (originalPos.scope != null)
-                    {
-                        if (!groupsElementsToReset.ContainsKey(originalPos.scope))
-                        {
-                            groupsElementsToReset[originalPos.scope] = new List<GraphElement>();
-                        }
-                        groupsElementsToReset[originalPos.scope].Add(v.Key);
-                    }
-                    v.Key.SetPosition(originalPos.pos);
+                    v.Key.style.left = originalPos.pos.x;
+                    v.Key.style.top = originalPos.pos.y;
                 }
-            }
-
-            foreach (KeyValuePair<Scope, List<GraphElement>> toReset in groupsElementsToReset)
-            {
-                toReset.Key.AddElements(toReset.Value);
             }
 
             m_PanSchedule.Pause();

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
 {
     [Serializable]
-    public sealed class StickyNoteModel : IStickyNoteModel
+    public sealed class StickyNoteModel : IStickyNoteModel, ISerializationCallbackReceiver, IGTFStickyNoteModel
     {
         [SerializeField]
         string m_Title;
@@ -16,14 +16,15 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         {
             Title = string.Empty;
             Contents = string.Empty;
-            Theme = StickyNoteColorTheme.Classic;
-            TextSize = StickyNoteTextSize.Small;
+            Theme = StickyNoteColorTheme.Classic.ToString();
+            TextSize = StickyNoteTextSize.Small.ToString();
+            PositionAndSize = Rect.zero;
         }
 
         public string Title
         {
             get => m_Title;
-            private set { if (value != null && m_Title != value) m_Title = value; }
+            set { if (value != null && m_Title != value) m_Title = value; }
         }
 
         [SerializeField]
@@ -31,69 +32,64 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
         public string Contents
         {
             get => m_Contents;
-            private set { if (value != null && m_Contents != value) m_Contents = value; }
+            set { if (value != null && m_Contents != value) m_Contents = value; }
         }
 
         [SerializeField]
         StickyNoteColorTheme m_Theme;
-        public StickyNoteColorTheme Theme
+
+        [SerializeField]
+        string m_ThemeName = String.Empty;
+        public string Theme
         {
-            get => m_Theme;
-            private set => m_Theme = value;
+            get => m_ThemeName;
+            set => m_ThemeName = value;
         }
 
         [SerializeField]
         StickyNoteTextSize m_TextSize;
-        public StickyNoteTextSize TextSize
+
+        [SerializeField]
+        string m_TextSizeName = String.Empty;
+        public string TextSize
         {
-            get => m_TextSize;
-            private set => m_TextSize = value;
+            get => m_TextSizeName;
+            set => m_TextSizeName = value;
         }
 
         [SerializeField]
         Rect m_Position;
 
-        public Rect Position
+        public Rect PositionAndSize
         {
             get => m_Position;
             set => m_Position = value;
         }
 
-        public void Move(Rect newPosition)
+        public Vector2 Position
         {
-            Position = newPosition;
+            get => PositionAndSize.position;
+            set => PositionAndSize = new Rect(value, PositionAndSize.size);
         }
 
-        public void UpdateBasicSettings(string newTitle, string newContents)
+        public void Move(Vector2 delta)
         {
-            Title = newTitle;
-            Contents = newContents;
+            Position += delta;
         }
-
-        public void UpdateTheme(StickyNoteColorTheme newTheme)
-        {
-            Theme = newTheme;
-        }
-
-        public void UpdateTextSize(StickyNoteTextSize newTextSize)
-        {
-            TextSize = newTextSize;
-        }
-
-        // Capabilities
-        public CapabilityFlags Capabilities => CapabilityFlags.Selectable | CapabilityFlags.Deletable | CapabilityFlags.Movable | CapabilityFlags.Copiable;
 
         public ScriptableObject SerializableAsset => (ScriptableObject)AssetModel;
-        public IGraphAssetModel AssetModel => GraphModel?.AssetModel;
+        public IGraphAssetModel AssetModel => VSGraphModel?.AssetModel;
 
         [SerializeField]
         GraphModel m_GraphModel;
 
-        public IGraphModel GraphModel
+        public IGraphModel VSGraphModel
         {
             get => m_GraphModel;
             set => m_GraphModel = (GraphModel)value;
         }
+
+        public IGTFGraphModel GraphModel => VSGraphModel as IGTFGraphModel;
 
         public bool Destroyed { get; private set; }
 
@@ -111,8 +107,26 @@ namespace UnityEditor.Modifier.VisualScripting.GraphViewModel
                 Contents = Contents,
                 Title = Title,
                 Theme = Theme,
-                Position = Position,
+                TextSize = TextSize,
+                PositionAndSize = PositionAndSize,
             };
         }
+
+        public bool IsDeletable => true;
+
+        public void OnBeforeSerialize()
+        {
+        }
+
+        public void OnAfterDeserialize()
+        {
+            if (String.IsNullOrEmpty(m_ThemeName))
+                m_ThemeName = m_Theme.ToString();
+
+            if (String.IsNullOrEmpty(m_TextSizeName))
+                m_TextSizeName = m_TextSize.ToString();
+        }
+
+        public bool IsCopiable => true;
     }
 }
