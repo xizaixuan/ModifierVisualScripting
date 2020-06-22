@@ -1,4 +1,6 @@
 ﻿using System;
+using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEngine;

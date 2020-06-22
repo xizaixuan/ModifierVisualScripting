@@ -10,7 +10,7 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class Blackboard : Unity.GraphElements.Blackboard
+    public class Blackboard : Unity.Modifier.GraphElements.Blackboard
     {
         public delegate void RebuildCallback(RebuildMode rebuildMode);
 
@@ -104,11 +104,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 m_LastProvider.DisplayAppropriateSearcher(e.originalMousePosition, this);
         }
 
-        static void OnEditTextRequested(Unity.GraphElements.Blackboard blackboard, VisualElement blackboardField, string newName)
+        static void OnEditTextRequested(Unity.Modifier.GraphElements.Blackboard blackboard, VisualElement blackboardField, string newName)
         {
             if (blackboardField is BlackboardVariableField field)
             {
-                field.Store.Dispatch(new RenameElementAction((Unity.GraphToolsFoundation.Model.IRenamable)field.GraphElementModel, newName));
+                field.Store.Dispatch(new RenameElementAction((Unity.Modifier.GraphToolsFoundation.Model.IRenamable)field.GraphElementModel, newName));
                 field.UpdateTitleFromModel();
             }
         }
@@ -273,13 +273,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         //            UpdatePersistedProperties(newPosition, newSize, newAutoDimOpacityEnabled);
         //        }
 
-        void OnAddItemRequested(Unity.GraphElements.Blackboard blackboard)
+        void OnAddItemRequested(Unity.Modifier.GraphElements.Blackboard blackboard)
         {
             var currentGraphModel = Store.GetState().CurrentGraphModel;
             currentGraphModel.Stencil.GetBlackboardProvider().AddItemRequested(Store, (IAction)null);
         }
 
-        void OnMoveItemRequested(Unity.GraphElements.Blackboard blackboard, int index, VisualElement field)
+        void OnMoveItemRequested(Unity.Modifier.GraphElements.Blackboard blackboard, int index, VisualElement field)
         {
             // TODO: Workaround to prevent moving item above a BlackboardThisField, as all check code is executed
             // within Unity.GraphElements.BlackboardSection in private or internal functions

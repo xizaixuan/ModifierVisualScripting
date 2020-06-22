@@ -4,7 +4,7 @@ using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Searcher;
 using UnityEngine.UIElements;
 
-namespace UnityEditor.VisualScripting.Editor.SmartSearch
+namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
 {
     public class PropertySearcherItem : SearcherItem
     {

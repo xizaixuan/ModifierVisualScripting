@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.Editor;
 using UnityEngine;
 using UnityEngine.Assertions;

@@ -46,7 +46,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
         Vector2 m_StartPos;
         List<KeyValuePair<Node, Rect>> m_ScheduledItems = new List<KeyValuePair<Node, Rect>>();
         VSPreferences m_Preferences;
-        public Dictionary<PortModel, Unity.GraphElements.Port> portModelToPort;
+        public Dictionary<PortModel, Unity.Modifier.GraphElements.Port> portModelToPort;
 
         public PositionDependenciesManager(VseGraphView vseGraphView, VSPreferences vsPreferences)
         {
@@ -313,8 +313,8 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             // Warning: Don't try to use the VisualElement.layout Rect as it is not up to date yet.
             // Use Node.GetPosition() when possible
 
-            var parentUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
-            var depUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[dependency.DependentNode];
+            var parentUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
+            var depUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[dependency.DependentNode];
 
             switch (dependency)
             {
@@ -324,12 +324,12 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     if (prev.IsStacked && prev.IsCondition && linked.DependentNode is IStackModel)
                     {
                         prev = prev.ParentStackModel;
-                        parentUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
+                        parentUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[prev];
                     }
 
                     var parentPosition = parentUI.GetPosition();
-                    if (parentUI is Unity.GraphElements.StackNode &&
-                        element is Unity.GraphElements.StackNode)
+                    if (parentUI is Unity.Modifier.GraphElements.StackNode &&
+                        element is Unity.Modifier.GraphElements.StackNode)
                     {
                         if (linked.count > 1)
                         {
@@ -484,9 +484,9 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
         void InitModelPositionFromUI(INodeModel stackedNode)
         {
-            var nodeUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackedNode];
+            var nodeUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackedNode];
             IStackModel stackNode = stackedNode.ParentStackModel;
-            var stackUI = (Unity.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackNode];
+            var stackUI = (Unity.Modifier.GraphElements.Node)m_VseGraphView.UIController.ModelsToNodeMapping[stackNode];
 
             Vector2 nodePos = nodeUI.GetPosition().position;
 

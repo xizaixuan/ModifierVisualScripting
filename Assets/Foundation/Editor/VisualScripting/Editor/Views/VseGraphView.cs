@@ -4,14 +4,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.Editor.Highlighting;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UIElements;
+using ISelectable = Unity.Modifier.GraphElements.ISelectable;
 using Object = UnityEngine.Object;
-
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
@@ -812,7 +813,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_DragStarted = true;
         }
 
-        public override List<Unity.GraphElements.Port> GetCompatiblePorts(IGTFPortModel startPortModel, NodeAdapter nodeAdapter)
+        public override List<Unity.Modifier.GraphElements.Port> GetCompatiblePorts(IGTFPortModel startPortModel, NodeAdapter nodeAdapter)
         {
             var startPort = startPortModel.GetUI<Port>(this);
 
@@ -1035,7 +1036,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             evt.StopPropagation();
         }
 
-        void OnElementsInsertedToStackNode(Unity.GraphElements.StackNode graphStackNode, int index, IEnumerable<GraphElement> elements)
+        void OnElementsInsertedToStackNode(Unity.Modifier.GraphElements.StackNode graphStackNode, int index, IEnumerable<GraphElement> elements)
         {
             if (!(graphStackNode is StackNode dropStack))
                 return;
@@ -1048,7 +1049,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_Store.Dispatch(new MoveStackedNodesAction(nodeElements.Select(n => n.NodeModel).ToList(), dropStack.StackModel, index));
         }
 
-        void OnElementsRemovedFromStackNode(Unity.GraphElements.StackNode graphStackNode, IEnumerable<GraphElement> elements)
+        void OnElementsRemovedFromStackNode(Unity.Modifier.GraphElements.StackNode graphStackNode, IEnumerable<GraphElement> elements)
         {
             RemovePositionDependencies(((StackNode)graphStackNode).StackModel.Guid, elements.Cast<IHasGraphElementModel>().Select(x => x.GraphElementModel).Cast<INodeModel>());
         }
@@ -1116,7 +1117,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             // alternative: reorder models or store our own z order in models
             if (selectable is VisualElement visualElement)
             {
-                if (visualElement is Token || visualElement is Unity.GraphElements.StackNode)
+                if (visualElement is Token || visualElement is Unity.Modifier.GraphElements.StackNode)
                     visualElement.BringToFront();
                 else if (visualElement is Node node)
                 {
@@ -1212,7 +1213,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             FrameSelection();
         }
 
-        public override Unity.GraphElements.Blackboard GetBlackboard()
+        public override Unity.Modifier.GraphElements.Blackboard GetBlackboard()
         {
             return UIController.Blackboard;
         }

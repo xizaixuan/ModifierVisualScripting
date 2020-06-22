@@ -136,7 +136,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                     if (node.Destroyed)
                     {
                         var graphElement = existingElements[node];
-                        if (graphElement is Unity.GraphElements.CollapsiblePortNode)
+                        if (graphElement is Unity.Modifier.GraphElements.CollapsiblePortNode)
                             m_EdgesToDelete.AddRange(node.GetConnectedEdges());
                         m_GraphElementsToDelete.Add(graphElement);
                     }

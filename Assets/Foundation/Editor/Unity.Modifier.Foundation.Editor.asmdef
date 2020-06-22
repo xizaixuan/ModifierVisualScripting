@@ -2,9 +2,11 @@
     "name": "Unity.Modifier.Foundation.Editor",
     "references": [
         "Unity.Modifier.Foundation",
-        "Unity.InternalAPIEngineBridgeDev.003",
         "Unity.Searcher.Editor",
-        "Unity.Properties"
+        "Unity.InternalAPIEngineBridgeDev.003",
+        "Unity.Properties",
+        "Unity.Properties.UI",
+        "Unity.Properties.UI.Editor"
     ],
     "includePlatforms": [
         "Editor",

@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    class Edge : Unity.GraphElements.Edge, IHasGraphElementModel
+    class Edge : Unity.Modifier.GraphElements.Edge, IHasGraphElementModel
     {
         EdgeBubble m_EdgeBubble;
 

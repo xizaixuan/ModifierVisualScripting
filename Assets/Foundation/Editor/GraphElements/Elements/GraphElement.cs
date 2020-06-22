@@ -1,5 +1,7 @@
 ﻿using System;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using Unity.Modifier.GraphToolsFoundations.Bridge;
+using UnityEditor.Modifier.EditorCommon.Redux;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -134,42 +136,42 @@ namespace Unity.Modifier.GraphElements
 
         public virtual bool IsSelectable()
         {
-            return Model is Unity.GraphToolsFoundation.Model.ISelectable;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.ISelectable;
         }
 
         public virtual bool IsPositioned()
         {
-            return Model is Unity.GraphToolsFoundation.Model.IPositioned;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.IPositioned;
         }
 
         public virtual bool IsDeletable()
         {
-            return Model is Unity.GraphToolsFoundation.Model.IDeletable;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.IDeletable;
         }
 
         public virtual bool IsResizable()
         {
-            return Model is Unity.GraphToolsFoundation.Model.IResizable;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.IResizable;
         }
 
         public virtual bool IsDroppable()
         {
-            return Model is Unity.GraphToolsFoundation.Model.IDroppable;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.IDroppable;
         }
 
         public virtual bool IsAscendable()
         {
-            return Model is Unity.GraphToolsFoundation.Model.IAscendable;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.IAscendable;
         }
 
         public virtual bool IsRenamable()
         {
-            return Model is Unity.GraphToolsFoundation.Model.IRenamable;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.IRenamable;
         }
 
         public virtual bool IsCopiable()
         {
-            return Model is Unity.GraphToolsFoundation.Model.ICopiable copiable && copiable.IsCopiable;
+            return Model is Unity.Modifier.GraphToolsFoundation.Model.ICopiable copiable && copiable.IsCopiable;
         }
 
         static Vector2 MultiplyMatrix44Point2(Matrix4x4 lhs, Vector2 point)

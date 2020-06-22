@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Unity.Modifier.GraphElements;
-using Unity.Properties;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Callbacks;
 using UnityEditor.Modifier.EditorCommon;
 using UnityEditor.Modifier.EditorCommon.Extensions;
@@ -18,13 +18,14 @@ using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEditor.Modifier.VisualScripting.Model.Translators;
 using UnityEditor.ProjectWindowCallback;
-using UnityEditor.VisualScripting.Editor.SmartSearch;
 using UnityEngine;
 using UnityEngine.Modifier.VisualScripting;
 using UnityEngine.Profiling;
 using UnityEngine.UIElements;
 using Debug = UnityEngine.Debug;
+using ISelectable = Unity.Modifier.GraphElements.ISelectable;
 using Object = UnityEngine.Object;
+using PropertyElement = UnityEditor.Modifier.VisualScripting.Editor.SmartSearch.PropertyElement;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
@@ -601,19 +602,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             State state = m_Store.GetState();
 
-            if (vsGraphModel?.Stencil?.GeneratesCode == true)
-                VseUtility.UpdateCodeViewer(show: false, sourceIndex: SourceCodePhases.Final,
-                    compilationResult: results,
-                    selectionDelegate: lineMetadata =>
-                    {
-                        if (lineMetadata == null)
-                            return;
-
-                        GUID nodeGuid = (GUID)lineMetadata;
-                        m_Store.Dispatch(new PanToNodeAction(nodeGuid));
-                    });
-
-
             UpdateCompilationErrorsDisplay(state);
 
             if (results != null && results.errors.Count == 0)
@@ -1158,13 +1146,13 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             return asset == null ? null : AssetDatabase.GetAssetPath(asset);
         }
 
-        Unity.GraphElements.Node m_ElementShownInSidePanel;
+        Unity.Modifier.GraphElements.Node m_ElementShownInSidePanel;
         private Unity.Properties.UI.PropertyElement m_SidePanelPropertyElement;
         private readonly CompilationTimer _compilationTimer;
 
         public void ShowNodeInSidePanel(ISelectable selectable, bool show)
         {
-            if (!(selectable is Unity.GraphElements.Node node) || !(selectable is IHasGraphElementModel hasGraphElementModel) ||
+            if (!(selectable is Unity.Modifier.GraphElements.Node node) || !(selectable is IHasGraphElementModel hasGraphElementModel) ||
                 !(hasGraphElementModel.GraphElementModel is INodeModel nodeModel) || !show)
             {
                 m_ElementShownInSidePanel = null;

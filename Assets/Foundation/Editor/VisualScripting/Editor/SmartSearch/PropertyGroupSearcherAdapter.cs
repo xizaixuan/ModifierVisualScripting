@@ -3,7 +3,6 @@ using System.Linq;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEditor.Searcher;
-using UnityEditor.VisualScripting.Editor.SmartSearch;
 using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch

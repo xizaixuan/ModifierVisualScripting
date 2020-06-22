@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.Editor;
 using UnityEngine;
 using Port = Unity.Modifier.GraphElements.Port;

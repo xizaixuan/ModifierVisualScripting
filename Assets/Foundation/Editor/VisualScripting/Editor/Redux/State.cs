@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEditor.Modifier.VisualScripting.Editor.Plugins;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
@@ -7,7 +6,7 @@ using UnityEditor.Modifier.VisualScripting.Model;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class State : Unity.GraphElements.State
+    public class State : Unity.Modifier.GraphElements.State
     {
         public IGraphModel CurrentGraphModel => GraphModel as IGraphModel;
 

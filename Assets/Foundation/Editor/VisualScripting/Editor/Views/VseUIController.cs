@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Unity.GraphToolsFoundation.Model;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.Editor.Highlighting;
 using UnityEditor.Modifier.VisualScripting.Editor.Renamable;
 using UnityEditor.Modifier.VisualScripting.Editor.SmartSearch;
@@ -13,6 +15,7 @@ using UnityEngine.Assertions;
 using UnityEngine.Profiling;
 using UnityEngine.UIElements;
 using Debug = UnityEngine.Debug;
+using ISelectable = Unity.Modifier.GraphElements.ISelectable;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
@@ -190,7 +193,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
                 // rebuild needed edges
                 // TODO keep a port mapping next to the node mapping
-                Dictionary<PortModel, Unity.GraphElements.Port> allPorts = m_GraphView.ports.ToList().ToDictionary(p => p.PortModel as PortModel);
+                Dictionary<PortModel, Unity.Modifier.GraphElements.Port> allPorts = m_GraphView.ports.ToList().ToDictionary(p => p.PortModel as PortModel);
                 m_GraphView.PositionDependenciesManagers.portModelToPort = allPorts;
 
                 partialRebuilder.RebuildEdges(e => RestoreEdge(e));

@@ -1,13 +1,15 @@
 ﻿using System;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
+using Unity.Modifier.GraphToolsFoundations.Bridge;
 using UnityEditor.Modifier.VisualScripting.Editor.Highlighting;
 using UnityEditor.Modifier.VisualScripting.Editor.Renamable;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
-using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UIElements;
+using IDroppable = Unity.Modifier.GraphElements.IDroppable;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {

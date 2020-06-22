@@ -1,11 +1,12 @@
-﻿using UnityEditor.Modifier.EditorCommon.Redux;
+﻿using Unity.Modifier.GraphElements;
+using UnityEditor.Modifier.EditorCommon.Redux;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class Store : Unity.GraphElements.Store<State>
+    public class Store : Unity.Modifier.GraphElements.Store<State>
     {
         public enum Options
         {

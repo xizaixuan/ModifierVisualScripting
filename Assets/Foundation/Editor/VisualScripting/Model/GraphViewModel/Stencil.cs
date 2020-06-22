@@ -1,13 +1,14 @@
 ﻿using JetBrains.Annotations;
 using Modifier.VisualScripting.Editor.Elements;
 using Modifier.VisualScripting.Editor.Elements.Interfaces;
-using Packages.VisualScripting.Editor.Helpers;
+using Packages.Modifier.VisualScripting.Editor.Helpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.EditorCommon.Extensions;
 using UnityEditor.Modifier.VisualScripting.Editor;
 using UnityEditor.Modifier.VisualScripting.Editor.Plugins;
@@ -19,7 +20,6 @@ using UnityEditor.Searcher;
 using UnityEngine;
 using UnityEngine.Modifier.VisualScripting;
 using Object = UnityEngine.Object;
-using Port = Unity.Modifier.GraphElements.Port;
 
 namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
 {

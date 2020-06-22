@@ -22,6 +22,7 @@ using UnityEngine.Modifier.VisualScripting;
 using CompilationOptions = UnityEngine.Modifier.VisualScripting.CompilationOptions;
 using Debug = UnityEngine.Debug;
 using UnityEditor.Modifier.VisualScripting.Plugins;
+using Unity.Modifier.GraphElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Model.Translators
 {
@@ -603,7 +604,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
                     }
 
                     // TODO: RecordValue codegen counter instead of counting them after the fact
-                    if ((Options & UnityEngine.VisualScripting.CompilationOptions.Tracing) != 0)
+                    if ((Options & UnityEngine.Modifier.VisualScripting.CompilationOptions.Tracing) != 0)
                     {
                         var recordValueCount = syntaxNode.GetAnnotations(Annotations.RecordValueCountKind).FirstOrDefault();
                         int recordedValuesCount = recordValueCount == null
@@ -722,7 +723,7 @@ namespace UnityEditor.Modifier.VisualScripting.Model.Translators
         public IEnumerable<SyntaxNode> BuildPort(IPortModel portModel, PortSemantic portSemantic = PortSemantic.Read)
         {
             var buildPortInner = BuildPortInner(portModel, out var builtNode).ToList();
-            if (portSemantic == PortSemantic.Read && (Options & UnityEngine.VisualScripting.CompilationOptions.Tracing) != 0 &&
+            if (portSemantic == PortSemantic.Read && (Options & UnityEngine.Modifier.VisualScripting.CompilationOptions.Tracing) != 0 &&
                 builtNode != null && buildPortInner.Count == 1 && buildPortInner.First() is ExpressionSyntax exp)
                 return Enumerable.Repeat(InstrumentForInEditorDebugging.RecordValue(GetRecorderName(), exp, null, (NodeModel)builtNode), 1);
             return buildPortInner;

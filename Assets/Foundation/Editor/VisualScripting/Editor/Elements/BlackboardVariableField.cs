@@ -1,4 +1,6 @@
 ﻿using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
+using Unity.Modifier.GraphToolsFoundations.Bridge;
 using UnityEditor.Modifier.VisualScripting.Editor.Highlighting;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;

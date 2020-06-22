@@ -1,4 +1,6 @@
 ﻿using System;
+using Unity.GraphToolsFoundation.Model;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel

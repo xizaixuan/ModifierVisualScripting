@@ -1,4 +1,5 @@
 ﻿using Unity.Modifier.GraphToolsFoundations.Bridge;
+using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements

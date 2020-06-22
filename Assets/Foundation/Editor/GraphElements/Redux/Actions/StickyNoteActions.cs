@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Unity.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.EditorCommon.Redux;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEngine;

@@ -1,13 +1,9 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Unity.Modifier.GraphElements;
-using UnityEditor.Modifier.VisualScripting.GraphViewModel;
-using UnityEngine;
+﻿using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    class Placemat : Unity.GraphElements.Placemat, IHasGraphElementModel, IContextualMenuBuilder, ICustomColor
+    class Placemat : Unity.Modifier.GraphElements.Placemat, IHasGraphElementModel, IContextualMenuBuilder, ICustomColor
     {
         public IGraphElementModel GraphElementModel => Model as IGraphElementModel;
 

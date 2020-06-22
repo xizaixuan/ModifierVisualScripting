@@ -1,19 +1,20 @@
-﻿using JetBrains.Annotations;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
+using UnityEditor.Modifier.EditorCommon.Redux;
 using UnityEditor.Modifier.VisualScripting.Editor.ConstantEditor;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
-using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.UIElements;
+using ISelectable = Unity.Modifier.GraphElements.ISelectable;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class Port : Unity.GraphElements.Port, IDropTarget, IBadgeContainer
+    public class Port : Unity.Modifier.GraphElements.Port, IDropTarget, IBadgeContainer
     {
         const string k_DropHighlightClass = "drop-highlighted";
 
@@ -35,7 +36,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             set => EnableInClassList("execution-active", value);
         }
 
-        static void OnDropOutsideCallback(IStore store, Vector2 pos, Unity.GraphElements.Edge edge)
+        static void OnDropOutsideCallback(IStore store, Vector2 pos, Unity.Modifier.GraphElements.Edge edge)
         {
             VseGraphView graphView = edge.GetFirstAncestorOfType<VseGraphView>();
             Vector2 localPos = graphView.contentViewContainer.WorldToLocal(pos);

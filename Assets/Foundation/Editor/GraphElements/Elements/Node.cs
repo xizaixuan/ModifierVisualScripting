@@ -1,9 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Unity.Modifier.GraphToolsFoundations.Bridge;
-using UnityEngine;
+﻿using JetBrains.Annotations;
+using System;
+using Unity.Modifier.GraphToolsFoundation.Model;
+using UnityEditor.Modifier.VisualScripting.Editor;
+using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEngine.UIElements;
+using IRenamable = Unity.Modifier.GraphToolsFoundation.Model.IRenamable;
 
 namespace Unity.Modifier.GraphElements
 {

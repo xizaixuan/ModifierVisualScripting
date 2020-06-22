@@ -1,6 +1,7 @@
 ﻿using JetBrains.Annotations;
 using System;
 using System.Linq;
+using Unity.Modifier.GraphElements;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.UIElements;
 using UnityEngine;

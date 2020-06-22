@@ -1,4 +1,5 @@
-﻿using UnityEditor.Modifier.VisualScripting.GraphViewModel;
+﻿using Unity.Modifier.GraphToolsFoundation.Model;
+using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 
 namespace UnityEditor.Modifier.VisualScripting.Model
 {

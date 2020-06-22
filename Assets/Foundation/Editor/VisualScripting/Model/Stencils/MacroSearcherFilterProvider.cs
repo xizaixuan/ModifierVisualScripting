@@ -1,7 +1,6 @@
 ﻿using System;
 using UnityEditor.Modifier.VisualScripting.Editor.SmartSearch;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
-using UnityEditor.VisualScripting.GraphViewModel;
 
 namespace UnityEditor.Modifier.VisualScripting.Model.Stencils
 {

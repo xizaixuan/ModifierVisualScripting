@@ -1,18 +1,16 @@
-﻿using Modifier.VisualScripting.Editor.Elements;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
+using Unity.Modifier.GraphToolsFoundations.Bridge;
 using UnityEditor.Modifier.EditorCommon.Extensions;
 using UnityEditor.Modifier.VisualScripting.Editor.Renamable;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
-using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEngine;
 using UnityEngine.UIElements;
-using EdgeControl = Modifier.VisualScripting.Editor.Elements.EdgeControl;
+using ISelectable = Unity.Modifier.GraphElements.ISelectable;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
@@ -181,11 +179,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             m_Evt.menu.AppendAction("Align Item (Q)", menuAction => m_GraphView.AlignSelection(false));
             m_Evt.menu.AppendAction("Align Hierarchy (Shift+Q)", menuAction => m_GraphView.AlignSelection(true));
 
-            var content = selectedModels.Values.OfType<GraphElement>().Where(e => (e.parent is GraphView.Layer) && (e is Unity.GraphElements.Node || e is StickyNote)).ToList();
+            var content = selectedModels.Values.OfType<GraphElement>().Where(e => (e.parent is GraphView.Layer) && (e is Unity.Modifier.GraphElements.Node || e is StickyNote)).ToList();
             m_Evt.menu.AppendAction("Create Placemat Under Selection", menuAction =>
             {
                 Rect bounds = new Rect();
-                if (Unity.GraphElements.Placemat.ComputeElementBounds(ref bounds, content))
+                if (Unity.Modifier.GraphElements.Placemat.ComputeElementBounds(ref bounds, content))
                 {
                     m_Store.Dispatch(new CreatePlacematAction(null, bounds));
                 }
@@ -294,11 +292,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 var edgeData = selectedModels.Where(s => s.Value is Edge).Select(
                     s =>
                     {
-                        var e = s.Value as Unity.GraphElements.Edge;
-                        var outputPort = e.Output.GetUI<Unity.GraphElements.Port>(e.GraphView);
-                        var inputPort = e.Input.GetUI<Unity.GraphElements.Port>(e.GraphView);
-                        var outputNode = e.Output.NodeModel.GetUI<Unity.GraphElements.Node>(e.GraphView);
-                        var inputNode = e.Input.NodeModel.GetUI<Unity.GraphElements.Node>(e.GraphView);
+                        var e = s.Value as Unity.Modifier.GraphElements.Edge;
+                        var outputPort = e.Output.GetUI<Unity.Modifier.GraphElements.Port>(e.GraphView);
+                        var inputPort = e.Input.GetUI<Unity.Modifier.GraphElements.Port>(e.GraphView);
+                        var outputNode = e.Output.NodeModel.GetUI<Unity.Modifier.GraphElements.Node>(e.GraphView);
+                        var inputNode = e.Input.NodeModel.GetUI<Unity.Modifier.GraphElements.Node>(e.GraphView);
                         return (s.Key as IEdgeModel,
                             outputPort.ChangeCoordinatesTo(outputNode.parent, outputPort.layout.center),
                             inputPort.ChangeCoordinatesTo(inputNode.parent, inputPort.layout.center));
@@ -481,12 +479,12 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 return stickyNoteModels.First().TextSize == (a.userData as string) ? DropdownMenuAction.Status.Checked : DropdownMenuAction.Status.Normal;
             }
 
-            foreach (var value in Unity.GraphElements.StickyNote.GetThemes())
+            foreach (var value in Unity.Modifier.GraphElements.StickyNote.GetThemes())
                 m_Evt.menu.AppendAction("Theme/" + value,
                     menuAction => m_Store.Dispatch(new UpdateStickyNoteThemeAction(stickyNoteModels, menuAction.userData as string)),
                     GetThemeStatus, value);
 
-            foreach (var value in Unity.GraphElements.StickyNote.GetSizes())
+            foreach (var value in Unity.Modifier.GraphElements.StickyNote.GetSizes())
                 m_Evt.menu.AppendAction("Text Size/" + value,
                     menuAction => m_Store.Dispatch(new UpdateStickyNoteTextSizeAction(stickyNoteModels, menuAction.userData as string)),
                     GetSizeStatus, value);

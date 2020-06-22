@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
-using UnityEditor.VisualScripting.GraphViewModel;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Serialization;

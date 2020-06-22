@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEngine;
@@ -9,7 +10,7 @@ using UnityEngine.UIElements;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    public class StackNode : Unity.GraphElements.StackNode, ICustomColor, IVSGraphViewObserver, INodeState
+    public class StackNode : Unity.Modifier.GraphElements.StackNode, ICustomColor, IVSGraphViewObserver, INodeState
     {
         public IStackModel StackModel => NodeModel as IStackModel;
         public new Store Store => base.Store as Store;

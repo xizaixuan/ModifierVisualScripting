@@ -1,4 +1,7 @@
-﻿namespace Unity.Modifier.GraphElements
+﻿using System;
+using UnityEngine;
+
+namespace Unity.Modifier.GraphElements
 {
     [Flags]
     public enum ResizeFlags

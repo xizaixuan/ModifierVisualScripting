@@ -1,4 +1,5 @@
-﻿using UnityEditor.Modifier.VisualScripting.Model;
+﻿using Unity.Modifier.GraphElements;
+using UnityEditor.Modifier.VisualScripting.Model;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {

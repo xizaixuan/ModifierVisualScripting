@@ -1,6 +1,7 @@
 ﻿using Modifier.VisualScripting.Editor.Elements;
 using System;
 using System.Linq;
+using Unity.Modifier.GraphElements;
 using UnityEditor.Modifier.VisualScripting.Editor.Plugins;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
@@ -146,26 +147,6 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
                 }
 
                 var compilationResult = m_Store.GetState()?.CompilationResultModel?.GetLastResult();
-                if (compilationResult?.pluginSourceCode != null)
-                {
-                    foreach (var pluginType in compilationResult.pluginSourceCode.Keys)
-                    {
-                        MenuMapToggle(title: "CodeViewer/Plugin/" + pluginType.Name, match: () => pref.PluginTypePref == pluginType, onToggle: () =>
-                        {
-                            VseUtility.UpdateCodeViewer(show: true, pluginIndex: pluginType,
-                                compilationResult: compilationResult,
-                                selectionDelegate: lineMetadata =>
-                                {
-                                    if (lineMetadata == null)
-                                        return;
-
-                                    GUID nodeGuid = (GUID)lineMetadata;
-                                    m_Store.Dispatch(new PanToNodeAction(nodeGuid));
-                                });
-                            pref.PluginTypePref = pluginType;
-                        });
-                    }
-                }
             }
 
             menu.ShowAsContext();

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Unity.Modifier.GraphElements;
 using UnityEditor.Compilation;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Compilation;

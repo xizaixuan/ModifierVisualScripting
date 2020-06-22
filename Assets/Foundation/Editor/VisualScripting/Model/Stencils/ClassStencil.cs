@@ -1,9 +1,8 @@
-﻿using Packages.VisualScripting.Editor.Helpers;
+﻿using Packages.Modifier.VisualScripting.Editor.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.Modifier.EditorCommon.Extensions;
-using UnityEditor.Modifier.VisualScripting.Editor;
 using UnityEditor.Modifier.VisualScripting.Editor.SmartSearch;
 using UnityEditor.Modifier.VisualScripting.Model.Compilation;
 using UnityEngine.Modifier.VisualScripting;

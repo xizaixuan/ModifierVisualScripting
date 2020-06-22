@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
-    class StickyNote : Unity.GraphElements.StickyNote, IHasGraphElementModel
+    class StickyNote : Unity.Modifier.GraphElements.StickyNote, IHasGraphElementModel
     {
         public IGraphElementModel GraphElementModel => Model as IGraphElementModel;
     }

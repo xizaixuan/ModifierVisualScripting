@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEngine;
 
 namespace UnityEditor.Modifier.VisualScripting.GraphViewModel

@@ -1,8 +1,9 @@
 ﻿using System.Linq;
 using Unity.Modifier.GraphElements;
+using Unity.Modifier.GraphToolsFoundation.Model;
+using UnityEditor.Modifier.EditorCommon.Redux;
 using UnityEditor.Modifier.VisualScripting.Editor.ConstantEditor;
 using UnityEditor.Modifier.VisualScripting.Editor.Highlighting;
-using UnityEditor.Modifier.VisualScripting.Editor.Renamable;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEditor.Modifier.VisualScripting.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
@@ -27,11 +28,11 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             if (!base.IsRenamable())
                 return false;
 
-            if (NodeModel is Unity.GraphToolsFoundation.Model.IRenamable)
+            if (NodeModel is Unity.Modifier.GraphToolsFoundation.Model.IRenamable)
                 return true;
 
             IVariableDeclarationModel declarationModel = (NodeModel as IVariableModel)?.DeclarationModel;
-            return declarationModel is Unity.GraphToolsFoundation.Model.IRenamable;
+            return declarationModel is Unity.Modifier.GraphToolsFoundation.Model.IRenamable;
         }
 
         internal static TypeHandle[] s_PropsToHideLabel =
@@ -89,7 +90,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
             else if (Model is VariableNodeModel && TitleContainer != null)
             {
                 var greenDot = new Image();
-                greenDot.AddToClassList(Unity.GraphElements.Node.k_UssClassName + "__green-dot");
+                greenDot.AddToClassList(Unity.Modifier.GraphElements.Node.k_UssClassName + "__green-dot");
                 TitleContainer.Insert(0, greenDot);
             }
 

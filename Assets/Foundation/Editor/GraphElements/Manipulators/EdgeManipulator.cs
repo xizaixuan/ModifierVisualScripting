@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Unity.Modifier.GraphToolsFoundation.Model;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Unity.Modifier.GraphElements

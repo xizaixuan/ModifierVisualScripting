@@ -1,6 +1,7 @@
 ﻿using JetBrains.Annotations;
 using System;
 using System.IO;
+using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.VisualScripting.Model.Stencils;
 using UnityEngine;
 using UnityEngine.Assertions;
