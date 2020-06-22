@@ -4,73 +4,15 @@ using UnityEditor.Searcher;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor.SmartSearch
 {
-    [PublicAPI]
-    public class TypeSearcherDatabase
+    public sealed class TypeSearcherItem : SearcherItem, ISearcherItemDataProvider
     {
-        readonly List<ITypeMetadata> m_TypesMetadata;
-        public Stencil Stencil { get; }
+        public TypeHandle Type => ((TypeSearcherItemData)Data).Type;
+        public ISearcherItemData Data { get; }
 
-        List<Action<List<SearcherItem>>> m_Registrations;
-        List<Func<List<SearcherItem>, ITypeMetadata, bool>> m_MetaRegistrations;
-
-
-        public TypeSearcherDatabase(Stencil stencil, List<ITypeMetadata> typesMetadata)
+        public TypeSearcherItem(TypeHandle type, string name, List<SearcherItem> children = null)
+            : base(name, string.Empty, children)
         {
-            Stencil = stencil;
-            m_TypesMetadata = typesMetadata;
-            m_Registrations = new List<Action<List<SearcherItem>>>();
-            m_MetaRegistrations = new List<Func<List<SearcherItem>, ITypeMetadata, bool>>();
-        }
-
-        public void RegisterTypesFromMetadata(Func<List<SearcherItem>, ITypeMetadata, bool> register)
-        {
-            m_MetaRegistrations.Add(register);
-        }
-
-        public void RegisterTypes(Action<List<SearcherItem>> register)
-        {
-            m_Registrations.Add(register);
-        }
-
-        public virtual TypeSearcherDatabase AddClasses()
-        {
-            RegisterTypesFromMetadata((items, metadata) =>
-            {
-                var classItem = new TypeSearcherItem(metadata.TypeHandle, metadata.FriendlyName);
-                return items.TryAddClassItem(Stencil, classItem, metadata);
-            });
-            return this;
-        }
-
-        public virtual TypeSearcherDatabase AddEnums()
-        {
-            RegisterTypesFromMetadata((items, metadata) =>
-            {
-                var enumItem = new TypeSearcherItem(metadata.TypeHandle, metadata.FriendlyName);
-                return items.TryAddEnumItem(enumItem, metadata);
-            });
-            return this;
-        }
-
-        public SearcherDatabase Build()
-        {
-            var items = new List<SearcherItem>();
-
-            foreach (var meta in m_TypesMetadata)
-            {
-                foreach (var metaRegistration in m_MetaRegistrations)
-                {
-                    if (metaRegistration.Invoke(items, meta))
-                        break;
-                }
-            }
-
-            foreach (var registration in m_Registrations)
-            {
-                registration.Invoke(items);
-            }
-
-            return SearcherDatabase.Create(items, "", false);
+            Data = new TypeSearcherItemData(type, SearcherItemTarget.Type);
         }
     }
 }

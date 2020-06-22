@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Packages.VisualScripting.Editor.Helpers
+namespace Packages.Modifier.VisualScripting.Editor.Helpers
 {
     public static class TaskUtility
     {

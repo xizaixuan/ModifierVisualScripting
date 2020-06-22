@@ -3,7 +3,7 @@ using UnityEditor.Modifier.EditorCommon.Redux;
 using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEngine;
 
-namespace UnityEditor.Modifier.GraphElements
+namespace Unity.Modifier.GraphElements
 {
     public abstract class GenericStickyNoteAction<DataType> : GenericModelAction<IGTFStickyNoteModel, DataType>
     {
