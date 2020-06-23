@@ -1,5 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements"
-    xmlns:gv="Unity.GraphElements">
+    xmlns:gv="Unity.Modifier.GraphElements">
     <ui:VisualElement name="contentItem" picking-mode="Ignore">
         <gv:Pill name="pill" picking-mode="Ignore" />
         <ui:Label name="typeLabel" text = "" picking-mode="Ignore" />
