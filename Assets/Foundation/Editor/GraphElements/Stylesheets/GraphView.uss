@@ -1,29 +1,3 @@
-.unity-base-text-field .unity-base-field__input {
-    font-size: 12px;
-}
-
-/* this class is added to all graphElement instances*/
-.graphElement {
-    padding-top: 2px;
-    padding-left: 2px;
-    padding-bottom: 2px;
-    padding-right: 2px;
-
-    /* currently border-XXX is only used for layout
-       where border-width is used to paint text and border.
-       They must keep in sync until we support variable border
-       thickness per edge */
-    border-radius: 6px;
-    margin-top: 8px;
-    margin-bottom: 8px;
-    margin-left: 8px;
-    margin-right: 8px;
-    border-left-width: 1px;
-    border-top-width: 1px;
-    border-right-width: 1px;
-    border-bottom-width: 1px;
-}
-
 .hidden {
     display: none;
 }

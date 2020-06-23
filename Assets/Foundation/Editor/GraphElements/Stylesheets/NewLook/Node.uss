@@ -1,0 +1,45 @@
+.ge-node {
+    position: absolute;
+    align-items: stretch;
+    padding: 0;
+    margin: 0;
+    -unity-font: resource("FlatSkin/Font/Roboto-Regular");
+    color: white;
+    --border-radius: 6px;
+}
+
+.ge-node--empty {
+    min-width: 20px;
+    min-height: 20px;
+    background-color: deeppink;
+    border-width: 1px;
+    border-color: black;
+    border-radius: var(--border-radius);
+}
+
+.ge-node__title-container {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 3px 6px;
+    background-color: #595959;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.ge-node--collapsed.ge-node--not-connected .ge-node__title-container {
+    border-radius: var(--border-radius);
+}
+
+.ge-node:checked .ge-node__title-container {
+    background-color: #4086C0;
+}
+
+.ge-node__title {
+    font-size: 14px;
+    color: #b5b5b5;
+    -unity-text-align: middle-center;
+    padding: 0;
+}
+
+.ge-node--collapsed .ge-port--disconnected {
+    display: none;
+}

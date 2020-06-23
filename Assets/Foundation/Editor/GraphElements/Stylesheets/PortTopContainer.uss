@@ -1,0 +1,8 @@
+.ge-node__port-top-container {
+    flex-direction: row;
+    flex-grow: 1;
+    border-top-width: 1px;
+    border-top-color: rgba(35,35,35,0.8);
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    overflow: hidden;
+}

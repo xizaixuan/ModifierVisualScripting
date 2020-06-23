@@ -1,0 +1,6 @@
+.ge-node__port-top-container {
+    flex-direction: row;
+    flex-grow: 1;
+    background-color: #383838;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+}

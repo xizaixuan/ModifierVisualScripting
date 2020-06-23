@@ -1,0 +1,3 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" class="ge-edge">
+    <ui:VisualElement name="container" class="ge-edge__container" />
+</ui:UXML>

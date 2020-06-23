@@ -1,7 +1,0 @@
-.searcherGraphView {
-    flex-shrink: 0;
-}
-
-.searcherGraphView Layer {
-    position: relative;
-}

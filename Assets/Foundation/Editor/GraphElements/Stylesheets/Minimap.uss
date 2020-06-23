@@ -1,3 +1,20 @@
+MiniMap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200px;
+    height: 200px;
+}
+
+MiniMap.windowed {
+    position: relative;
+    width: auto;
+    height: auto;
+    left: auto;
+    top: auto;
+    flex-grow: 1;
+}
+
 MiniMap .unity-label {
     position:absolute;
     top:0;

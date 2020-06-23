@@ -1,4 +1,4 @@
-.sticky-note {
+.ge-sticky-note {
     position: absolute;
     min-height: 100px;
     min-width: 80px;
@@ -13,229 +13,209 @@
     --unity-resizer-min-y: 100;
 }
 
-.sticky-note #selection-border {
+.ge-sticky-note #selection-border {
     border-radius: 2px;
 }
 
-.sticky-note .resizer {
+.ge-sticky-note .resizer {
     margin-bottom: 6px;
     margin-right: 6px;
 }
 
-.sticky-note #node-border {
+.ge-sticky-note #node-border {
     border-radius: 2px;
-    flex: 1 0 auto;
+    flex: 1 1 auto;
     flex-direction: column;
     align-items: stretch;
-    border-left-width: 2px;
-    border-top-width: 2px;
-    border-bottom-width: 2px;
-    border-right-width: 2px;
-
-    background-color: #F8EBA9;
-    border-color: #AB924B;
-}
-
-.sticky-note .unity-label {
-    border-top-width: 1px;
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-bottom-width: 1px;
-    margin: 1px 6px;
-    padding-left: 0;
-    padding-right: 0;
+    border-width: 2px;
     overflow: hidden;
-
-    color: #1E1D15;
 }
 
-.sticky-note .unity-label:hover {
+.ge-sticky-note .unity-label {
+    border-width: 1px;
+    margin: 1px 6px;
+    padding: 0;
+    overflow: hidden;
+    white-space: normal;
+}
+
+.ge-sticky-note .unity-label:hover {
     border-color: rgba(68,192,255, 0.5);
 }
 
-.sticky-note .unity-text-field {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    margin: 0;
+.ge-sticky-note .unity-text-field {
+    border-width: 1px;
+    margin: 1px 6px;
     padding: 0;
 }
 
-.sticky-note .unity-text-field .unity-base-text-field__input,
-.sticky-note .unity-text-field .unity-base-text-field__input:hover {
-    color: #1E1D15;
+.ge-sticky-note #contents {
+    flex-grow: 1;
+}
 
-    padding: 2px 0 0 0;
+.ge-sticky-note .unity-text-field .unity-base-text-field__input {
+    padding: 0;
     border-radius: 0;
-    background-image: none;
-    background-color: #F8EBA9;
-}
-
-.sticky-note .unity-text-field,
-.sticky-note .unity-base-text-field .unity-base-text-field__input {
-    border-left-width: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
-    border-right-width: 0;
+    border-width: 0;
     -unity-text-align: upper-left;
-}
-
-#title,
-#title-field #unity-text-input {
-    font-size: 20px;
-    white-space: normal;
-}
-
-#title.empty {
-    height: 26px;
-}
-
-#contents {
-    flex: 1 0 auto;
-    font-size: 11px;
-    white-space: normal;
-}
-
-#contents #unity-text-input {
-    padding: 0;
-    font-size: 11px;
+    background-image: none;
     white-space: normal;
 }
 
 /*** Themes ***/
 
-.sticky-note.theme-black #node-border {
+.ge-sticky-note--theme-classic #node-border {
+    background-color: #F8EBA9;
+    border-color: #AB924B;
+}
+
+.ge-sticky-note--theme-classic .unity-label,
+.ge-sticky-note--theme-classic .unity-text-field .unity-base-text-field__input {
+    background-color: #F8EBA9;
+    color: #1E1D15;
+}
+
+.ge-sticky-note--theme-dark #node-border {
     background-color: #362905;
     border-color: #AB924B;
 }
 
-.sticky-note.theme-black .unity-label,
-.sticky-note.theme-black .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-black .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-dark .unity-label,
+.ge-sticky-note--theme-dark .unity-text-field .unity-base-text-field__input {
     color: #584308;
     background-color: #362905;
 }
 
-.sticky-note.theme-dark #node-border,
-.theme-dark TextField TextInput{
+.ge-sticky-note--theme-black #node-border {
     background-color: #222018;
     border-color: #918963;
 }
 
-.sticky-note.theme-dark .unity-label,
-.sticky-note.theme-dark .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-dark .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-black .unity-label,
+.ge-sticky-note--theme-black .unity-text-field .unity-base-text-field__input {
     color: #918963;
     background-color: #222018;
 }
 
-.sticky-note.theme-orange #node-border {
+.ge-sticky-note--theme-orange #node-border {
     background-color:#FCB250;
     border-color: rgba(0, 0, 0, 0);
 }
 
-.sticky-note.theme-orange .unity-label,
-.sticky-note.theme-orange .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-orange .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-orange .unity-label,
+.ge-sticky-note--theme-orange .unity-text-field .unity-base-text-field__input {
     background-color: #FCB250;
+    color: #1E1D15;
 }
 
-.sticky-note.theme-red #node-border {
+.ge-sticky-note--theme-red #node-border {
     background-color:#FF8B8B;
     border-color: rgba(0, 0, 0, 0);
 }
 
-.sticky-note.theme-red .unity-label,
-.sticky-note.theme-red .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-red .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-red .unity-label,
+.ge-sticky-note--theme-red .unity-text-field .unity-base-text-field__input {
     background-color: #FF8B8B;
+    color: #1E1D15;
 }
 
-.sticky-note.theme-green #node-border {
+.ge-sticky-note--theme-green #node-border {
     background-color:#6BE6B0;
     border-color: rgba(0, 0, 0, 0);
 }
 
-.sticky-note.theme-green .unity-label,
-.sticky-note.theme-green .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-green .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-green .unity-label,
+.ge-sticky-note--theme-green .unity-text-field .unity-base-text-field__input {
     background-color: #6BE6B0;
+    color: #1E1D15;
 }
 
-.sticky-note.theme-blue #node-border {
+.ge-sticky-note--theme-blue #node-border {
     background-color:#8FC1DF;
     border-color: rgba(0, 0, 0, 0);
 }
 
-.sticky-note.theme-blue .unity-label,
-.sticky-note.theme-blue .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-blue .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-blue .unity-label,
+.ge-sticky-note--theme-blue .unity-text-field .unity-base-text-field__input {
     background-color: #8FC1DF;
+    color: #1E1D15;
 }
 
-.sticky-note.theme-teal #node-border {
+.ge-sticky-note--theme-teal #node-border {
     background-color:#84E4E7;
     border-color: rgba(0, 0, 0, 0);
 }
 
-.sticky-note.theme-teal .unity-label,
-.sticky-note.theme-teal .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-teal .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-teal .unity-label,
+.ge-sticky-note--theme-teal .unity-text-field .unity-base-text-field__input {
     background-color: #84E4E7;
+    color: #1E1D15;
 }
 
-.sticky-note.theme-purple #node-border {
+.ge-sticky-note--theme-purple #node-border {
     background-color:#FBCBF4;
     border-color: rgba(0, 0, 0, 0);
 }
 
-.sticky-note.theme-purple .unity-label,
-.sticky-note.theme-purple .unity-text-field .unity-base-text-field__input,
-.sticky-note.theme-purple .unity-text-field .unity-base-text-field__input:hover {
+.ge-sticky-note--theme-purple .unity-label,
+.ge-sticky-note--theme-purple .unity-text-field .unity-base-text-field__input {
     background-color: #FBCBF4;
+    color: #1E1D15;
 }
 
 /* Sizes */
-.sticky-note.size-medium #title,
-.sticky-note.size-medium #title-field #unity-text-input {
+.ge-sticky-note--size-small #title,
+.ge-sticky-note--size-small #title-field #unity-text-input {
+    font-size: 20px;
+}
+
+.ge-sticky-note--size-small #title.empty {
+    height: 26px;
+}
+
+.ge-sticky-note--size-small #contents,
+.ge-sticky-note--size-small #contents-field #unity-text-input {
+    font-size: 11px;
+}
+
+.ge-sticky-note--size-medium #title,
+.ge-sticky-note--size-medium #title-field #unity-text-input {
     font-size: 40px;
 }
 
-.sticky-note.size-medium #title.empty {
-    height: 46px;
+.ge-sticky-note--size-medium #title.empty {
+    height: 51px;
 }
 
-.sticky-note.size-medium #contents,
-.sticky-note.size-medium #contents #unity-text-input {
+.ge-sticky-note--size-medium #contents,
+.ge-sticky-note--size-medium #contents-field #unity-text-input {
     font-size: 24px;
 }
 
-.sticky-note.size-large #title,
-.sticky-note.size-large #title-field #unity-text-input {
+.ge-sticky-note--size-large #title,
+.ge-sticky-note--size-large #title-field #unity-text-input {
     font-size: 60px;
 }
 
-.sticky-note.size-large #title.empty {
-    height: 66px;
+.ge-sticky-note--size-large #title.empty {
+    height: 74px;
 }
 
-.sticky-note.size-large #contents,
-.sticky-note.size-large #contents #unity-text-input {
+.ge-sticky-note--size-large #contents,
+.ge-sticky-note--size-large #contents-field #unity-text-input {
     font-size: 36px;
 }
 
-.sticky-note.size-huge #title,
-.sticky-note.size-huge #title-field #unity-text-input {
+.ge-sticky-note--size-huge #title,
+.ge-sticky-note--size-huge #title-field #unity-text-input {
     font-size: 80px;
 }
 
-.sticky-note.size-huge #title.empty {
-    height: 86px;
+.ge-sticky-note--size-huge #title.empty {
+    height: 99px;
 }
 
-.sticky-note.size-huge #contents,
-.sticky-note.size-huge #contents #unity-text-input {
+.ge-sticky-note--size-huge #contents,
+.ge-sticky-note--size-huge #contents-field #unity-text-input {
     font-size: 56px;
 }

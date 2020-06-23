@@ -1,0 +1,3 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" class="node-icon">
+    <ui:Image name="node-icon" class="node-icon__image" />
+</ui:UXML>

@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" class="port-connector">
+    <ui:VisualElement name="connector" class="port-connector__connector">
+        <ui:VisualElement name="cap" class="port-connector__cap"/>
+    </ui:VisualElement>
+</ui:UXML>

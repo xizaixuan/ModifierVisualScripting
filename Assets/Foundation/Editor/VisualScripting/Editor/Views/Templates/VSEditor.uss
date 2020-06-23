@@ -29,10 +29,29 @@
 }
 
 #vseRoot > #graphContainer > #sidePanel {
-    padding: 5px;
     width: 200px;
     flex: 0 0 auto;
     height: 100%;
+}
+
+#sidePanel {
+    border-left-color: #1a1a1a;
+    border-left-width: 2px;
+}
+
+#sidePanel > Label {
+    padding: 5px;
+    -unity-font-style: bold;
+    border-bottom-color: #1a1a1a;
+    border-bottom-width: 1px;
+}
+
+#sidePanel #sidePanelInspector {
+    margin: 5px;
+}
+
+#vseRoot > #graphContainer > #sidePanel > PropertyElement .unity-label {
+    min-width: 40%;
 }
 
 #vseRoot > #vseMenu.unity-toolbar {
@@ -175,52 +194,30 @@
     --ghost-edge-color: #13794C;
 }
 
-.token-node.constant > .pill > * > #node-border > #contents > #top {
-    margin-top: 3px;
-    margin-bottom: 3px;
-    padding-top: 0;
-    padding-bottom: 0;
+.ge-node--token.portal-entry .unity-label {
+    padding: 2px 18px 2px 5px;
 }
 
-.token-node.constant > .pill > * > #node-border > #contents > #top > .unity-label {
-    padding-top: 0;
-    padding-bottom: 0;
-    margin-bottom: 0;
+.ge-node--token.portal-exit .unity-label {
+    padding: 2px 5px 2px 5px;
 }
 
-.token-node.constant EnumField {
-    padding-right: 15px;
+.ge-node--token.portal-entry .ge-node__content-container,
+.ge-node--token.portal-entry #disabledOverlay {
+    border-top-right-radius: 20px;
 }
 
-.token-node.read-only > Pill.pill > TemplateContainer > #node-border,
-.token-node.read-only > Pill.pill > TemplateContainer > #selection-border,
-.token-node.write-only > Pill.pill > TemplateContainer > #node-border,
-.token-node.write-only > Pill.pill > TemplateContainer > #selection-border {
-    margin: 2px 3px 0;
-    padding: 1px 4px;
+.ge-node--token.portal-entry .ge-node__selection-border {
+    border-top-right-radius: 20px;
 }
 
-.token-node.read-only > Pill.pill > TemplateContainer > #node-border,
-.token-node.read-only > Pill.pill > TemplateContainer > #selection-border {
-    border-radius: 0 5px 5px 0;
+.ge-node--token.portal-exit .ge-node__content-container,
+.ge-node--token.portal-exit #disabledOverlay {
+    border-bottom-left-radius: 22px;
 }
 
-.token-node.read-only > Pill.pill > TemplateContainer > #node-border > #contents > #top > .unity-label,
-.token-node.write-only > Pill.pill > TemplateContainer > #node-border > #contents > #top > .unity-label {
-    margin: 0 2px;
-    padding: 2px 2px 4px;
-}
-
-.token-node.read-only > Pill.pill > TemplateContainer > #node-border > #contents > #top > #output,
-.token-node.write-only > Pill.pill > TemplateContainer > #node-border > #contents > #top > #output,
-.token-node.read-only > Pill.pill > TemplateContainer > #selection-border > #contents > #top > #output,
-.token-node.write-only > Pill.pill > TemplateContainer > #selection-border > #contents > #top > #output {
-    padding-right: 4px;
-}
-
-.token-node.write-only > Pill.pill > TemplateContainer > #node-border,
-.token-node.write-only > Pill.pill > TemplateContainer > #selection-border {
-    border-radius: 5px 0 0 5px;
+.ge-node--token.portal-exit .ge-node__selection-border {
+    border-bottom-left-radius: 22px;
 }
 
 .port.instance {
@@ -231,117 +228,38 @@
     font-size: 12px;
 }
 
-.port.loop {
-    align-self: center;
-}
-
-.port.loop > #type {
-    font-size: 12px;
-}
-
-.vseGraphView .token-node.trace-highlight > * > * > #node-border {
+.vseGraphView .ge-node--token.trace-highlight .ge-node__selection-border {
     border-color: #b4ff69;
 }
 
-.vseGraphView > * > * > * > .node.trace-highlight > #node-border,
-.vseGraphView > * > * > * > * > .node.trace-highlight > #node-border,
-.vseGraphView > * > * > * > .stack-node.trace-highlight > #borderItem {
+.vseGraphView .ge-node.trace-highlight .ge-node__selection-border,
+.vseGraphView .ge-node.trace-highlight .ge-node__selection-border,
+.vseGraphView .stack-node.trace-highlight > #borderItem {
     border-color: #b4ff69;
     /*border-radius: 8px; this causes a uielements freeze, no idea why */
     border-width: 2px;
     margin: -1px;
 }
 
-.vseGraphView .token-node.trace-secondary-highlight > * > * > #node-border {
+.vseGraphView .ge-node--token.trace-secondary-highlight .ge-node__selection-border {
     border-color: #a4ffff;
 }
 
-.vseGraphView .node.trace-secondary-highlight > #node-border, .vseGraphView .stack-node.trace-secondary-highlight > #borderItem {
+.vseGraphView .ge-node.trace-secondary-highlight .ge-node__selection-border,
+.vseGraphView .stack-node.trace-secondary-highlight > #borderItem {
     border-color: #a4ffff;
 }
 
-.vseGraphView .token-node.exception-highlight > * > * > #node-border {
+.vseGraphView .ge-node--token.exception-highlight .ge-node__selection-border {
     border-color: #ff0000;
 }
 
-.vseGraphView .node.exception-highlight > #node-border {
+.vseGraphView .ge-node.exception-highlight .ge-node__selection-border {
     border-color: #ff0000;
 }
 
-.token-node > #titleEditor {
-    -unity-text-align: middle-center;
-    font-size: 12px;
-    opacity: 1;
-    margin-top: 2px;
-}
-
-.token-node.read-only > #titleEditor,
-.token-node.write-only > #titleEditor {
-    margin-bottom: 0;
-    margin-left: 0;
-    margin-right: 0;
-}
-
-.vseGraphView #node-border .port #type {
+.vseGraphView .ge-node__selection-border .port #type {
     overflow: visible;
-}
-
-.highLevelNode .node-controls Button {
-    padding-top: 0;
-}
-
-.highLevelNode .node-controls EnumField {
-    padding-right: 16px;
-    margin: 0;
-}
-
-.highLevelNode .node-controls {
-    background-color: rgba(0, 0, 0, 0);
-    margin: 4px;
-}
-
-.highLevelNode .node-controls-container {
-    flex-direction: row;
-}
-
-.highLevelNode .node-controls-container Label {
-    width: 60px;
-    margin: 0;
-    padding: 0;
-    -unity-text-align: upper-left;
-}
-
-.highLevelNode .node-controls-control {
-    min-width: 130px;
-    margin-top: 0;
-    margin-left: 0;
-    margin-right: 0;
-}
-
-.highLevelNode .node-controls-control {
-    -unity-text-align: upper-left;
-}
-
-.highLevelNode #contents #top {
-    background-color: rgba(46, 46, 46, 0.8);
-}
-
-.highLevelNode #contents #top #output {
-    padding-left: 0;
-    padding-right: 0;
-    padding-top: 0;
-    background-color: rgba(0,0,0,0);
-}
-
-.highLevelNode .node-controls .port.output {
-    padding-left: 0;
-}
-
-.highLevelNode .node-controls .port.output #type {
-    /*This is commented for now to allow port names displayed in case of multiple outputs
-      e.g. The HighLevelNode GetInput.
-    width: 0;
-    margin-left: 0;*/
 }
 
 .valueBadge {
@@ -395,8 +313,4 @@
     top: -4px;
     left: 2px;
     background-image: resource("GraphView/Badge/CommentTip.png");
-}
-
-.functionHeaderTitle .unity-base-field {
-    flex-direction: column;
 }

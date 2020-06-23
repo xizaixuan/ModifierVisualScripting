@@ -1,176 +1,145 @@
 /**************/
 /* Port icons */
 /**************/
-
 .token-node .port.output > #connector {
     margin-left: 4px;
 }
 
-#portIcon {
+.ge-port__icon {
     width: 12px;
     height: 12px;
-    --unity-image: resource("Icons/Advanced@x3");
+    --unity-image: url("Icons/Advanced@x3.png");
 }
 
-#portIcon.typeObject {
-    --unity-image: resource("Icons/GraphicScript@x3");
+.ge-node__inputs .ge-port__icon {
+    margin-left: 4px;
 }
 
-#portIcon.typeTexture2D {
-    --unity-image: resource("Icons/2DTexture@x3");
+.ge-node__outputs .ge-port__icon {
+    margin-right: 4px;
 }
 
-#portIcon.typefloat4,
-#portIcon.typeVector4 {
-    --unity-image: resource("Icons/Vector4@x3");
+.ge-port--data-type-execution-flow .ge-port__icon {
+    display: none;
 }
 
-#portIcon.typeQuaternion {
-    --unity-image: resource("Icons/Quaternion@x3");
+.ge-port--data-type-object .ge-port__icon {
+    --unity-image: url("Icons/GraphicScript@x3.png");
 }
 
-#portIcon.typeColor {
-    --unity-image: resource("Icons/Color@x3");
+.ge-port--data-type-texture2D .ge-port__icon {
+    --unity-image: url("Icons/2DTexture@x3.png");
 }
 
-#portIcon.typeInt {
-    --unity-image: resource("Icons/Integer1@x3");
+.ge-port--data-type-float4 .ge-port__icon,
+.ge-port--data-type-vector4 .ge-port__icon {
+    --unity-image: url("Icons/Vector4@x3.png");
 }
 
-#portIcon.typeInt32 {
-    --unity-image: resource("Icons/Integer32@x3");
+.ge-port--data-type-quaternion .ge-port__icon {
+    --unity-image: url("Icons/Quaternion@x3.png");
 }
 
-#portIcon.typeInt64 {
-    --unity-image: resource("Icons/Integer64@x3");
+.ge-port--data-type-color .ge-port__icon {
+    --unity-image: url("Icons/Color@x3.png");
 }
 
-#portIcon.typeBoolean {
-    --unity-image: resource("Icons/Boolean@x3");
+.ge-port--data-type-int .ge-port__icon {
+    --unity-image: url("Icons/Integer1@x3.png");
 }
 
-#portIcon.typeMatrix,
-#portIcon.typeMatrix4x4 {
-    --unity-image: resource("Icons/Matrix@x3");
+.ge-port--data-type-int32 .ge-port__icon {
+    --unity-image: url("Icons/Integer32@x3.png");
 }
 
-#portIcon.typeGameObject {
-    --unity-image: resource("Icons/GameObject@x3");
+.ge-port--data-type-int64 .ge-port__icon {
+    --unity-image: url("Icons/Integer64@x3.png");
 }
 
-#portIcon.typeFloat,
-#portIcon.typeFloat1,
-#portIcon.typeSingle,
-#portIcon.typeDouble {
-    --unity-image: resource("Icons/Double@x3");
+.ge-port--data-type-boolean .ge-port__icon {
+    --unity-image: url("Icons/Boolean@x3.png");
 }
 
-#portIcon.typefloat2,
-#portIcon.typeVector2 {
-    --unity-image: resource("Icons/Vector2@x3");
+.ge-port--data-type-matrix .ge-port__icon,
+.ge-port--data-type-matrix4x4 .ge-port__icon {
+    --unity-image: url("Icons/Matrix@x3.png");
 }
 
-#portIcon.typeArray {
-    --unity-image: resource("Icons/Array@x3");
+.ge-port--data-type-game-object .ge-port__icon {
+    --unity-image: url("Icons/GameObject@x3.png");
 }
 
-#portIcon.typeComponent {
-    --unity-image: resource("Icons/Component@x3");
+.ge-port--data-type-float .ge-port__icon,
+.ge-port--data-type-float1 .ge-port__icon,
+.ge-port--data-type-single .ge-port__icon,
+.ge-port--data-type-double .ge-port__icon {
+    --unity-image: url("Icons/Double@x3.png");
 }
 
-#portIcon.typeRaycastHit {
-    --unity-image: resource("Icons/RaycastHit@x3");
+.ge-port--data-type-float2 .ge-port__icon,
+.ge-port--data-type-vector2 .ge-port__icon {
+    --unity-image: url("Icons/Vector2@x3.png");
 }
 
-#portIcon.typeAdvanced {
-    --unity-image: resource("Icons/Advanced@x3");
+.ge-port--data-type-array .ge-port__icon {
+    --unity-image: url("Icons/Array@x3.png");
 }
 
-#portIcon.typefloat3,
-#portIcon.typeVector3 {
-    --unity-image: resource("Icons/Vector3@x3");
+.ge-port--data-type-component .ge-port__icon {
+    --unity-image: url("Icons/Component@x3.png");
 }
 
-#portIcon.typeRigidBody {
-    --unity-image: resource("Icons/RigidBody@x3");
+.ge-port--data-type-raycast-hit .ge-port__icon {
+    --unity-image: url("Icons/RaycastHit@x3.png");
 }
 
-#portIcon.typeString {
-    --unity-image: resource("Icons/String@x3");
+.ge-port--data-type-advanced .ge-port__icon {
+    --unity-image: url("Icons/Advanced@x3.png");
 }
 
-#portIcon.typeKeyCode {
-    --unity-image: resource("Icons/Keycode@x3");
+.ge-port--data-type-float3 .ge-port__icon,
+.ge-port--data-type-vector3 .ge-port__icon {
+    --unity-image: url("Icons/Vector3@x3.png");
 }
 
-#portIcon.typeText {
-    --unity-image: resource("Icons/Text@x3");
+.ge-port--data-type-rigid-body .ge-port__icon {
+    --unity-image: url("Icons/RigidBody@x3.png");
 }
 
-#portIcon.typeTransform {
-    --unity-image: resource("Icons/Transform@x3");
+.ge-port--data-type-string .ge-port__icon {
+    --unity-image: url("Icons/String@x3.png");
 }
 
-#portIcon.typeMaterial {
-    --unity-image: resource("Icons/Material@x3");
+.ge-port--data-type-key-code .ge-port__icon {
+    --unity-image: url("Icons/Keycode@x3.png");
 }
 
-.node .port.typeExecutionFlow {
-    --port-color: #d7ae1f
-}
-.node .port.typeExecutionFlow > #connector {
-    border-radius: 0;
-}
-.node .port.typeExecutionFlow > #connector > #cap {
-    border-radius: 0;
+.ge-port--data-type-text .ge-port__icon {
+    --unity-image: url("Icons/Text@x3.png");
 }
 
-VseGraphView .stack-node .port.execution #connector #cap {
+.ge-port--data-type-transform .ge-port__icon {
+    --unity-image: url("Icons/Transform@x3.png");
+}
+
+.ge-port--data-type-material .ge-port__icon {
+    --unity-image: url("Icons/Material@x3.png");
+}
+
+VseGraphView .stack-node .ge-port.execution #connector #cap {
     width: 8px;
     height: 8px;
     --port-color: #393939;
     border-color: #393939;
 }
 
-VseGraphView .node .port.execution-active {
+VseGraphView .ge-node .ge-port.execution-active {
     --port-color: #b4ff69;
 }
 
-VseGraphView .stack-node .port.execution #type {
+VseGraphView .stack-node .ge-port.execution #type {
     margin-left: 0;
     margin-right: 0;
-}
-
-VseGraphView .node .port.loop {
-    --port-color: #999;
-}
-
-VseGraphView .node .port.loop #connector {
-    width: 12px;
-    height: 12px;
-}
-
-VseGraphView .node .port.loop #connector #cap {
-    width: 8px;
-    height: 8px;
-}
-
-VseGraphView .node .port.loop #type {
-    width: 0;
-    margin-left: 0;
-    margin-right: 0;
-}
-
-VseGraphView .node .port.drop-highlighted {
-    border-color: var(--dragndrop-highlight-color);
-    background-color: var(--dragndrop-highlight-background-color);
-    border-radius: 4px;
-    border-width: 1px;
-}
-
-VseGraphView .node .port.drop-highlighted.denied {
-    border-color: var(--dragndrop-denied-color);
-    background-color: var(--dragndrop-denied-background-color);
 }
 
 Port .unity-enum-field__text

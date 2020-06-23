@@ -1,0 +1,27 @@
+.ge-editable-label {
+    flex-direction: column;
+    --field-background-color: rgba(0,0,0,.2);
+    --field-border: #333333;
+}
+
+.ge-editable-label .unity-label {
+    border-width: 1px;
+    margin: 0;
+    padding: 1px 2px;
+    overflow: hidden;
+}
+
+.ge-editable-label .unity-text-field {
+    border-width: 1px;
+    border-color: var(--field-border);
+    margin: 0;
+}
+
+.ge-editable-label .unity-text-field .unity-base-text-field__input {
+    padding: 1px 2px;
+    border-radius: 0;
+    border-width: 0;
+    -unity-text-align: upper-left;
+    background-image: none;
+    background-color: var(--field-background-color);
+}

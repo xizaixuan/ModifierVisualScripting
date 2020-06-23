@@ -1,0 +1,15 @@
+.ge-port-container {
+    flex-grow: 1;
+}
+
+.ge-node__inputs {
+    align-items: flex-start;
+    padding-right: 5px;
+    margin-left: -4px;
+}
+
+.ge-node__outputs {
+    align-items: flex-end;
+    padding-left: 5px;
+    margin-right: -4px;
+}

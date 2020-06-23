@@ -1,87 +1,68 @@
-.declaration.functionParameter > Pill.pill > TemplateContainer > #node-border {
-    background-image: resource("Images/PillBackgroundParameter");
+.ge-node--token .ge-node__content-container
+{
+    flex-direction: row;
+    align-items: center;
+    background-color: #505050;
+    border-radius: var(--border-radius);
+    overflow: hidden;
 }
 
-VseGraphView .token > .pill,
-VseGraphView .token.declaration > .pill {
-    min-width: 52px;
+.ge-node--token.ge-node--read-only .ge-node__selection-border,
+.ge-node--token.ge-node--read-only .ge-node__content-container {
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    justify-content: flex-end;
 }
 
-*:selected .token .pill > * > #selection-border {
-    border-color: transparent;
+.ge-node--token.ge-node--read-only .ge-node__inputs {
+    display: none;
 }
 
-.token:selected .pill > * > #selection-border {
-    border-color: #44C0FF;
+.ge-node--token.ge-node--write-only .ge-node__selection-border,
+.ge-node--token.ge-node--write-only .ge-node__content-container {
+    border-radius: var(--border-radius) 0 0 var(--border-radius);
+    justify-content: flex-start;
 }
 
-
-VseGraphView .token > .pill #contents > #top > #title-label,
-VseGraphView .token.declaration > .pill #contents > #top > #title-label {
-    -unity-text-align: middle-center;
-    flex-grow: 1;
+.ge-node--token.ge-node--write-only .ge-node__outputs {
+    display: none;
 }
 
-VseGraphView .token > .pill #contents > #top > #icon,
-VseGraphView .token.declaration > .pill #contents > #top > #icon,
-.stack-node.function.loopHeader > * > #functionHeaderTitleContainer > * > #functionHeaderTitle > #titleContainerElement > .token.declaration #icon,
-.stack-node.function.loopHeader > * > #functionHeaderVariableContainer > .token.declaration > .pill #contents > #top > #icon {
-    width: 0;
-    height: 10px;
+.ge-node--token .ge-port-container,
+.ge-node--token .ge-node__title-container {
+    background-color: transparent;
+    padding-top: 0;
+    padding-bottom: 0;
+    align-items: center;
 }
 
-VseGraphView .token > .pill #contents > #top > #icon.typeArray,
-VseGraphView .token.declaration > .pill #contents > #top > #icon.typeArray,
-.stack-node.function.loopHeader > * > #functionHeaderTitleContainer > * > #functionHeaderTitle > #titleContainerElement > .token.declaration #icon.typeArray,
-.stack-node.function.loopHeader > * > #functionHeaderVariableContainer > .token.declaration > .pill #contents > #top > #icon.typeArray {
-    width: 10px;
-    --unity-image: resource("Icons/Array@x3");
+.ge-node--constant-token .ge-node__title-container {
+    display: none;
 }
 
-VseGraphView .token > .pill #contents > #top > #icon.typeBoolean,
-VseGraphView .token.declaration > .pill #contents > #top > #icon.typeBoolean,
-.stack-node.function.loopHeader > * > #functionHeaderTitleContainer > * > #functionHeaderTitle > #titleContainerElement > .token.declaration #icon.typeBoolean,
-.stack-node.function.loopHeader > * > #functionHeaderVariableContainer > .token.declaration > .pill #contents > #top > #icon.typeBoolean {
-    width: 10px;
-    --unity-image: resource("Icons/Boolean@x3");
+.ge-node__green-dot {
+    margin-top: 2px;
+    margin-left: 8px;
+    margin-right: 2px;
+    width: 5px;
+    height: 5px;
+    background-image: url("/Packages/com.unity.graphtools.foundation.overdrive/Editor/GraphElements/Stylesheets/Icons/BlackboardFieldExposed.png");
 }
 
-VseGraphView .token > .pill #contents > #top > #icon.typeCount,
-VseGraphView .token.declaration > .pill #contents > #top > #icon.typeCount,
-.stack-node.function.loopHeader > * > #functionHeaderTitleContainer > * > #functionHeaderTitle > #titleContainerElement > .token.declaration #icon.typeCount,
-.stack-node.function.loopHeader > * > #functionHeaderVariableContainer > .token.declaration > .pill #contents > #top > #icon.typeCount {
-    width: 10px;
-    --unity-image: resource("Icons/Dots_n@x3");
+.dots-variable-token .ge-node__green-dot {
+    display: none;
 }
 
-VseGraphView .token > .pill #contents > #top > #icon.typeIndex,
-VseGraphView .token.declaration > .pill #contents > #top > #icon.typeIndex,
-.stack-node.function.loopHeader > * > #functionHeaderTitleContainer > * > #functionHeaderTitle > #titleContainerElement > .token.declaration #icon.typeIndex,
-.stack-node.function.loopHeader > * > #functionHeaderVariableContainer > .token.declaration > .pill #contents > #top > #icon.typeIndex {
-    width: 10px;
-    --unity-image: resource("Icons/Dots_i@x3");
+.ge-node--token.ge-node--read-only .ge-node__title-container,
+.dots-variable-token .ge-node__title-container {
+    padding-left: 8px;
+    padding-right: 0;
 }
 
-VseGraphView .token > .pill #contents > #top > #icon.typeItem,
-VseGraphView .token.declaration > .pill #contents > #top > #icon.typeItem,
-.stack-node.function.loopHeader > * > #functionHeaderTitleContainer > * > #functionHeaderTitle > #titleContainerElement > .token.declaration #icon.typeItem,
-.stack-node.function.loopHeader > * > #functionHeaderVariableContainer > .token.declaration > .pill #contents > #top > #icon.typeItem {
-    width: 10px;
-    --unity-image: resource("Icons/Dots_item@x3");
+.ge-node--token.ge-node--write-only .ge-node__title-container {
+    padding-left: 0;
+    padding-right: 8px;
 }
 
-VseGraphView .token-node .unity-text-field > #unity-text-input {
-    -unity-text-align: middle-center;
-}
-
-.token-node .port.typeExecutionFlow{
-    --port-color: #d7ae1f
-}
-
-.token-node .port.typeExecutionFlow > #connector{
-    border-radius: 0;
-}
-
-.token-node .port.typeExecutionFlow > #connector > #cap{
-    border-radius: 0;
+.ge-node--token .unity-property-field {
+    padding-top: 0;
 }

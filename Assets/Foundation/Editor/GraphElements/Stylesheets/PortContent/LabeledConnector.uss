@@ -1,0 +1,17 @@
+.port-connector__label {
+    -unity-font: resource("FlatSkin/Font/Roboto-Regular");
+    color: #b5b5b5;
+    font-size: 11px;
+    height: 16px;
+    padding: 0;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
+.ge-port--direction-input .port-connector__label {
+    -unity-text-align: middle-left;
+}
+
+.ge-port--direction-output .port-connector__label {
+    -unity-text-align:middle-right;
+}

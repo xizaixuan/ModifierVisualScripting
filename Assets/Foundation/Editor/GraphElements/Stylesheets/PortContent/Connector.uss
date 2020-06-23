@@ -1,0 +1,38 @@
+.port-connector__connector {
+    border-color: var(--port-color);
+    background-color: #222222;
+    width: 8px;
+    height: 8px;
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+}
+
+.port-connector__cap {
+    width: 4px;
+    height: 4px;
+    border-radius: 4px;
+    background-color: var(--port-color);
+    /* visibility: hidden; /* done in C# because unset is unsupported */
+}
+
+.port-connector__connector:hover .port-connector__cap,
+.ge-port--will-connect .port-connector__cap,
+.ge-port--connected .port-connector__cap {
+   /* visibility: unset; /* should be `unset` or `inherit` */
+}
+
+.ge-port--data-type-execution-flow .port-connector__connector
+{
+    border-radius: 0;
+    width: 8px;
+    height: 8px;
+}
+
+.ge-port--data-type-execution-flow .port-connector__cap
+{
+    border-radius: 0;
+    width: 4px;
+    height: 4px;
+}

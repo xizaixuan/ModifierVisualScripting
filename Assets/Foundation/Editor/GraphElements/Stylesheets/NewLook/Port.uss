@@ -1,0 +1,95 @@
+.ge-port {
+    height: auto;
+    padding: 4px 0;
+    align-items: center;
+    --port-color: #c8c8c8;
+    --disabled-port-color: #464646;
+    --selected-port-color: #44C0FF;
+}
+
+.ge-port:hover {
+    --port-color: #F0F0F0;
+}
+
+.ge-port--highlighted {
+    --port-color: #ffa500;
+}
+
+.ge-port--will-connect {
+    --port-color: #ffff00;
+}
+
+.ge-port--direction-input {
+    flex-direction: row;
+}
+
+.ge-port--direction-output {
+    flex-direction: row-reverse;
+}
+
+/*******************************/
+/* Ports colors by types */
+/*******************************/
+.ge-port--data-type-execution-flow {
+    --port-color:#D7AE1F;
+}
+
+.ge-port--data-type-texture,
+.ge-port--data-type-texture2d {
+    --port-color:#FF8B8B;
+}
+
+.ge-port--data-type-graph-script {
+    --port-color:#E681BA;
+}
+
+.ge-port--data-type-float4,
+.ge-port--data-type-vector4,
+.ge-port--data-type-quaternion,
+.ge-port--data-type-color {
+    --port-color:#FBCBF4;
+}
+
+.ge-port--data-type-int,
+.ge-port--data-type-int32,
+.ge-port--data-type-int64 {
+    --port-color:#9481E6;
+}
+
+.ge-port--data-type-bool {
+    --port-color:#9481E6;
+}
+
+.ge-port--data-type-matrix,
+.ge-port--data-type-matrix4x4 {
+    --port-color:#8FC1DF;
+}
+
+.ge-port--data-type-game-object {
+    --port-color:#8FC1DF;
+}
+
+.ge-port--data-type-single,
+.ge-port--data-type-double,
+.ge-port--data-type-float,
+.ge-port--data-type-float1 {
+    --port-color:#84E4E7;
+}
+
+.ge-port--data-type-float2,
+.ge-port--data-type-vector2 {
+    --port-color:#9AEF92;
+}
+
+.ge-port--data-type-component {
+    --port-color:#C9F774;
+}
+
+.ge-port--data-type-float3,
+.ge-port--data-type-vector3 {
+    --port-color:#F6FF9A;
+}
+
+.ge-port--data-type-string {
+    --port-color:#FCD76E;
+}
