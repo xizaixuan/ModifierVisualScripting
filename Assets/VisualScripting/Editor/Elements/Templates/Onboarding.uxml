@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" class="onboarding-block dots-onboarding">
+    <ui:Label name="instructions" class="dots-onboarding__instructions" text="Drag an existing script or create a new one" />
+    <ui:Button name="create-from-void" class="dots-onboarding__create" text="Blank Object script"/>
+    <ui:Label name="or-text" class="dots-onboarding__or" text="or" />
+    <ui:Button name="create-with-object" class="dots-onboarding__create" text="New Object script on current selection" />
+    <ui:Label name="or-text" class="dots-onboarding__or" text="or" />
+    <ui:Button name="create-subgraph" class="dots-onboarding__create" text="New Subgraph" />
+</ui:UXML>

@@ -1,0 +1,5 @@
+.dots-warning-label {
+    color: #333333;
+    background-color: #ffc107;
+    font-weight: bold;
+}

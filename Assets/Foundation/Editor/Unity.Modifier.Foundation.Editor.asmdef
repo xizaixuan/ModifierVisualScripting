@@ -9,8 +9,7 @@
         "Unity.Properties.UI.Editor"
     ],
     "includePlatforms": [
-        "Editor",
-        "Stadia"
+        "Editor"
     ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
@@ -22,7 +21,14 @@
         "Microsoft.CodeAnalysis.dll",
         "Microsoft.CodeAnalysis.Scripting.dll",
         "Microsoft.CodeAnalysis.Workspaces.dll",
-        "System.Collections.Immutable.dll"
+        "System.Collections.Immutable.dll",
+        "System.Composition.AttributedModel.dll",
+        "System.Composition.Convention.dll",
+        "System.Composition.Hosting.dll",
+        "System.Composition.Runtime.dll",
+        "System.Composition.TypedParts.dll",
+        "System.Reflection.Metadata.dll",
+        "System.Runtime.Loader.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],
