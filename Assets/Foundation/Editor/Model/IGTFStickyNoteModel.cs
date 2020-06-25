@@ -1,7 +1,6 @@
-﻿using Unity.Modifier.GraphToolsFoundation.Model;
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace Unity.GraphToolsFoundation.Model
+namespace Unity.Modifier.GraphToolsFoundation.Model
 {
     public interface IGTFStickyNoteModel : IGTFGraphElementModel, ISelectable, IPositioned, IDeletable, ICopiable
     {

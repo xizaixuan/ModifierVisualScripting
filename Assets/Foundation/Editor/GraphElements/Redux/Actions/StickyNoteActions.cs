@@ -1,7 +1,5 @@
-﻿using System.Collections.Generic;
-using Unity.GraphToolsFoundation.Model;
+﻿using Unity.Modifier.GraphToolsFoundation.Model;
 using UnityEditor.Modifier.EditorCommon.Redux;
-using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 using UnityEngine;
 
 namespace Unity.Modifier.GraphElements

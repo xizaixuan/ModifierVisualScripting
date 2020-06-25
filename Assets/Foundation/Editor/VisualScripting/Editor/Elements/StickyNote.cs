@@ -1,6 +1,4 @@
-﻿using Unity.Modifier.GraphElements;
-using UnityEditor.Modifier.VisualScripting.GraphViewModel;
-using UnityEngine;
+﻿using UnityEditor.Modifier.VisualScripting.GraphViewModel;
 
 namespace UnityEditor.Modifier.VisualScripting.Editor
 {
