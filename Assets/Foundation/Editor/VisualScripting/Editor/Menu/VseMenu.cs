@@ -22,7 +22,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
 
             CreateCommonMenu();
             CreateBreadcrumbMenu();
-            CreateTracingMenu();
+            //CreateTracingMenu();
             CreateOptionsMenu();
         }
 

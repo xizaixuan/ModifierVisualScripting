@@ -61,31 +61,11 @@ BreadcrumbItem {
     background-image: resource("Images/Refresh");
 }
 
-#vseMenu #enableTracingButton {
-    width: 100px;
-}
-#vseMenu #enableTracingButton .icon {
-    background-image: resource("Animation.Record");
-    width: 16px;
-    height: 16px;
-    left:4px;
-}
-
-#vseMenu #enableTracingButton > .icon > .unity-label {
-    flex: 1;
-    margin-left: 16px;
-}
 
 #vseMenu #optionsButton .icon {
     background-image: resource("Images/Options");
     width: 15px;
     height: 14px;
-}
-
-#vseMenu #showMiniMapButton .icon {
-    background-image: resource("Images/MiniMap");
-    width: 14px;
-    height: 12px;
 }
 
 #vseMenu #showBlackboardButton .icon {

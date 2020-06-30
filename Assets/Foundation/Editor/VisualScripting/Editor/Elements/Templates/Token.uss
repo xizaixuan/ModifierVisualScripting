@@ -45,7 +45,7 @@
     margin-right: 2px;
     width: 5px;
     height: 5px;
-    background-image: url("/Packages/com.unity.graphtools.foundation.overdrive/Editor/GraphElements/Stylesheets/Icons/BlackboardFieldExposed.png");
+    background-image: url("/Assets/Foundation/Editor/GraphElements/Stylesheets/Icons/BlackboardFieldExposed.png");
 }
 
 .dots-variable-token .ge-node__green-dot {

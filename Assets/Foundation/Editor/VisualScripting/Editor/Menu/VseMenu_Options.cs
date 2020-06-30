@@ -18,7 +18,7 @@ namespace UnityEditor.Modifier.VisualScripting.Editor
     partial class VseMenu
     {
         const string k_VisualScriptingLogCompileTimeStats = "VisualScripting.LogCompileTimeStat";
-        const string k_ResourcesPath = "Packages/com.unity.graphtools.foundation/Editor/Resources/";
+        const string k_ResourcesPath = "Assets/Foundation/Editor/Resources/";
 
         void CreateOptionsMenu()
         {

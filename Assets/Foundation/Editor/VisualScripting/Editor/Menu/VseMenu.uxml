@@ -11,9 +11,6 @@
     <vsui:ToolbarButton name="viewInCodeViewerButton">
         <ui:VisualElement class="icon" />
     </vsui:ToolbarButton>
-    <vsui:ToolbarButton name="showMiniMapButton">
-        <ui:VisualElement class="icon"/>
-    </vsui:ToolbarButton>
     <vsui:ToolbarButton name="showBlackboardButton">
         <ui:VisualElement class="icon" />
     </vsui:ToolbarButton>
@@ -23,12 +20,6 @@
     <vsui:ToolbarBreadcrumbs name="breadcrumb"/>
 
     <vsui:ToolbarSpacer class="unity-toolbar-spacer--flexible" />
-
-    <vsui:ToolbarToggle name="enableTracingButton">
-        <ui:VisualElement class="icon">
-            <ui:Label text="Live Tracing"/>
-        </ui:VisualElement>
-    </vsui:ToolbarToggle>
 
     <vsui:ToolbarButton name="optionsButton">
         <ui:VisualElement class="icon" />

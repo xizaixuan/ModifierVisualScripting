@@ -53,18 +53,18 @@ namespace Modifier.DotsStencil
 
         private void Update()
         {
-            if (m_Store == null)
-                return;
-            if (EditorApplication.isPlaying)
-                ShowWarningLabel(k_WarningPlayMode);
-            else
-            {
-                var dotsStencil = (DotsStencil)m_Store.GetState().CurrentGraphModel?.Stencil;
-                if (dotsStencil != null && dotsStencil.Type == DotsStencil.GraphType.Object && (!(m_Store?.GetState()?.EditorDataModel?.BoundObject is UnityEngine.Object obj) || !obj))
-                    ShowWarningLabel(k_WarningEditAsset);
-                else
-                    HideWarningLabel();
-            }
+//             if (m_Store == null)
+//                 return;
+//             if (EditorApplication.isPlaying)
+//                 ShowWarningLabel(k_WarningPlayMode);
+//             else
+//             {
+//                 var dotsStencil = (DotsStencil)m_Store.GetState().CurrentGraphModel?.Stencil;
+//                 if (dotsStencil != null && dotsStencil.Type == DotsStencil.GraphType.Object && (!(m_Store?.GetState()?.EditorDataModel?.BoundObject is UnityEngine.Object obj) || !obj))
+//                     ShowWarningLabel(k_WarningEditAsset);
+//                 else
+//                     HideWarningLabel();
+//             }
         }
 
         public void Unregister()
