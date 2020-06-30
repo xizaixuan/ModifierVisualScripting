@@ -1,4 +1,4 @@
-<UXML xmlns:ui="UnityEngine.UIElements" xmlns:gv="Unity.GraphElements">
+<UXML xmlns:ui="UnityEngine.UIElements" xmlns:gv="Unity.Modifier.GraphElements">
     <ui:VisualElement name="node-border" >
         <ui:TextField name="title-field" />
         <ui:Button class="icon-expandable" name="collapse-button">
