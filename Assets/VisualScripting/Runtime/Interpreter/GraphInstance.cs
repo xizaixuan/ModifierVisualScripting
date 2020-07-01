@@ -17,7 +17,7 @@ using Random = Unity.Mathematics.Random;
 
 namespace Modifier.Runtime
 {
-    public class GraphInstance : IGraphInstance, IDisposable
+    public partial class GraphInstance : IGraphInstance, IDisposable
     {
         const int k_MaxNodesPerFrame = 1024;
 

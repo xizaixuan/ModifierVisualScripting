@@ -18,31 +18,31 @@ namespace Modifier.DotsStencil
     {
         internal static GraphElementSearcherDatabase AddDotsEvents(this GraphElementSearcherDatabase self)
         {
-            var eventTypes = TypeCache.GetTypesDerivedFrom<IVisualScriptingEvent>()
-                .Where(t => !Attribute.IsDefined(t, typeof(HiddenAttribute)));
-            var sendEventNodeType = typeof(SendEventNodeModel);
-            var onEventNodeType = typeof(OnEventNodeModel);
-
-            foreach (var eventType in eventTypes)
-            {
-                var typeHandle = eventType.GenerateTypeHandle(self.Stencil);
-
-                self.Items.AddAtPath(new GraphNodeModelSearcherItem(
-                    new NodeSearcherItemData(sendEventNodeType),
-                    data => data.CreateNode(
-                        sendEventNodeType,
-                        preDefineSetup: n => ((IEventNodeModel)n).TypeHandle = typeHandle),
-                    $"Send {eventType.FriendlyName().Nicify()}"),
-                    "Events");
-
-                self.Items.AddAtPath(new GraphNodeModelSearcherItem(
-                    new NodeSearcherItemData(onEventNodeType),
-                    data => data.CreateNode(
-                        onEventNodeType,
-                        preDefineSetup: n => ((IEventNodeModel)n).TypeHandle = typeHandle),
-                    $"On {eventType.FriendlyName().Nicify()}"),
-                    "Events");
-            }
+//             var eventTypes = TypeCache.GetTypesDerivedFrom<IVisualScriptingEvent>()
+//                 .Where(t => !Attribute.IsDefined(t, typeof(HiddenAttribute)));
+//             var sendEventNodeType = typeof(SendEventNodeModel);
+//             var onEventNodeType = typeof(OnEventNodeModel);
+// 
+//             foreach (var eventType in eventTypes)
+//             {
+//                 var typeHandle = eventType.GenerateTypeHandle(self.Stencil);
+// 
+//                 self.Items.AddAtPath(new GraphNodeModelSearcherItem(
+//                     new NodeSearcherItemData(sendEventNodeType),
+//                     data => data.CreateNode(
+//                         sendEventNodeType,
+//                         preDefineSetup: n => ((IEventNodeModel)n).TypeHandle = typeHandle),
+//                     $"Send {eventType.FriendlyName().Nicify()}"),
+//                     "Events");
+// 
+//                 self.Items.AddAtPath(new GraphNodeModelSearcherItem(
+//                     new NodeSearcherItemData(onEventNodeType),
+//                     data => data.CreateNode(
+//                         onEventNodeType,
+//                         preDefineSetup: n => ((IEventNodeModel)n).TypeHandle = typeHandle),
+//                     $"On {eventType.FriendlyName().Nicify()}"),
+//                     "Events");
+//             }
 
             return self;
         }
@@ -86,18 +86,18 @@ namespace Modifier.DotsStencil
 
             foreach (var portal in portals)
             {
-                self.Items.AddAtPath(
-                    new GraphNodeModelSearcherItem(
-                        new NodeSearcherItemData(portal.type),
-                        data =>
-                        {
-                            var p = (EdgePortalModel)data.CreateNode(portal.type);
-                            p.DeclarationModel = ((VSGraphModel)data.GraphModel).CreateGraphPortalDeclaration(portal.name);
-                            ((GraphModel)data.GraphModel).CreateOppositePortal(p, data.SpawnFlags);
-                            return p;
-                        },
-                        (typeof(IEdgePortalEntryModel).IsAssignableFrom(portal.type) ? "Entry " : "Exit ") + portal.name),
-                    "Portals");
+//                 self.Items.AddAtPath(
+//                     new GraphNodeModelSearcherItem(
+//                         new NodeSearcherItemData(portal.type),
+//                         data =>
+//                         {
+//                             var p = (EdgePortalModel)data.CreateNode(portal.type);
+//                             p.DeclarationModel = ((VSGraphModel)data.GraphModel).CreateGraphPortalDeclaration(portal.name);
+//                             ((GraphModel)data.GraphModel).CreateOppositePortal(p, data.SpawnFlags);
+//                             return p;
+//                         },
+//                         (typeof(IEdgePortalEntryModel).IsAssignableFrom(portal.type) ? "Entry " : "Exit ") + portal.name),
+//                     "Portals");
             }
 
             return self;

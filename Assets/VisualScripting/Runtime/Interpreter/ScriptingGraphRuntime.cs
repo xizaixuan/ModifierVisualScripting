@@ -173,28 +173,11 @@ namespace Modifier.Runtime
                     ctx.FrameTrace = new DotsFrameTrace(Allocator.Persistent);
 #endif
 
-                if (beingDestroyed)
-                {
-                    ctx.TriggerEntryPoints<OnDestroy>();
-                }
-                else
-                {
-                    // Start
-                    if (ctx.IsStarting)
-                    {
-                        ctx.TriggerEntryPoints<OnStart>();
-                        ctx.IsStarting = false;
-                    }
-
-                    // Update
-                    ctx.TriggerEntryPoints<OnUpdate>();
-                    ctx.TriggerEntryPoints<OnKey>();
-
 #if VS_DOTS_PHYSICS_EXISTS
-                    TriggerPhysicsEvents(e, ref m_TriggerData, VisualScriptingPhysics.TriggerEventId);
-                    TriggerPhysicsEvents(e, ref m_CollisionData, VisualScriptingPhysics.CollisionEventId);
+                TriggerPhysicsEvents(e, ref m_TriggerData, VisualScriptingPhysics.TriggerEventId);
+                TriggerPhysicsEvents(e, ref m_CollisionData, VisualScriptingPhysics.CollisionEventId);
 #endif
-                }
+
             });
 
             // Retrieve events that are dispatched from code
@@ -228,7 +211,6 @@ namespace Modifier.Runtime
                     if (beingDestroyed)
                     {
                         destroyed.Add(e);
-                        ctx.TriggerEntryPoints<OnDestroy>();
                     }
                     // swap two hash maps - one for the current iteration and one for the next one, clear and swap after each iteration.
                     // for some reason var tmp = h1; h1 = h2; h2 = tmp; didn't work
@@ -239,14 +221,6 @@ namespace Modifier.Runtime
                     {
                         bool eventsTriggered = false;
                         var evt = events[i];
-#if VS_DOTS_PHYSICS_EXISTS
-                        if (evt.Id == VisualScriptingPhysics.TriggerEventId)
-                            eventsTriggered |= ctx.TriggerEvents<OnTrigger>();
-                        else if (evt.Id == VisualScriptingPhysics.CollisionEventId)
-                            eventsTriggered |= ctx.TriggerEvents<OnCollision>();
-                        else
-#endif
-                        eventsTriggered |= ctx.TriggerEvents<OnEvent>();
 
                         // TODO: move that out of the loop once we remove the evt parameter of ResumeFrame and process events/inputs/graphrefs right at once
                         if (eventsTriggered)

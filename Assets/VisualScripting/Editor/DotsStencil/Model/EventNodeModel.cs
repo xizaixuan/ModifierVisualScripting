@@ -64,26 +64,4 @@ namespace Modifier.DotsStencil
             { nameof(SendEvent.Values), new List<PortMetaData>(this.GetPortsMetaData(Stencil)) },
         };
     }
-
-    [Serializable]
-    class OnEventNodeModel : DotsNodeModel<OnEvent>, IEventNodeModel, IHasMainExecutionOutputPort
-    {
-        [SerializeField]
-        TypeHandle m_TypeHandle;
-
-        public TypeHandle TypeHandle
-        {
-            get => m_TypeHandle;
-            set => m_TypeHandle = value;
-        }
-
-        public override string Title => $"On {TypeHandle.Name(Stencil)}";
-        public IPortModel ExecutionOutputPort { get; set; }
-
-        public override IReadOnlyDictionary<string, List<PortMetaData>> PortCustomData =>
-            new Dictionary<string, List<PortMetaData>>
-        {
-            { nameof(OnEvent.Values), new List<PortMetaData>(this.GetPortsMetaData(Stencil)) },
-        };
-    }
 }

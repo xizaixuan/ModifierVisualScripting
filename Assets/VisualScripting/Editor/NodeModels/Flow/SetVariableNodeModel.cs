@@ -8,7 +8,7 @@ using ValueType = Modifier.Runtime.ValueType;
 
 namespace Modifier.DotsStencil
 {
-    [Serializable, DotsSearcherItem("Set Var")]
+    [Serializable]
     class SetVariableNodeModel : VariableNodeModel, IDotsNodeModel
     {
         [SerializeField]

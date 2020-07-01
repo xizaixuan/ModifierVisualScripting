@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Modifier.Elements;
-using Unity.Modifier.GraphElements;
 using UnityEditor;
 using UnityEditor.Searcher;
 using UnityEditor.Modifier.VisualScripting.Editor;
@@ -59,9 +58,6 @@ namespace Modifier.DotsStencil
                     continue;
 
                 var model = graphElementModels.Single();
-
-                if (model is GetComponentNodeModel || model is SetComponentNodeModel)
-                    continue;
 
                 if (model is INodeModel nodeModel)
                 {

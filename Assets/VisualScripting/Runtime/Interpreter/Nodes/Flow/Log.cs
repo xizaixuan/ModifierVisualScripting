@@ -7,8 +7,6 @@ namespace Modifier.Runtime
 {
     [Serializable]
     [NodeDescription(LogType.Message, "Write **Message** in the unity console. You can right click on the node to add more than one message.\n" + "\n" + "**Warning: You should remove the Logs when you make a standalone.**")]
-    [NodeDescription(LogType.Warning, "Write **Warning** text in the unity console. You can right click on the node to add more than one message.\n" + "\n" + "**Warning: You should remove the Logs when you make a standalone.**")]
-    [NodeDescription(LogType.Error, "Write **Error** text in the unity console. You can right click on the node to add more than one message.\n" + "\n" + "**Warning: You should remove the Logs when you make a standalone.**")]
     public struct Log : IFlowNode, IHasExecutionType<Log.LogType>
     {
         public enum LogType
