@@ -8,15 +8,6 @@ namespace Modifier.VisualScripting.Editor
 {
     public static class DotsGraphCreator
     {
-        [MenuItem("GameObject/VisualScripting/Scripting Graph", priority = 10)]
-        public static void CreateGraphObject(MenuCommand menuCommand)
-        {
-            var parent = menuCommand.context as GameObject;
-            var initialState = new State(null);
-            var store = new Store(initialState);
-            CreateGraphOnNewGameObject(store, parent, false);
-        }
-
         public static void CreateGraphOnNewGameObject(Store store, GameObject parent, bool useSelection)
         {
             var selection = Selection.gameObjects;

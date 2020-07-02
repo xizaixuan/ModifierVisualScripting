@@ -1,0 +1,21 @@
+{
+  "name": "visualscripting",
+  "displayName": "Visual Scripting",
+  "version": "0.3.0-preview.1",
+  "unity": "2019.3",
+  "description": "Unity's Visual Scripting tool for System authoring",
+  "keywords": [
+    "scripting",
+    "visualscripting",
+    "visual",
+    "graph",
+    "node",
+    "edge"
+  ],
+  "dependencies": {
+    "foundation": "0.2.0-preview.1",
+    "com.unity.entities": "0.9.1-preview.15",
+    "com.unity.rendering.hybrid": "0.4.2-preview.16",
+    "com.unity.burst": "1.3.0-preview.7"
+  }
+}
