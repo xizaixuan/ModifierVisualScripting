@@ -8,7 +8,7 @@ using UnityEngine.Assertions;
 
 namespace Modifier.Runtime
 {
-    public interface IModifierTrigger
+    public interface ITrigger
     {
     }
 
@@ -60,7 +60,7 @@ namespace Modifier.Runtime
             }
         }
 
-        public bool TriggerModifier<T>() where T : struct, IModifierTrigger
+        public bool TriggerModifier<T>() where T : struct, ITrigger
         {
             bool anyTriggered = false;
             for (int i = 0; i < m_Definition.NodeTable.Count; i++)
